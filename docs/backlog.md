@@ -1,7 +1,7 @@
 # Delivery backlog
 
-Status snapshot: documentation baseline accepted (G1); first-slice G2-S design accepted with explicit limits, 2026-11-06 (Europe/Berlin).
-This is a planning register. No implementation, provider integration or certification is complete.
+Status snapshot: runnable local-fake reference implementation independently reviewed, 2026-11-06 (Europe/Berlin).
+This register distinguishes the implemented synthetic reference from unfinished provider integration and certification. See status.md and implementation-evidence.md for actual checks.
 Stable IDs are retained across replanning; add findings as new rows rather than renumbering existing work.
 The integration owner updates status only when the stated evidence exists.
 
@@ -15,7 +15,7 @@ The integration owner updates status only when the stated evidence exists.
 
 **Sol** means GPT-6.1 Sol at high reasoning; **Astra** means GPT-6 Astra, normally high reasoning.
 **IO** means integration owner; **PO** means user/product owner. These are responsibility labels, not guaranteed staffing.
-Current bounded work: **IMP-001 bootstrap**. REL-003 design branch publication is complete; no PR was created because the GitHub integration denied that operation. G1 and limited G2-S for create/quote/approve/reserve/read are accepted in reviews/gates.md. Bootstrap verification is mandatory before application source; broader execution design remains open. G2-P independently governs real AP2/ACP integration. Continued design is authorized; estimates do not create waiting periods.
+Current bounded work: publish the reviewed local reference, then complete missing deterministic replay/conformance obligations and the real-protocol profile design. Bootstrap, execution design and local source reviews are complete. G2-P remains open; licensing and provider access constrain later releases/integration, not local engineering.
 
 ## Documentation foundation — Week 1 / workdays 1-5
 
@@ -34,14 +34,14 @@ Current bounded work: **IMP-001 bootstrap**. REL-003 design branch publication i
 
 | ID | Task / owner | Status | Dependencies | Acceptance evidence |
 | --- | --- | --- | --- | --- |
-| DES-001 | Modular architecture and ownership — Sol, independent design review | In progress | G1 for acceptance; drafting authorized | Core domain/application/ports/infrastructure boundaries; trusted UI and graph/payment truth separated. |
-| DES-002 | Versioned local-fake extension contracts and state model — Sol, independent review | In progress | DES-001 | IDs, transitions, errors and negotiation; project-only continuation explicit; unsupported real ACP mappings tracked in DES-009. |
-| DES-003 | Authority, customer action and threat model — design author, Astra review | In progress | DES-001/002 | Scoped simulated authority, trust boundaries, expiry/replay, 3DS/2FA-style action lifecycle, credential isolation and refusal rules; no real cryptographic claim. |
-| DES-004 | Exact money, reservations and recovery design — Sol, Astra review | In progress | DES-002/003 | Atomic policy reservation, scoped idempotency, local event verification and one execution owner through crashes/timeouts; revocation order defined. |
-| DES-005 | Capability and adapter contract design — Sol, independent review | In progress | DOC-004; DES-002 | Provider/method/credential/action dimensions, unknown-required refusal and partial-support behavior. |
+| DES-001 | Modular architecture and ownership — Sol, independent design review | Done (local profile) | G1 for acceptance; drafting authorized | Core domain/application/ports/infrastructure boundaries; trusted UI and graph/payment truth separated. |
+| DES-002 | Versioned local-fake extension contracts and state model — Sol, independent review | Done (local profile) | DES-001 | IDs, transitions, errors and negotiation; project-only continuation explicit; unsupported real ACP mappings tracked in DES-009. |
+| DES-003 | Authority, customer action and threat model — design author, Astra review | Done (local profile) | DES-001/002 | Scoped simulated authority, trust boundaries, expiry/replay, 3DS/2FA-style action lifecycle, credential isolation and refusal rules; no real cryptographic claim. |
+| DES-004 | Exact money, reservations and recovery design — Sol, Astra review | Done (local profile) | DES-002/003 | Atomic policy reservation, scoped idempotency, local event verification and one execution owner through crashes/timeouts; revocation order defined. |
+| DES-005 | Capability and adapter contract design — Sol, independent review | Done (local profile) | DOC-004; DES-002 | Provider/method/credential/action dimensions, unknown-required refusal and partial-support behavior. |
 | DES-006 | Simulator and conformance profile design — Sol, independent review | In progress | DES-002..005 | Deterministic scenario catalog, requirement mapping, clock/event controls and incompatible reference fixtures; local-fake labels. |
-| DES-007 | Runtime/framework/dependency ADRs — Sol, independent review / IO | In progress | DES-001..006 for acceptance | Java/Python LangGraph/TypeScript/PostgreSQL proposals reviewed; versions, licenses and dependency rationale recorded for the selected slice. |
-| DES-008 | Independent local-fake design review and G2-S decision — Astra / IO | Done (first slice only) | DES-001..007; G1 | Independent of design author and plan reviewer; no critical local authority/concurrency/recovery findings; implementable first slice and test plan accepted. |
+| DES-007 | Runtime/framework/dependency ADRs — Sol, independent review / IO | Done (local profile) | DES-001..006 for acceptance | Java/Python LangGraph/TypeScript/PostgreSQL proposals reviewed; versions, licenses and dependency rationale recorded for the selected slice. |
+| DES-008 | Independent local-fake design review and G2-S decision — Astra / IO | Done (bounded execution) | DES-001..007; G1 | Independent of design author and plan reviewer; no critical local authority/concurrency/recovery findings; implementable first slice and test plan accepted. |
 | DES-009 | Real AP2/ACP profile, pins and integration review — design author, Astra review / IO | Planned | DOC-002; DES-001..005; applicable partner/API evidence | G2-P: immutable upstream artifacts, permitted wire/continuation mapping, real roles/trust/signatures/receipts, provider assumptions and negative fixtures reviewed. Does not block pure local-fake work. |
 | REL-003 | Reviewed design milestone commit/push — IO | Done | DES-008 for local-fake scope; REL-001 for push | Focused design diff, G2-S scope and remaining G2-P exclusions, validation evidence and recorded branch/commit. |
 
@@ -49,25 +49,25 @@ Current bounded work: **IMP-001 bootstrap**. REL-003 design branch publication i
 
 | ID | Task / owner | Status | Dependencies | Acceptance evidence |
 | --- | --- | --- | --- | --- |
-| IMP-001 | Local build/CI and first persisted intent slice — Sol / IO | Ready: bootstrap first | G2-S | Reproducible documented build; domain logic independent; exact money validation; PostgreSQL integration and migration evidence; local-fake only. |
-| IMP-002 | Simulated embedded checkout and action lifecycle — Sol / IO | Planned | IMP-001; DES-003/006 | Purchase reaches result; required action can suspend/resume; denied/expired/invalid actions tested. |
-| IMP-003 | Idempotent execution and event processing — Sol, Astra review | Planned | IMP-001/002 | Duplicate commands/events cause no duplicate charge; event verification and scope conflicts tested. |
-| IMP-004 | Concurrent reservations and ambiguous-outcome recovery — Sol, Astra review | Planned | IMP-003 | Contention, timeout and crash/restart tests prove one execution owner; unresolved state is visible and recoverable. |
-| IMP-005 | Adapter SDK and capability negotiation slice — Sol / IO | Planned | IMP-004; DES-005 | Reference/synthetic second adapters work through ports; unsupported requirements fail before execution. |
-| IMP-006 | LangGraph reference integration — Sol / IO | Planned | IMP-004/005 | Workflow resumes safely from checkpoints and queries payment truth; no autonomous duplicate execution. |
-| IMP-007 | Trusted TypeScript customer action UI — Sol, Astra review | Planned | IMP-002/006 | Authorized action handoff, expiry/replay/access checks; no OTP/credential passage through model context. |
-| IMP-008 | Sanitized transaction visibility — Sol / IO | Planned | IMP-004/007 | State timeline, correlation IDs and unresolved outcomes visible under tenant access rules; redaction tests. |
-| IMP-009 | Incremental slice documentation and GitHub delivery — Sol / IO | Planned | Each reviewed slice; REL-001 for push | Contract changes, commands, failure behavior and evidence included in each focused commit/push. |
+| IMP-001 | Local build/CI and first persisted intent slice — Sol / IO | Done (local reference) | G2-S | Reproducible documented build; domain logic independent; exact money validation; PostgreSQL integration and migration evidence; local-fake only. |
+| IMP-002 | Simulated embedded checkout and action lifecycle — Sol / IO | Done (local profile) | IMP-001; DES-003/006 | Purchase reaches result; required action can suspend/resume; denied/expired/invalid actions tested. |
+| IMP-003 | Idempotent execution and event processing — Sol, Astra review | Done (local profile) | IMP-001/002 | Duplicate commands/events cause no duplicate charge; event verification and scope conflicts tested. |
+| IMP-004 | Concurrent reservations and ambiguous-outcome recovery — Sol, Astra review | Done (local profile) | IMP-003 | Contention, timeout and crash/restart tests prove one execution owner; unresolved state is visible and recoverable. |
+| IMP-005 | Adapter SDK and capability negotiation slice — Sol / IO | Partial; see status | IMP-004; DES-005 | Reference/synthetic second adapters work through ports; unsupported requirements fail before execution. |
+| IMP-006 | LangGraph reference integration — Sol / IO | Done (local profile) | IMP-004/005 | Workflow resumes safely from checkpoints and queries payment truth; no autonomous duplicate execution. |
+| IMP-007 | Trusted TypeScript customer action UI — Sol, Astra review | Done (local profile) | IMP-002/006 | Authorized action handoff, expiry/replay/access checks; no OTP/credential passage through model context. |
+| IMP-008 | Sanitized transaction visibility — Sol / IO | Partial; see status | IMP-004/007 | State timeline, correlation IDs and unresolved outcomes visible under tenant access rules; redaction tests. |
+| IMP-009 | Incremental slice documentation and GitHub delivery — Sol / IO | Partial; see status | Each reviewed slice; REL-001 for push | Contract changes, commands, failure behavior and evidence included in each focused commit/push. |
 
-All IMP tasks remain planned. The listed stack is a proposal until DES-007/008 accept its ADRs.
+Implemented statuses apply only to the synthetic reference and observed test cases. Generic provider extensibility, complete certification evidence and managed operation remain unfinished. The Java/Python/TypeScript/PostgreSQL stack is accepted for this reference.
 No development task authorizes production credentials, paid services, deployment or live money movement.
 
 ## Preview, compatibility and evidence — Weeks 9-12
 
 | ID | Task / owner | Status | Dependencies | Acceptance evidence |
 | --- | --- | --- | --- | --- |
-| CON-001 | Executable project conformance profiles — Sol / IO | Planned | IMP-001..008 | Deterministic tests map to normative requirement IDs and exact profile/suite versions. |
-| CON-002 | Negative adapter fixtures and independent evidence review — Astra / IO | Planned | CON-001 | Intentionally incompatible adapters fail for the correct requirements; G3 decision recorded. |
+| CON-001 | Executable project conformance profiles — Sol / IO | Partial; see status | IMP-001..008 | Deterministic tests map to normative requirement IDs and exact profile/suite versions. |
+| CON-002 | Negative adapter fixtures and independent evidence review — Astra / IO | Partial; see status | CON-001 | Intentionally incompatible adapters fail for the correct requirements; G3 decision recorded. |
 | INT-001 | Select first provider/method/region sandbox scope — PO / IO | Planned | DOC-004; DES-005 | Candidate chosen with authorized account, terms, API access and test authentication availability. |
 | INT-002 | First optional external sandbox vertical slice — Sol, Astra review | Planned | INT-001; IMP-005; applicable G2-P mapping/provider design; access | Verified request/event/reconciliation behavior; exact capability matrix and deviations; simulator fallback if access/design blocked. |
 | REL-004 | License and distribution decision — PO / IO | Blocked | User decision; dependency inventory | Explicit license/visibility/distribution policy before public package/spec release; no silent license choice. |

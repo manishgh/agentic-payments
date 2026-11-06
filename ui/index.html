@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Agentic Payments · Review</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <header><span class="wordmark">agentic payments</span><span class="badge">LOCAL-FAKE · NO REAL MONEY</span></header>
+  <main>
+    <p class="eyebrow">TRUSTED PAYMENT REVIEW</p>
+    <h1>You approve.<br>The agent continues.</h1>
+    <p class="intro">Review the checkout and handle any payment challenge here. Your approval is recorded by the payment service.</p>
+    <section class="panel" aria-labelledby="connection-heading">
+      <h2 id="connection-heading">Open a payment</h2>
+      <label for="token">Trusted UI session <span>Stored only in this page’s memory</span></label>
+      <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Local trusted UI token">
+      <label for="intent">Payment intent</label>
+      <input id="intent" type="text" spellcheck="false" placeholder="Intent UUID from the workflow">
+      <button id="load" type="button">Review payment</button>
+    </section>
+    <p id="message" role="status" aria-live="polite"></p>
+    <section id="payment" class="panel" hidden aria-labelledby="payment-heading">
+      <div class="row"><h2 id="payment-heading">Checkout</h2><span id="state" class="badge"></span></div>
+      <p id="amount" class="amount"></p>
+      <dl id="details"></dl>
+      <div class="actions"><button id="approve" hidden type="button">Approve this checkout</button><button id="refresh" class="secondary" type="button">Refresh status</button></div>
+      <section id="challenge" hidden><h3>Payment challenge</h3><p>This simulated challenge confirms your decision before execution.</p><div class="actions"><button id="confirm" type="button">Confirm payment</button><button id="deny" class="secondary" type="button">Decline</button></div></section>
+      <details><summary>Payment references</summary><pre id="references"></pre></details>
+    </section>
+    <footer>Reference preview · Synthetic single-tender profile · No real 3DS or provider connection</footer>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body></html>

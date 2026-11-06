@@ -4,7 +4,7 @@
 
 Build a versioned agentic-payment extension specification, adapter SDK, deterministic simulator, conformance/certification suite and reference implementation. The enclosing AP2-based platform payment-intent workflow embeds OpenAI agentic checkout. Payment authentication, including 3DS or provider 2FA, is part of execution. Preserve this composition.
 
-Work in order: documentation and requirements -> reviewed design -> implementation in tested vertical slices. The current milestone is documentation foundation. Do not describe planned components as implemented or certified.
+Work in order: documentation and requirements -> reviewed design -> implementation in tested vertical slices. The current milestone is a runnable local-fake reference implementation. Do not describe planned external connectors or incomplete conformance obligations as implemented or certified.
 
 ## Required reading
 
@@ -18,7 +18,7 @@ Read README.md and relevant docs before work. In this workspace also follow C:/p
 
 ## Engineering boundaries
 
-- Proposed stack: Java payment core/SDK, Python LangGraph reference workflow, TypeScript trusted UI, PostgreSQL transaction storage. Record language/framework decisions as proposed until the design milestone resolves them.
+- Accepted reference stack: Java payment core/SDK, Python LangGraph reference workflow, TypeScript trusted UI, PostgreSQL transaction storage. Exact toolchain and dependency versions are recorded in docs/toolchain.md and component locks.
 - Use a modular core with domain/application/ports/infrastructure boundaries; domain code cannot depend on providers, persistence or orchestration.
 - A payment has one execution owner. Never initiate a second charge simply because checkout or a provider timed out.
 - Provider, method, credential and customer-action capabilities are separate; unknown required capabilities fail closed.
@@ -36,4 +36,4 @@ Do not select a public license or publish package releases silently. Record lice
 
 ## Validation and reporting
 
-There is no application build yet. Run `pwsh -NoProfile -File scripts/Check-Docs.ps1` and `git diff --check`. Once implementation begins, document exact runnable build/test commands and run relevant unit, integration, contract and failure-recovery checks. Report files changed, checks actually run, current milestone, limitations and the next bounded task.
+Run `pwsh -NoProfile -File scripts/Check-Docs.ps1` and `git diff --check`. With an isolated PostgreSQL database and documented environment, run `python scripts/conformance.py` for Java/database, HTTP, UI, schema and LangGraph checks. This produces version-bound evidence, not a certification grant. See README.md for setup. Report checks actually run and preserve all missing conformance obligations. Never substitute an embedded database or silently skip integration tests.

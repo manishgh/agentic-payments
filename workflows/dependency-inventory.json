@@ -1,0 +1,732 @@
+{
+  "verifiedOn": "2026-11-06",
+  "scope": "Pinned combined local workflow and JSON Schema validation environment; declared upstream licenses, not repository licensing or legal approval. Source-distribution hashes are publisher metadata, not a claim that sdists were installed.",
+  "packages": [
+    {
+      "name": "aiosqlite",
+      "version": "0.22.1",
+      "declaredLicense": "MIT (verified installed distribution licenses/LICENSE)",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/aiosqlite/0.22.1/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "aiosqlite-0.22.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/4e/8a/64761f4005f17809769d23e518d915db74e6310474e733e3593cfc854ef1/aiosqlite-0.22.1.tar.gz",
+          "sha256": "043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650"
+        }
+      ]
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/annotated-types/0.8.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "annotated_types-0.8.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz",
+          "sha256": "13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7"
+        }
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.16.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/anyio/4.16.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "anyio-4.16.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/a1/98/7e457a3b014976887a050561955c0b76e1e7e2d6e27b78ecef2ef80518f2/anyio-4.16.0.tar.gz",
+          "sha256": "59bb03251907983d1603d27c3087ddb1e93299ea2163adcdba37899a4fb12ffb"
+        }
+      ]
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/attrs/26.1.0/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "attrs-26.1.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz",
+          "sha256": "d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32"
+        }
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.10.23",
+      "declaredLicense": "MPL-2.0",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/certifi/2026.10.23/json",
+      "requiresPython": ">=3.7",
+      "sourceDistribution": [
+        {
+          "filename": "certifi-2026.10.23.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+          "sha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+        }
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/charset-normalizer/3.5.2/json",
+      "requiresPython": ">=3.7",
+      "sourceDistribution": [
+        {
+          "filename": "charset_normalizer-3.5.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/33/1c/f41d4e74c28ab327ff3acd36053f7ea506c55872d7a90b0fa71aa3ab0c89/charset_normalizer-3.5.2.tar.gz",
+          "sha256": "39de2a259fc954455c57274dc94c79d5842774e1247a016aff30bc0efed0f4ef"
+        }
+      ]
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0",
+      "declaredLicense": "Apache License, Version 2.0",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/distro/1.9.0/json",
+      "requiresPython": ">=3.6",
+      "sourceDistribution": [
+        {
+          "filename": "distro-1.9.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz",
+          "sha256": "2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed"
+        }
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/h11/0.16.0/json",
+      "requiresPython": ">=3.8",
+      "sourceDistribution": [
+        {
+          "filename": "h11-0.16.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz",
+          "sha256": "4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1"
+        }
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/httpcore/1.0.9/json",
+      "requiresPython": ">=3.8",
+      "sourceDistribution": [
+        {
+          "filename": "httpcore-1.0.9.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz",
+          "sha256": "6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8"
+        }
+      ]
+    },
+    {
+      "name": "httpcore2",
+      "version": "2.16.0",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/httpcore2/2.16.0/json",
+      "requiresPython": ">=3.11",
+      "sourceDistribution": [
+        {
+          "filename": "httpcore2-2.16.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/c0/61/afa9d6b7452f9eca73f73d45324eb0bb52f098fd5e6049bf6b8263be9b4e/httpcore2-2.16.0.tar.gz",
+          "sha256": "c72cd0413563b17e1cd8354677dff887466f8ec2551679759e93126534428643"
+        }
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/httpx/0.28.1/json",
+      "requiresPython": ">=3.8",
+      "sourceDistribution": [
+        {
+          "filename": "httpx-0.28.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz",
+          "sha256": "75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc"
+        }
+      ]
+    },
+    {
+      "name": "httpx2",
+      "version": "2.16.0",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/httpx2/2.16.0/json",
+      "requiresPython": ">=3.11",
+      "sourceDistribution": [
+        {
+          "filename": "httpx2-2.16.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/43/73/5ca2cedf5e4e50423d1c258877865a6b62793633b561c58499f8aeb33b7e/httpx2-2.16.0.tar.gz",
+          "sha256": "0d54c98128e8f2ff7fbbde0fca8c359e5f032edeaaaac443cdb7f31f685bcd7f"
+        }
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/idna/3.20/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "idna-3.20.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/f5/08/8eea9d4b8302028f3abb2c0813953f7aec26d33b7a8960ed760e65ff29fa/idna-3.20.tar.gz",
+          "sha256": "a7db850025b95ded1eae8a46181a1a6c56c92c96f0e2b005d9ff8dc0210cab44"
+        }
+      ]
+    },
+    {
+      "name": "jsonpatch",
+      "version": "1.44",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/jsonpatch/1.44/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "jsonpatch-1.44.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/94/e0/5fff51896a5556c44890b4d211278284d6a4c847e509b4e585e5f4616060/jsonpatch-1.44.tar.gz",
+          "sha256": "88fc1d9728168b4a9be27bb00de469dfb3cd28e8e5b568b24efb2ac583cba7b9"
+        }
+      ]
+    },
+    {
+      "name": "jsonpointer",
+      "version": "3.10",
+      "declaredLicense": "Modified BSD License",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/jsonpointer/3.10/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "jsonpointer-3.10.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/93/f6/d1109cbb2c7cb692b432071802028052ba8d275c613c1a1cce427bc62c97/jsonpointer-3.10.tar.gz",
+          "sha256": "69349c0e738c93e9efa501397091f49ad302ae686293effd05d7755c06f88ef0"
+        }
+      ]
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/jsonschema/4.26.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "jsonschema-4.26.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/b3/fc/e067678238fa451312d4c62bf6e6cf5ec56375422aee02f9cb5f909b3047/jsonschema-4.26.0.tar.gz",
+          "sha256": "0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326"
+        }
+      ]
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/jsonschema-specifications/2025.9.1/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "jsonschema_specifications-2025.9.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/19/74/a633ee74eb36c44aa6d1095e7cc5569bebf04342ee146178e2d36600708b/jsonschema_specifications-2025.9.1.tar.gz",
+          "sha256": "b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d"
+        }
+      ]
+    },
+    {
+      "name": "langchain-core",
+      "version": "1.7.6",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/langchain-core/1.7.6/json",
+      "requiresPython": "<4.0.0,>=3.10.0",
+      "sourceDistribution": [
+        {
+          "filename": "langchain_core-1.7.6.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/1e/13/eef86ab444e9e797bb0e41f583904510fb36416571f6fbb93b9255e1e125/langchain_core-1.7.6.tar.gz",
+          "sha256": "0833781e3a8e6fe83073c8412c21180a0545d5ccdf3437889951caf9589ece6c"
+        }
+      ]
+    },
+    {
+      "name": "langchain-protocol",
+      "version": "0.0.21",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/langchain-protocol/0.0.21/json",
+      "requiresPython": "<4.0.0,>=3.10.0",
+      "sourceDistribution": [
+        {
+          "filename": "langchain_protocol-0.0.21.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/be/db/7f9195371c824e706231365b4c6c85573b12c4375286e7471d6a488e8091/langchain_protocol-0.0.21.tar.gz",
+          "sha256": "04b3e80852233a8db39b39d3ad2438d892531dc0ecd41459e857a139ee0e601c"
+        }
+      ]
+    },
+    {
+      "name": "langgraph",
+      "version": "1.2.20",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/langgraph/1.2.20/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "langgraph-1.2.20.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/41/77/892e53207bfadd4b114d274737735444d06216ec9a88dfc4def9bd888254/langgraph-1.2.20.tar.gz",
+          "sha256": "79f86df92f2dd17d5ec464cab68dbb685439ab102ca39f0b1b7b198025a2414c"
+        }
+      ]
+    },
+    {
+      "name": "langgraph-checkpoint",
+      "version": "4.3.1",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/langgraph-checkpoint/4.3.1/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "langgraph_checkpoint-4.3.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/f0/c4/f4107f50dd07169d08d95766cd69104231e694f44a1b25b68ad8b393712d/langgraph_checkpoint-4.3.1.tar.gz",
+          "sha256": "625e7c78a72b33e7c47f7e87ca051060fb90aa66f5fd551c472c08376fb669cb"
+        }
+      ]
+    },
+    {
+      "name": "langgraph-checkpoint-sqlite",
+      "version": "3.1.3",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/langgraph-checkpoint-sqlite/3.1.3/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "langgraph_checkpoint_sqlite-3.1.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/6a/b7/abc333499322d7d00284255c6a56271c7741f65fba5114a137f96023df43/langgraph_checkpoint_sqlite-3.1.3.tar.gz",
+          "sha256": "df305e347e66d97375e680bc4a5337e4d37d5a4996b3c24f49a942c515caa7d7"
+        }
+      ]
+    },
+    {
+      "name": "langgraph-prebuilt",
+      "version": "1.1.1",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/langgraph-prebuilt/1.1.1/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "langgraph_prebuilt-1.1.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ab/d9/e50d6e6b8d241b90564892afed8fac98d17da023c82810577cdb4530f87c/langgraph_prebuilt-1.1.1.tar.gz",
+          "sha256": "f1b1a4772e7f9f15ba736411aad3877183ad40cd9349748df76bd2b9f58a83c7"
+        }
+      ]
+    },
+    {
+      "name": "langgraph-sdk",
+      "version": "0.4.14",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/langgraph-sdk/0.4.14/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "langgraph_sdk-0.4.14.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/28/4d/d26d0393fa9a305199ebc4fbc2550b9b5b4fd33603bd8bd149ad6b84616f/langgraph_sdk-0.4.14.tar.gz",
+          "sha256": "13eb1fee92504d87c1f0f43c8e213e7ba0a46bd23a07e3198e413d48efac5833"
+        }
+      ]
+    },
+    {
+      "name": "langsmith",
+      "version": "0.14.17",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/langsmith/0.14.17/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "langsmith-0.14.17.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/12/4b/c91526e3038d5d5869fa5dba647215826fb8b2b8a3c042d20581a3e5d735/langsmith-0.14.17.tar.gz",
+          "sha256": "53efa2db8293d0a8d60efebe0945c595b635873774b302066ed0a746ddf87562"
+        }
+      ]
+    },
+    {
+      "name": "orjson",
+      "version": "3.13.0",
+      "declaredLicense": "MPL-2.0 AND (Apache-2.0 OR MIT)",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/orjson/3.13.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "orjson-3.13.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/f2/72/380b97dc45bd162d23afe5194721ef678d9eac7cfaa549fe2873f7f0a518/orjson-3.13.0.tar.gz",
+          "sha256": "d1de5eb04485110c5da4c657e49168995d55e076b1ce60f1a042e254f4186c4f"
+        }
+      ]
+    },
+    {
+      "name": "ormsgpack",
+      "version": "1.13.0",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/ormsgpack/1.13.0/json",
+      "requiresPython": ">=3.11",
+      "sourceDistribution": [
+        {
+          "filename": "ormsgpack-1.13.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/72/ae/aea2bee05bd61645daf97515174d71d8fd978a2c395b4dd5f0a5ada7facc/ormsgpack-1.13.0.tar.gz",
+          "sha256": "4127e84b07816e1f36d557e95b5642041692df22bf77f2c2f563a2039ab8144e"
+        }
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "declaredLicense": "Apache-2.0 OR BSD-2-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/packaging/26.3/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "packaging-26.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz",
+          "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79"
+        }
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.3",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/pydantic/2.14.3/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "pydantic-2.14.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/b4/fc/1203d011145c98ddce3cd2f505bb54375ef8d43223053df6bfcf3c746f46/pydantic-2.14.3.tar.gz",
+          "sha256": "1054f237f4d4733e5a30e1e2333bd33a2004ab9ab1510bd053a9a31bb48e232d"
+        }
+      ]
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.50.4",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/pydantic_core/2.50.4/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "pydantic_core-2.50.4.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/9c/0f/34f9ce4ba701dd0b815033ef94d99b56f66200e578ee6052aa3ac26f064e/pydantic_core-2.50.4.tar.gz",
+          "sha256": "aead3b74b68396bf0feab5d57e050b730ded7df55853c1e048a87e00aaf033c6"
+        }
+      ]
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/PyYAML/6.0.3/json",
+      "requiresPython": ">=3.8",
+      "sourceDistribution": [
+        {
+          "filename": "pyyaml-6.0.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz",
+          "sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f"
+        }
+      ]
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/referencing/0.37.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "referencing-0.37.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz",
+          "sha256": "44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8"
+        }
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "declaredLicense": "Apache-2.0",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/requests/2.34.2/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "requests-2.34.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz",
+          "sha256": "f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed"
+        }
+      ]
+    },
+    {
+      "name": "requests-toolbelt",
+      "version": "1.0.0",
+      "declaredLicense": "Apache 2.0",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/requests-toolbelt/1.0.0/json",
+      "requiresPython": ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
+      "sourceDistribution": [
+        {
+          "filename": "requests-toolbelt-1.0.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz",
+          "sha256": "7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6"
+        }
+      ]
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.9.1",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/rpds-py/2026.9.1/json",
+      "requiresPython": ">=3.11",
+      "sourceDistribution": [
+        {
+          "filename": "rpds_py-2026.9.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/42/68/3bd46b8a5e01d3c2ebdf9c5e9497912e3fe0cde02bac21a7130ca866e403/rpds_py-2026.9.1.tar.gz",
+          "sha256": "4793ef7f78268b124b73fa933440f01d258bbae01de9fa53e9080c9ab0425a12"
+        }
+      ]
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "licenseClassifiers": [
+        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadataUrl": "https://pypi.org/pypi/sniffio/1.3.1/json",
+      "requiresPython": ">=3.7",
+      "sourceDistribution": [
+        {
+          "filename": "sniffio-1.3.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz",
+          "sha256": "f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc"
+        }
+      ]
+    },
+    {
+      "name": "sqlite-vec",
+      "version": "0.1.9",
+      "declaredLicense": "MIT License, Apache License, Version 2.0",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/sqlite-vec/0.1.9/json",
+      "requiresPython": null,
+      "sourceDistribution": []
+    },
+    {
+      "name": "tenacity",
+      "version": "9.2.1",
+      "declaredLicense": "Apache-2.0",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/tenacity/9.2.1/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "tenacity-9.2.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/82/9e/497c1c8ebe5a5b5d1d4a7511aea22c0bb1a97e3170d98abdef0e1b34265a/tenacity-9.2.1.tar.gz",
+          "sha256": "a606b5c808d0cded4a359d5b9932d867ff2a6a6b64d37350260fd01bbdf83839"
+        }
+      ]
+    },
+    {
+      "name": "truststore",
+      "version": "0.10.5",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/truststore/0.10.5/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "truststore-0.10.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ee/9f/c5201d42a484c061e528825fc8e2d565f5abd50a4ced6fb7d29c4ec99b2b/truststore-0.10.5.tar.gz",
+          "sha256": "30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd"
+        }
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.5",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/typing-inspection/0.4.5/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "typing_inspection-0.4.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ff/50/0195198eb1d75bab716bb0a813abea4cc394bfa17a92a189f021a34859af/typing_inspection-0.4.5.tar.gz",
+          "sha256": "7f16c411e7930dc79596d42ab44672a3fe5f60eb34b781a1647e7872363120c7"
+        }
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "declaredLicense": "PSF-2.0",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/typing_extensions/4.16.0/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "typing_extensions-4.16.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz",
+          "sha256": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"
+        }
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "declaredLicense": "MIT",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/urllib3/2.8.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "urllib3-2.8.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz",
+          "sha256": "63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63"
+        }
+      ]
+    },
+    {
+      "name": "uuid_utils",
+      "version": "0.19.0",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/uuid_utils/0.19.0/json",
+      "requiresPython": ">=3.10",
+      "sourceDistribution": [
+        {
+          "filename": "uuid_utils-0.19.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/f1/0f/cd9b3e495e514441e9af3a42c5c63436aee620f61412cafcce67e259228b/uuid_utils-0.19.0.tar.gz",
+          "sha256": "4b2996bb9d12da9b62f6f4c64a066b26926fa75dbe47b4f8e309e24e187abf1d"
+        }
+      ]
+    },
+    {
+      "name": "websockets",
+      "version": "17.4",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/websockets/17.4/json",
+      "requiresPython": ">=3.11",
+      "sourceDistribution": [
+        {
+          "filename": "websockets-17.4.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/75/79/590c5f0cc7d1661195aeefccb0e342b79f4c77d368d526d028821a390332/websockets-17.4.tar.gz",
+          "sha256": "09d3939b70df0c8ad2da145ebd50978bccaee1d565e838b0e7921a34d38571eb"
+        }
+      ]
+    },
+    {
+      "name": "xxhash",
+      "version": "4.0.2",
+      "declaredLicense": "BSD-2-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/xxhash/4.0.2/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "xxhash-4.0.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/39/e6/ed6c428055ffd3f9299db3ec8671fd78b70c24173c040b8faafb6348ebbb/xxhash-4.0.2.tar.gz",
+          "sha256": "af3d1b3cfa5280e84d8968e9f30c9eca75781db4915eb6d6acb0dd4fc93e0f47"
+        }
+      ]
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "declaredLicense": "BSD-3-Clause",
+      "licenseClassifiers": [],
+      "metadataUrl": "https://pypi.org/pypi/zstandard/0.25.0/json",
+      "requiresPython": ">=3.9",
+      "sourceDistribution": [
+        {
+          "filename": "zstandard-0.25.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/fd/aa/3e0508d5a5dd96529cdc5a97011299056e14c6505b678fd58938792794b1/zstandard-0.25.0.tar.gz",
+          "sha256": "7713e1179d162cf5c7906da876ec2ccb9c3a9dcbdffef0cc7f70c3667a205f0b"
+        }
+      ]
+    }
+  ]
+}

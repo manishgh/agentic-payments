@@ -1,60 +1,70 @@
 # agentic-payments
 
-An extensible platform for agentic purchasing: an AP2-based platform payment-intent workflow with OpenAI agentic checkout embedded inside it.
+An extensible purchasing platform designed to embed OpenAI ACP checkout inside an AP2-based platform payment-intent workflow, including provider authentication.
 
-**Status: documentation and design in progress. No payment runtime, provider connector, production deployment or certification is implemented yet.** Started 6 November 2026 (Europe/Berlin).
+**Runnable milestone: local synthetic reference implementation.** Java/PostgreSQL owns payment state; Python LangGraph coordinates work; a TypeScript UI handles trusted approval and synthetic challenges. Real AP2/ACP bridges and external providers are not connected yet.
 
-## Deliverables
+## Implemented
 
-1. Versioned extension specification and capability profiles.
-2. Adapter SDK for providers, methods, credentials and customer actions.
-3. Deterministic simulator for success, authentication and failure scenarios.
-4. Project conformance/certification suite with reproducible evidence.
-5. Reference implementation and LangGraph workflow.
+- Versioned extension requirements, 20 JSON Schema contracts and canonical positive/negative fixtures.
+- Java adapter SDK and explicit capability negotiation for `local-fake-single-tender-0.1`.
+- Atomic reservations, scoped idempotency, one execution owner and normalized PostgreSQL persistence.
+- Durable simulator journal, trusted challenges, revocation, unknown-outcome recovery and conflicting-evidence handling.
+- Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
+- Automated database, HTTP, UI, schema and workflow checks with version-bound evidence and CI.
 
-A later managed service supplies transaction coordination, operational visibility and support. Project conformance is not vendor, card-network, PCI or regulatory certification.
+The SDK currently accepts only its synthetic profile. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
 
-## Start here
+## Run locally on Windows
 
-- [Product brief](docs/product-brief.md)
-- [Roadmap and daily sequence](docs/roadmap.md)
-- [Backlog](docs/backlog.md)
-- [Current status and handoff](docs/status.md)
-- [Architecture](docs/architecture.md)
-- [Detailed simulator API](docs/api-contracts.md)
-- [Transaction data model](docs/data-model.md)
-- [First implementation slice](docs/implementation-slice-001.md)
-- [Decision register](docs/decisions.md)
-- [Risk register](docs/risk-register.md)
-- [Specification](specification/README.md)
-- [Adapter SDK design brief](docs/adapter-sdk.md)
-- [Simulator and conformance plan](docs/simulator-and-conformance.md)
-- [Initial protocol review](docs/reviews/0001-protocol-boundaries.md)
-- [Independent detailed design review](docs/reviews/0003-design-review.md)
-- [Gate decisions](docs/reviews/gates.md)
-- [Sources and compatibility evidence](docs/references.md)
-
-## Technology direction
-
-Java core and adapter SDK; Python LangGraph orchestration; TypeScript trusted checkout UI; PostgreSQL transaction storage. Exact versions, frameworks and build tools are design decisions still to be recorded. The protocol remains language-independent.
-
-## Build, test and run
-
-Application build/run commands are not available at this milestone. There are no service credentials to configure and no live payment integrations. Do not interpret the examples in design documents as executable APIs.
-
-Current repository checks (PowerShell 7 for the documentation validator):
+Requirements: PowerShell 7, Python 3.12, Node.js 24/npm and Git. Bootstrap installs verified Java 21, Maven and PostgreSQL inside ignored `.tools/`, without a global service installation.
 
 ```powershell
+./scripts/Bootstrap-Toolchain.ps1
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r workflows/requirements-lock.txt
+./scripts/Start-Platform.ps1
+```
+
+Open `http://127.0.0.1:8080`. The launcher creates private `.tools/local-sessions.json` with separate graph/UI tokens and a run ID. Use its `uiToken` in the trusted page. Tokens are not printed or stored in browser storage. Create a purchase from another terminal:
+
+```powershell
+$session = Get-Content .tools/local-sessions.json -Raw | ConvertFrom-Json
+$env:PAYMENTS_RUN_ID = $session.runId
+$env:PAYMENTS_GRAPH_TOKEN = $session.graphToken
+$workflowId = [guid]::NewGuid().ToString()
+.venv/Scripts/python.exe -m workflows.payment_workflow start --workflow-id $workflowId --scenario challenge-then-success
+```
+
+Enter the returned intent UUID in the UI and approve its checkout. Resume using the same workflow UUID, complete the synthetic challenge in the UI, then resume again:
+
+```powershell
+.venv/Scripts/python.exe -m workflows.payment_workflow resume --workflow-id $workflowId
+.venv/Scripts/python.exe -m workflows.payment_workflow status --workflow-id $workflowId
+```
+
+The virtual clock is fixed unless the private runner advances it; wall-clock waiting does not expire this demo. Restart preserves budgets, operation identities and checkpoints. See [workflow details](docs/langgraph-workflow.md) and [toolchain configuration](docs/toolchain.md).
+
+## Build and verify
+
+```powershell
+. ./scripts/Use-LocalToolchain.ps1
+. ./scripts/Start-LocalPostgres.ps1
+npm.cmd ci --ignore-scripts --prefix ui
+.venv/Scripts/python.exe scripts/conformance.py
 pwsh -NoProfile -File scripts/Check-Docs.ps1
 git diff --check
 ```
 
-The documentation workflow runs the same validator on pushes and pull requests. It checks simple relative Markdown file links, whitespace, conflict markers and fenced blocks; it does not check external URLs or heading anchors.
+The evidence runner uses real PostgreSQL, isolated HTTP services and fresh Python processes. Results go to ignored `target/conformance/`. Missing database configuration, failed checks or source mutation during validation fail the run.
 
-The implementation milestone will add a reproducible build, dependency locks, simulator command and automated conformance checks before claiming a runnable preview.
+The report explicitly returns `NOT_CERTIFIED`: seeded multi-intent replay and parts of the full adversarial/privacy matrix remain incomplete. `--require-certification` fails until those obligations and certification policy are satisfied. Project evidence grants no provider, AP2/ACP, PCI, regulatory or network certification.
 
-## Contribution and publication
+## Documentation
 
-See [contribution workflow](CONTRIBUTING.md) and [agent instructions](AGENTS.md). Remote: <https://github.com/manishgh/agentic-payments>.
+- [Status and remaining work](docs/status.md), [roadmap](docs/roadmap.md), [backlog](docs/backlog.md)
+- [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
+- [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
+- [Independent core review](docs/reviews/0006-reference-code-review.md), [client/tooling review](docs/reviews/0007-client-tooling-review.md), [gate decisions](docs/reviews/gates.md)
 
-Public licensing remains an explicit release decision. No open-source license is granted by this draft repository. SDK/package publication and an open-source release require that decision; documentation and design can proceed.
+Public licensing and package distribution remain explicit release decisions; no open-source license has been selected. Reviewed source is pushed to milestone branches. No automatic merge, package release, deployment or live-money execution is performed.

@@ -1,6 +1,6 @@
 # Internal simulator API design
 
-Status: proposed for independent G2-S review; not implemented or self-approved. Revision: `simulator-api-0.1-draft`.
+Status: implemented for the bounded local-fake reference; reviewed execution clarifications are in ADR 0002 and gate records. Revision: `simulator-api-0.1-draft`. Earlier review hashes identify the pre-implementation design; the trusted checkout endpoint below is an additive draft revision reviewed during implementation.
 Targets [EXT-001..012](../specification/0.1.0-draft/README.md) and [CT cases](simulator-and-conformance.md).
 These are project-internal endpoints, not AP2/ACP wire schemas. Real bridges remain experimental and disabled.
 
@@ -50,6 +50,7 @@ Retain command and simulator-operation identities for the run lifetime; never re
 | `POST /intents/{id}/approve` | approval:write | QUOTED only; bind local-fake authority, create sole attempt/owner, reserve full total atomically. |
 | `POST /intents/{id}/execute` | execution:write | APPROVED only; queue effect-free preparation; repeated accepted key returns original response. |
 | `GET /intents/{id}` | intent:read | Return authoritative state, selected money/profile, attempt/action references and safe evidence summary. |
+| `GET /intents/{id}/checkout` | approval:write | QUOTED/APPROVED only; trusted grant subject reads core-owned merchant, money, version and checkout binding for approval. |
 | `GET /actions/{id}` | action:complete | Trusted subject only; retrieve synthetic challenge descriptor; no graph access. |
 | `POST /actions/{id}/complete` | action:complete | Verify current synthetic trusted action; READY or pre-admission failure; never proves payment success. |
 | `POST /authorities/{id}/revoke` | authority:revoke | Atomically revoke fixture grant; report already-admitted attempts separately from blocked future admission. |
@@ -86,6 +87,7 @@ Successful responses are closed objects: common fields above plus exactly these 
 | Complete action | `actionId,version,state,intentState`; action state VERIFIED or DENIED; version is the updated action version. |
 | Revoke | `authorityId,state,version,futureAdmissionBlocked,alreadyAdmittedAttemptIds`; state REVOKED; IDs sorted lexically. |
 | Get intent | `intentId,state,version,profile,runId,attemptId,operationId,money,exposureState,reconciliationRequired,actionId,outcomeEvidenceId`. |
+| Get checkout | `intentId,state,version,merchantId,checkoutRevision,checkoutDigest,money,quoteExpiresAt`; state QUOTED/APPROVED; trusted subject only, no credential reference. |
 Get-intent IDs/money not yet created are null; exposureState is NONE/HELD/CONSUMED/RELEASED; reconciliationRequired is boolean.
 Money/reserved use the exact money shape; timestamps are RFC3339 UTC; other state enums follow the tables below; unknown response fields require a new contract revision.
 
@@ -212,4 +214,4 @@ Late matching success resolves UNKNOWN; late stale pending cannot overwrite succ
 `retry` is `NEVER`, `SAME_COMMAND`, or `READ_STATUS`; no error recommends a new attempt/provider when an operation might have executed.
 Error responses have exactly common top-level fields plus `error`, containing exactly `code,message,retry`; no resource version is present.
 Errors contain safe fixed messages and correlation references, never stack traces, session strings or provider payloads (CT-010).
-Executable schema/error/golden-byte fixtures remain required implementation evidence; the field rules and canonical bytes above are the design target.
+Executable schema/error/golden-byte fixtures are in the versioned specification. The TypeScript review surface renders money and approves the digest/version from the same trusted checkout response. The local catalog also supplies `fixture-grant-usd` for its separate USD budget; `fixture-grant-1` authorizes EUR. Neither fixture is a real AP2 mandate.

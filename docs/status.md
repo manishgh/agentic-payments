@@ -4,35 +4,33 @@ Updated: 2026-11-06, Europe/Berlin.
 
 ## Current milestone
 
-Documentation baseline accepted and published; first simulator slice design independently reviewed and accepted with limited G2-S scope. No payment runtime or adapter has been implemented. Remote: https://github.com/manishgh/agentic-payments.git (public, verified through the GitHub connector; initially empty).
+The local synthetic reference implementation is runnable: versioned contracts, Java SDK/core, normalized PostgreSQL migrations and durable simulator, loopback HTTP API, trusted TypeScript UI, LangGraph/SQLite workflow and repeatable evidence runner. Implementation branch: `codex/reference-platform` in [manishgh/agentic-payments](https://github.com/manishgh/agentic-payments).
 
-## Completed in this work session
+The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. This milestone uses explicit synthetic fixtures; no real AP2 signature verifier, ACP wire checkout or external payment provider is implemented.
 
-- Repository agent instructions and architecture composition brief.
-- Product brief, staged roadmap and stable-ID backlog.
-- Draft extension requirements, SDK brief and simulator/conformance plan.
-- Initial independent Astra review of complex protocol boundaries.
-- Independent Sol 6.1 high plan review and separate code review of documentation tooling.
-- Documentation baseline committed and pushed to main: `15f0776a2fa1628ac8e77999885cd86811380204`.
-- Hosted [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42293811152) completed successfully for that baseline.
-- Detailed simulator API, transaction/locking design, canonical fixture and runtime ADR reviewed by Astra; blocking findings corrected for create/quote/approve/reserve/read scope. Reviewed hashes are in review 0003.
-- G2-S limited design acceptance recorded; toolchain bootstrap is mandatory before source scaffolding. Broader execution/G2-P gates remain open.
-- Reviewed design pushed to `codex/simulator-design`: `65c39dd0d8fe80a2a8d72fc5680471d414288448`. Its [hosted documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42294677444) passed.
-- All four reviewed artifact SHA-256 hashes matched after commit; documentation validator passed for 24 Markdown files.
+## Validation and review
 
-## Publication outcome
+The full local suite passed against unchanged source: 47 Java tests (22 real-PostgreSQL core, 23 SDK/checkout and two operation-binding tests), seven HTTP tests, three UI regressions and 12 LangGraph tests, including fresh Python CLI processes. Schema validation covered 20 schemas, 16 positive fixtures, 24 schema-negative fixtures, six binding-negative fixtures and one raw-parser negative. Desktop/mobile UI rendering was inspected in headless Edge.
 
-The baseline is on main and the reviewed design is on `codex/simulator-design`. [Compare the design branch](https://github.com/manishgh/agentic-payments/compare/main...codex/simulator-design). A draft PR creation attempt was denied by the GitHub integration with HTTP 403 `Resource not accessible by integration`; no PR was created. Pushes succeeded. No merge or deployment was performed. The branch is ready for review and further authorized implementation work.
+Separate Astra [core review](reviews/0006-reference-code-review.md) and Sol 6.1 High [client/tooling review](reviews/0007-client-tooling-review.md) accepted the bounded source after identified defects were corrected. [Gate records](reviews/gates.md) distinguish the original reservation design from the later execution/client scope.
 
-## Pending decisions / dependencies
+The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Full seeded multi-intent replay, exhaustive adversarial/privacy evidence and certification policy are unfinished. Exact run/source evidence is recorded in [implementation evidence](implementation-evidence.md).
 
-- Exact external specification revisions and compatibility mapping.
-- License and contribution terms before open-source/package release.
-- Provider/partner sandbox access for later external integrations.
-- First live deployment scope, operational responsibility and regional review.
+## Publication
 
-None of these require stopping documentation and design. No automatic overnight execution or scheduled task is established by this file; future work resumes from the backlog in an active session. Repository-local commits use the explicit automation author `Agentic Payments Automation <automation@agentic-payments.invalid>` because no local Git author was configured; global Git settings were not changed.
+Earlier milestones: documentation `15f0776a2fa1628ac8e77999885cd86811380204` on main, reviewed design `65c39dd0d8fe80a2a8d72fc5680471d414288448` and handoff `a82973df705df4d7f937f92a07e3d18b4579b3f4` on `codex/simulator-design`. Their documentation CI passed.
 
-## Next task
+The reference milestone is being published on its separate branch; the completion record identifies the verified remote commit and hosted CI result. The GitHub connector previously denied PR creation with HTTP 403 `Resource not accessible by integration`; authenticated native pushes work. No merge, package release or deployment was performed.
 
-Read [first implementation slice](implementation-slice-001.md), [gate decisions](reviews/gates.md) and [backlog](backlog.md). The next bounded task is verified toolchain bootstrap, followed by persisted synthetic create/quote/approve/reserve/read under the accepted limited design. Dispatch and real AP2/ACP/provider integration remain separately gated. Update this handoff after each reviewed milestone.
+Repository-local Git author remains `Agentic Payments Automation <automation@agentic-payments.invalid>` because no author was configured initially. Global settings were not changed. Binaries, database data, credentials, checkpoints, screenshots and generated reports remain ignored.
+
+## Remaining work
+
+1. Complete seeded multi-intent recorded-schedule replay and the remaining adversarial/privacy matrix, concurrent clock orders and real JVM crash windows.
+2. Extract finer application/domain transaction coordination from the JDBC implementation; current claim fences are not a full timed lease scheduler.
+3. Generalize beyond the deliberately closed synthetic SDK profile with versioned provider/method/action profiles and reusable third-party adapter certification fixtures.
+4. Pin upstream AP2/ACP artifacts and implement reviewed signed-byte, trust, continuation and execution-owner mappings without inventing upstream extension fields.
+5. Implement provider-specific sandbox connectors with authorized accounts and verified idempotency/event/recovery behavior.
+6. Add separately designed split tender, refunds/compensation and managed identity, visibility, operations and support.
+
+External dependencies are provider/partner access, public licensing/contribution terms and later regional/live operating decisions. These do not block further local development. No scheduled unattended task is established by this file.
