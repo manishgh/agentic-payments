@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/specification/0.1.0-draft/schemas/adapter-descriptor.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "providerId",
+    "revision",
+    "extensionVersions",
+    "profiles",
+    "capabilities",
+    "combinations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "adapter-descriptor-0.1"
+    },
+    "providerId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?![\\s\\S])"
+    },
+    "extensionVersions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?![\\s\\S])"
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?![\\s\\S])"
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+      },
+      "minItems": 0,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "combinations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "methodId",
+          "credentialTypeId",
+          "actionTypeIds",
+          "operations",
+          "capabilities",
+          "limits"
+        ],
+        "properties": {
+          "methodId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+          },
+          "credentialTypeId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+          },
+          "actionTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+            },
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+            },
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9.-]{0,63}(?![\\s\\S])"
+            },
+            "minItems": 0,
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "limits": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "currency",
+                "exponent",
+                "minimumMinorUnits",
+                "maximumMinorUnits"
+              ],
+              "properties": {
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}(?![\\s\\S])"
+                },
+                "exponent": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
+                },
+                "minimumMinorUnits": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,29}(?![\\s\\S])"
+                },
+                "maximumMinorUnits": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,29}(?![\\s\\S])"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

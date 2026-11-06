@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "adapter-descriptor-0.1",
+  "providerId": "fixture-multimethod",
+  "revision": "1.0.0",
+  "extensionVersions": [
+    "0.1.0-draft"
+  ],
+  "profiles": [
+    "fixture-generic-0.1"
+  ],
+  "capabilities": [
+    "lookup",
+    "idempotency"
+  ],
+  "combinations": [
+    {
+      "methodId": "card",
+      "credentialTypeId": "vault-token",
+      "actionTypeIds": [],
+      "operations": [
+        "charge"
+      ],
+      "capabilities": [
+        "lookup",
+        "idempotency"
+      ],
+      "limits": [
+        {
+          "currency": "EUR",
+          "exponent": 2,
+          "minimumMinorUnits": "1",
+          "maximumMinorUnits": "100000"
+        }
+      ]
+    },
+    {
+      "methodId": "bank-transfer",
+      "credentialTypeId": "bank-reference",
+      "actionTypeIds": [
+        "redirect"
+      ],
+      "operations": [
+        "charge"
+      ],
+      "capabilities": [
+        "lookup"
+      ],
+      "limits": [
+        {
+          "currency": "EUR",
+          "exponent": 2,
+          "minimumMinorUnits": "1",
+          "maximumMinorUnits": "100000"
+        }
+      ]
+    }
+  ]
+}

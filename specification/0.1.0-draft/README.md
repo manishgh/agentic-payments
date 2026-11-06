@@ -1,6 +1,6 @@
 # Extension 0.1.0-draft: proposed requirements
 
-Status: unreviewed requirements baseline. Normative terms have the limited meaning defined in the [version policy](../README.md). This document defines obligations to design and verify; it does not define a wire format or announce implemented support.
+Status: reviewed project requirements baseline. Normative terms have the scope defined in the [version policy](../README.md). The adjacent schemas and fixtures implement the bounded local-fake wire profile; this requirements register also includes obligations not yet implemented or proven. See the profile descriptor and current evidence for support claims.
 
 ## Composition and vocabulary
 

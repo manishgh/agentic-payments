@@ -31,4 +31,12 @@ No real AP2/ACP interoperability, provider sandbox, 3DS, wallet/bank/voucher, sp
 
 ## Publication record
 
-Reviewed source is prepared for the `codex/reference-platform` branch. Hosted CI and the remote commit identity are recorded after the push; local results above do not imply hosted CI passed.
+Published commits: `69fe8d7` (contracts/SDK/toolchain) and `314bd2fe2303892857816944e97a990195581dce` (reference implementation) on `codex/reference-platform`. Hosted [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42302509998) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42302510197) both passed for 314bd2f. Subsequent development has its own evidence; this record describes that exact milestone.
+
+## Extensibility and adapter TCK checkpoint
+
+The staged SDK/TCK/upstream checkpoint was exported with `git archive` into an isolated ignored checkout, installed from its pinned dependencies and tested against a newly created PostgreSQL database. Concurrent replay development was excluded from this checkpoint. Evidence run `545005e5ca6a4f008a161cfc84091b7e` retained identical before/after source-manifest SHA-256 `c2b7722352753012f3de99690fbf99d49ed613eb94f1457055d944e752c0c83b`.
+
+All eight aggregate stages passed: 67 Java tests with no failures/errors/skips, eight HTTP tests, three UI regressions, 12 LangGraph tests, four upstream integrity tests and 12 structural probes. Contracts covered 21 schemas, 17 positive, 27 schema-negative, six binding-negative and one parser-negative fixture. The separately executed JDBC adapter TCK passed its four selected cases and retained its exact plan and evaluated capabilities. `jdeps -summary` found only `java.base` for the built adapter SDK classifier JAR; release POM separation remains required before package publication.
+
+[Independent SDK/TCK review](reviews/0008-extension-tck-review.md) accepted the bounded source after corrections. [Independent upstream review](reviews/0009-upstream-bridge-review.md) accepted only the pinned research and a separate offline artifact-lab contract. This checkpoint does not include replay implementation or the artifact lab. Its certification verdict remains **NOT_CERTIFIED**; structural schema acceptance is not cryptographic or wire interoperability evidence.

@@ -44,4 +44,8 @@ Seeded multi-intent replay, the complete adversarial/privacy matrix, full manage
 
 ## Later gates
 
+The integration owner separately accepted [ADR 0003](../adr/0003-replay-and-adapter-conformance.md) on 2026-11-06 before assigning replay implementation and writing descriptor/TCK code. Accepted authored-design SHA-256: `deb1d3b3971befd692cd5fc334cf421f0d8f72674701b6d368b5125aac403f6d`. This covers durable explicit schedules, ownership guards, raw invariant validation before normalized digests, generic metadata negotiation and optional-feature TCK evidence. It does not loosen the interactive core's local profile. [Review 0008](0008-extension-tck-review.md) independently assesses the generic SDK/TCK source; replay source acceptance requires its own review and aggregate evidence.
+
+The owner also accepted the isolated offline artifact-laboratory contract in [independent review 0009](0009-upstream-bridge-review.md), SHA-256 `fce6ac509378abdbe74134466bf228907d6a1a41bdbee8734a63f5d2257be9c6`, before assigning that implementation. Its exact-byte merchant JWS checks, schema/handler constraints, content binder and synthetic sidecar may not authorize core dispatch. Native AP2 mandate verification and real bridge interoperability remain false. Code/cryptographic acceptance remains pending independent source review and negative/golden-vector tests.
+
 G3-G5 and M1-M5 are not assessed. There is no certification, package release, deployment or live payment authorization.

@@ -1,6 +1,6 @@
 # Deterministic simulator and project conformance brief
 
-Status: proposed requirements and evidence plan. No simulator, runner, evidence schema, passing tests, or certified adapter exists in this milestone. The stable requirement register is [extension 0.1.0-draft](../specification/0.1.0-draft/README.md); the [SDK brief](adapter-sdk.md) describes the intended test subject.
+Status: requirements and evidence plan. A durable local simulator and evidence runner now exist; full deterministic replay and complete certification evidence remain unfinished. See [implementation evidence](implementation-evidence.md) for actual passing checks and exclusions. The stable requirement register is [extension 0.1.0-draft](../specification/0.1.0-draft/README.md); the [SDK brief](adapter-sdk.md) describes the broader test subject.
 
 ## Simulator boundary
 

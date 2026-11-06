@@ -14,13 +14,14 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def source_identity():
     entries = []
-    for directory in ("src", "specification", "scripts", "workflows", "ui"):
+    for directory in ("src", "specification", "scripts", "workflows", "ui", "integrations", ".github/workflows"):
         for file in sorted((ROOT / directory).rglob("*")):
             if not file.is_file() or any(part in {"node_modules", "dist", "__pycache__"} for part in file.parts):
                 continue
@@ -39,6 +40,9 @@ def main():
     if not output.is_relative_to(ROOT / "target"):
         raise SystemExit("Evidence output must stay inside the ignored target directory.")
     output.parent.mkdir(parents=True, exist_ok=True)
+    run_id = uuid4().hex
+    log_root = ROOT / ".tools" / "conformance" / run_id
+    log_root.mkdir(parents=True, exist_ok=False)
     maven = shutil.which("mvn.cmd" if os.name == "nt" else "mvn")
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     if not maven or not npm:
@@ -47,9 +51,16 @@ def main():
         if not os.environ.get(name):
             raise SystemExit("Isolated PostgreSQL test configuration is required.")
     source_before = source_identity()
+    def java_entrypoint(main_class, *arguments):
+        classpath = str(ROOT / "target/classes") + os.pathsep + (ROOT / "target/classpath.txt").read_text().strip()
+        executable = Path(os.environ["JAVA_HOME"]) / "bin" / ("java.exe" if os.name == "nt" else "java")
+        return [str(executable), "-cp", classpath, main_class, *arguments]
     steps = [
         ("contracts", [sys.executable, "scripts/validate_contracts.py"], ROOT),
-        ("java-postgresql", [maven, "-B", "-ntp", "verify", "dependency:build-classpath", "-Dmdep.outputFile=target/classpath.txt"], ROOT),
+        ("upstream-integrity", [sys.executable, "integrations/upstream/test_probes.py"], ROOT),
+        ("upstream-structural", [sys.executable, "integrations/upstream/probe_contracts.py"], ROOT),
+        ("java-postgresql", [maven, "-B", "-ntp", "clean", "verify", "dependency:build-classpath", "-Dmdep.outputFile=target/classpath.txt"], ROOT),
+        ("adapter-tck", lambda: java_entrypoint("io.agenticpayments.infrastructure.tck.TckMain"), ROOT),
         ("trusted-ui", [npm, "test"], ROOT / "ui"),
         ("http", [sys.executable, "scripts/test_http.py"], ROOT),
         ("langgraph", [sys.executable, "-m", "unittest", "workflows.test_payment_workflow", "workflows.test_live", "-v"], ROOT),
@@ -58,13 +69,22 @@ def main():
     for name, command, cwd in steps:
         started = time.monotonic()
         print(f"Running {name}...", flush=True)
-        log = output.parent / f"{name}.log"
+        # Maven clean removes target; keep open logs outside it and copy them after checks.
+        log = log_root / f"{name}.log"
+        if name in {"adapter-tck", "http", "langgraph"} and not any(result["name"] == "java-postgresql" and result["outcome"] == "PASS" for result in results):
+            log.write_text("Incomplete: the required Java/database build did not pass.\n", encoding="utf-8")
+            results.append({"name": name, "outcome": "INCOMPLETE", "exitCode": 125, "durationSeconds": 0, "log": log.name})
+            continue
         try:
             with log.open("w", encoding="utf-8") as stream:
-                process = subprocess.run(command, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, timeout=300)
+                process = subprocess.run(command() if callable(command) else command, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, timeout=300)
             code = process.returncode
         except subprocess.TimeoutExpired:
             code = 124
+        except (OSError, KeyError, ValueError):
+            code = 125
+            with log.open("a", encoding="utf-8") as stream:
+                stream.write("Check could not start with the required local toolchain/configuration.\n")
         results.append({"name": name, "outcome": "PASS" if code == 0 else "FAIL", "exitCode": code,
                         "durationSeconds": round(time.monotonic() - started, 3), "log": log.name})
         print(f"{name}: {results[-1]['outcome']}", flush=True)
@@ -77,6 +97,7 @@ def main():
     source_after = source_identity()
     stable_source = source_before == source_after
     report = {
+        "evidenceRunId": run_id,
         "evidenceVersion": "reference-evidence-0.1", "extensionVersion": "0.1.0-draft",
         "contractVersion": "simulator-api-0.1-draft", "profile": "local-fake-single-tender-0.1",
         "source": source_after, "sourceBeforeSha256": source_before["sha256"],
@@ -104,7 +125,12 @@ def main():
             "Reviewed certification policy and public release licensing decision."
         ],
     }
-    output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    for result in results:
+        shutil.copyfile(log_root / result["log"], output.parent / result["log"])
+    encoded = json.dumps(report, indent=2) + "\n"
+    output.write_text(encoded, encoding="utf-8")
+    (log_root / "report.json").write_text(encoded, encoding="utf-8")
     print(f"Evidence: {output.relative_to(ROOT).as_posix()}; verdict NOT_CERTIFIED", flush=True)
     return 1 if report["previewChecks"] != "PASS" or arguments.require_certification else 0
 

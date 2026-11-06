@@ -1,0 +1,311 @@
+{
+  "formatVersion": "upstream-structural-probes-0.1",
+  "sourceLock": "../source-lock.json",
+  "syntheticData": true,
+  "realCredentials": false,
+  "signaturesVerified": false,
+  "interoperabilityEvidence": false,
+  "probes": [
+    {
+      "id": "ACP-HANDLER-OPEN-PSP",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/PaymentHandler",
+      "expectedSchemaValid": true,
+      "instance": {
+        "id": "synthetic-handler-1",
+        "name": "invalid.example.synthetic.card",
+        "version": "2026-04-17",
+        "spec": "https://merchant.example.invalid/handler",
+        "requires_delegate_payment": false,
+        "requires_pci_compliance": false,
+        "psp": "synthetic-psp",
+        "config_schema": "https://merchant.example.invalid/config.schema.json",
+        "instrument_schemas": [
+          "https://merchant.example.invalid/instrument.schema.json"
+        ],
+        "config": {}
+      },
+      "meaning": "Current released handler schema accepts an explicit synthetic PSP string. This is structural extensibility, not enrollment or a provider implementation."
+    },
+    {
+      "id": "ACP-AUTHENTICATION-STATE",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/CheckoutSession",
+      "expectedSchemaValid": true,
+      "instance": {
+        "id": "synthetic-checkout-1",
+        "protocol": {
+          "version": "2026-04-17"
+        },
+        "status": "authentication_required",
+        "currency": "eur",
+        "line_items": [
+          {
+            "id": "synthetic-line-1",
+            "item": {
+              "id": "synthetic-sku-1",
+              "name": "Synthetic item",
+              "unit_amount": 1250
+            },
+            "quantity": 1,
+            "totals": [
+              {
+                "type": "total",
+                "display_text": "Total",
+                "amount": 1250
+              }
+            ]
+          }
+        ],
+        "totals": [
+          {
+            "type": "total",
+            "display_text": "Total",
+            "amount": 1250
+          }
+        ],
+        "fulfillment_options": [],
+        "messages": [],
+        "links": [],
+        "capabilities": {
+          "interventions": {
+            "supported": [
+              "3ds"
+            ]
+          }
+        }
+      },
+      "meaning": "authentication_required is an actual released state; the older hosted documentation status table is not the complete current repository contract."
+    },
+    {
+      "id": "ACP-NATIVE-AP2-FIELD-REFUSED",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/CheckoutSession",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "additionalProperties",
+      "instance": {
+        "id": "synthetic-checkout-1",
+        "protocol": {
+          "version": "2026-04-17"
+        },
+        "status": "authentication_required",
+        "currency": "eur",
+        "line_items": [
+          {
+            "id": "synthetic-line-1",
+            "item": {
+              "id": "synthetic-sku-1",
+              "name": "Synthetic item",
+              "unit_amount": 1250
+            },
+            "quantity": 1,
+            "totals": [
+              {
+                "type": "total",
+                "display_text": "Total",
+                "amount": 1250
+              }
+            ]
+          }
+        ],
+        "totals": [
+          {
+            "type": "total",
+            "display_text": "Total",
+            "amount": 1250
+          }
+        ],
+        "fulfillment_options": [],
+        "messages": [],
+        "links": [],
+        "capabilities": {
+          "interventions": {
+            "supported": [
+              "3ds"
+            ]
+          }
+        },
+        "ap2_mandate": "SYNTHETIC_NOT_A_MANDATE"
+      },
+      "meaning": "No undeclared native AP2 mandate field is accepted by the base closed checkout model."
+    },
+    {
+      "id": "ACP-LEGACY-COMPLETE-SHAPE-REFUSED",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/CheckoutSessionCompleteRequest",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "additionalProperties",
+      "instance": {
+        "payment_data": {
+          "token": "SYNTHETIC_NON_USABLE_TOKEN",
+          "provider": "synthetic-psp"
+        }
+      },
+      "meaning": "Stale token/provider examples do not validate as released handler_id/instrument PaymentData."
+    },
+    {
+      "id": "ACP-HANDLER-COMPLETE-SHAPE",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/CheckoutSessionCompleteRequest",
+      "expectedSchemaValid": true,
+      "instance": {
+        "payment_data": {
+          "handler_id": "synthetic-handler-1",
+          "instrument": {
+            "type": "synthetic-card",
+            "credential": {
+              "type": "synthetic-reference",
+              "token": "SYNTHETIC_NON_USABLE_TOKEN"
+            }
+          }
+        }
+      },
+      "meaning": "Handler/instrument shape is schema-valid; token use and handler schema still require trusted out-of-band validation."
+    },
+    {
+      "id": "ACP-SELLER-BACKED-DELEGATE-CONFLICT",
+      "artifactId": "acp-delegate-payment-schema",
+      "pointer": "/$defs/DelegatePaymentRequest",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "additionalProperties",
+      "instance": {
+        "handler_id": "synthetic-gift-card-handler",
+        "payment_method": {
+          "type": "seller_backed_gift_card"
+        },
+        "allowance": {
+          "reason": "one_time",
+          "max_amount": 1250,
+          "currency": "eur",
+          "checkout_session_id": "synthetic-checkout-1",
+          "merchant_id": "synthetic-merchant-1",
+          "expires_at": "2026-11-06T23:00:00Z"
+        },
+        "risk_signals": [],
+        "metadata": {}
+      },
+      "meaning": "Seller-backed RFC handler_id/non-card examples are not admitted by the released card-only DelegatePaymentRequest schema."
+    },
+    {
+      "id": "ACP-AUTH-RESULT-ALLOF-CONFLICT",
+      "artifactId": "acp-authentication-schema",
+      "pointer": "/$defs/DelegateAuthenticationSessionWithResult",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "additionalProperties",
+      "instance": {
+        "authentication_session_id": "synthetic-auth-1",
+        "status": "authenticated",
+        "authentication_result": {
+          "trans_status": "Y",
+          "transaction_id": "synthetic-ds-1",
+          "three_ds_server_trans_id": "synthetic-server-1",
+          "version": "2.2.0"
+        }
+      },
+      "meaning": "Closed SessionBase in allOf rejects authentication_result, despite WithResult declaring that field. Preserve upstream failure; do not weaken production validation silently."
+    },
+    {
+      "id": "ACP-CHECKOUT-AUTH-REQUIRES-DETAILS",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/AuthenticationResult",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "required",
+      "instance": {
+        "outcome": "authenticated"
+      },
+      "meaning": "Agent/UI assertion of authentication outcome without required evidence details is structurally insufficient."
+    },
+    {
+      "id": "ACP-COMPLETE-WITHOUT-ORDER-REFUSED",
+      "artifactId": "acp-checkout-schema",
+      "pointer": "/$defs/CheckoutSessionWithOrder",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "required",
+      "instance": {
+        "id": "synthetic-checkout-1",
+        "protocol": {
+          "version": "2026-04-17"
+        },
+        "status": "authentication_required",
+        "currency": "eur",
+        "line_items": [
+          {
+            "id": "synthetic-line-1",
+            "item": {
+              "id": "synthetic-sku-1",
+              "name": "Synthetic item",
+              "unit_amount": 1250
+            },
+            "quantity": 1,
+            "totals": [
+              {
+                "type": "total",
+                "display_text": "Total",
+                "amount": 1250
+              }
+            ]
+          }
+        ],
+        "totals": [
+          {
+            "type": "total",
+            "display_text": "Total",
+            "amount": 1250
+          }
+        ],
+        "fulfillment_options": [],
+        "messages": [],
+        "links": [],
+        "capabilities": {
+          "interventions": {
+            "supported": [
+              "3ds"
+            ]
+          }
+        }
+      },
+      "meaning": "The complete endpoint HTTP200 references WithOrder; an authentication_required session without an order is not a valid response of that type."
+    },
+    {
+      "id": "AP2-EXACT-VCT",
+      "artifactId": "ap2-checkout-mandate-schema",
+      "pointer": "",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "const",
+      "instance": {
+        "vct": "mandate.checkout",
+        "checkout_jwt": "SYNTHETIC_UNSIGNED_CHECKOUT_JWT",
+        "checkout_hash": "SYNTHETIC_NOT_A_REAL_DIGEST"
+      },
+      "meaning": "The numeric vct suffix is required; old-looking type strings do not silently downgrade."
+    },
+    {
+      "id": "AP2-STRUCTURE-IS-NOT-SIGNATURE",
+      "artifactId": "ap2-checkout-mandate-schema",
+      "pointer": "",
+      "expectedSchemaValid": true,
+      "instance": {
+        "vct": "mandate.checkout.1",
+        "checkout_jwt": "SYNTHETIC_UNSIGNED_CHECKOUT_JWT",
+        "checkout_hash": "SYNTHETIC_NOT_A_REAL_DIGEST"
+      },
+      "meaning": "Schema acceptance does not establish JWT validity, trusted signatures, digest correctness or spend authorization."
+    },
+    {
+      "id": "AP2-NETWORKLESS-RECEIPT-CONFLICT",
+      "artifactId": "ap2-payment-receipt-schema",
+      "pointer": "",
+      "expectedSchemaValid": false,
+      "requiredErrorKeyword": "required",
+      "instance": {
+        "status": "Success",
+        "iss": "synthetic-processor",
+        "iat": 1794000000,
+        "reference": "SYNTHETIC_NOT_A_REAL_DIGEST",
+        "payment_id": "synthetic-payment-1",
+        "psp_confirmation_id": "synthetic-confirmation-1"
+      },
+      "meaning": "Pinned successful PaymentReceipt requires network_confirmation_id even where a network might not participate; profile decision or upstream clarification required."
+    }
+  ]
+}

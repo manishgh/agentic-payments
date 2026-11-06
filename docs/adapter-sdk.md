@@ -1,6 +1,6 @@
 # Adapter SDK design brief
 
-Status: proposed design work, with no SDK implementation or final Java API. Requirements refer to [extension 0.1.0-draft](../specification/0.1.0-draft/README.md); conformance cases are in the [test brief](simulator-and-conformance.md). Java is the proposed core/SDK language. Python LangGraph and TypeScript clients should use reviewed service contracts rather than duplicate payment authority.
+Status: broader SDK design target. A bounded Java local-fake SDK is implemented in [contracts and SDK implementation](contracts-implementation.md); generic provider profiles and certification remain incomplete. Requirements refer to [extension 0.1.0-draft](../specification/0.1.0-draft/README.md); conformance cases are in the [test brief](simulator-and-conformance.md). Python LangGraph and TypeScript clients use service contracts without duplicating payment authority.
 
 ## Responsibility boundary
 

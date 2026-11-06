@@ -18,6 +18,19 @@ ROOT = Path(__file__).resolve().parents[1]
 class HttpContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        from jsonschema import Draft202012Validator, FormatChecker
+        from referencing import Registry, Resource
+        from referencing.exceptions import NoSuchResource
+        from datetime import datetime
+        schemas = {file.name: json.loads(file.read_text()) for file in (ROOT / "specification/0.1.0-draft/schemas").glob("*.json")}
+        def no_network(uri):
+            raise NoSuchResource(ref=uri)
+        registry = Registry(retrieve=no_network).with_resources((schema["$id"], Resource.from_contents(schema)) for schema in schemas.values())
+        formats = FormatChecker()
+        @formats.checks("date-time", raises=ValueError)
+        def date_time(value):
+            return not isinstance(value, str) or datetime.fromisoformat(value).tzinfo is not None
+        cls.validators = {name: Draft202012Validator(schema, registry=registry, format_checker=formats) for name, schema in schemas.items()}
         for name in ("PAYMENTS_DB_URL", "PAYMENTS_DB_USER", "PAYMENTS_DB_PASSWORD"):
             if not os.environ.get(name):
                 raise RuntimeError("PostgreSQL test configuration is required.")
@@ -63,9 +76,43 @@ class HttpContractTests(unittest.TestCase):
         request = Request(self.base + "/internal/v0.1" + path, data=payload, headers=values)
         try:
             with urlopen(request, timeout=5) as response:
-                return response.status, json.load(response), dict(response.headers)
+                return self.checked_response(path, payload is not None, response)
         except HTTPError as response:
-            return response.code, json.load(response), dict(response.headers)
+            return self.checked_response(path, payload is not None, response)
+
+    def checked_response(self, path, is_post, response):
+        status, body = response.status, json.load(response)
+        if status >= 400:
+            schema = "error-response"
+        elif path == "/intents":
+            schema = "create-response"
+        elif path.endswith("/checkout"):
+            schema = "get-checkout-response"
+        elif is_post:
+            name = path.rsplit("/", 1)[1]
+            schema = ("complete-action" if name == "complete" else name) + "-response"
+        else:
+            schema = "get-action-response" if path.startswith("/actions/") else "get-intent-response"
+        errors = list(self.validators[schema + ".schema.json"].iter_errors(body))
+        self.assertFalse(errors, f"Actual HTTP {schema} violates its versioned schema ({len(errors)} errors).")
+        return status, body, dict(response.headers)
+
+    def test_revocation_response_and_released_exposure(self):
+        intent = self.create()
+        status, quote, _ = self.request(f"/intents/{intent}/quote", {
+            "expectedVersion": 1, "cartFixtureId": "cart-1250-usd",
+            "tenders": [{"provider": "simulator", "method": "synthetic-card", "credentialReference": "fixture-credential-1"}]})
+        self.assertEqual(200, status)
+        status, approval, _ = self.request(f"/intents/{intent}/approve", {
+            "expectedVersion": quote["version"], "checkoutRevision": quote["checkoutRevision"],
+            "checkoutDigest": quote["checkoutDigest"], "authorityReference": "fixture-grant-usd"}, trusted=True)
+        self.assertEqual(200, status, approval)
+        status, revoked, _ = self.request("/authorities/fixture-grant-usd/revoke", {"reason": "user-request"}, trusted=True)
+        self.assertEqual(200, status, revoked)
+        self.assertTrue(revoked["futureAdmissionBlocked"])
+        _, payment, _ = self.request(f"/intents/{intent}")
+        self.assertEqual("CANCELLED", payment["state"])
+        self.assertEqual("RELEASED", payment["exposureState"])
 
     def create(self, scenario="success", key=None):
         request = dict(merchantId="merchant-demo", scenarioId=scenario,

@@ -1,0 +1,70 @@
+{
+  "formatVersion": "bridge-profile-constraints-0.1",
+  "profileId": "ap2-v0.2-acp-2026-04-17-single-tender-candidate",
+  "status": "design-candidate-blocked",
+  "runtimeEnabled": false,
+  "interoperabilityClaim": false,
+  "syntheticEvidenceOnly": true,
+  "sources": {
+    "lock": "source-lock.json",
+    "ap2Version": "v0.2.0",
+    "ap2Commit": "b4587ac1d055888a73b4b21750973cffba961793",
+    "acpVersion": "2026-04-17",
+    "acpCommit": "7fdd78df677a94dce04c770644b0fbbb1401272b"
+  },
+  "advertisedSupportedCombinations": [],
+  "candidateScope": {
+    "mode": "direct-human-present-only",
+    "tenders": 1,
+    "currencies": [
+      "EUR",
+      "USD"
+    ],
+    "currencyExponent": 2,
+    "positiveFullAmountRequired": true,
+    "fx": false,
+    "splitFunding": false,
+    "refund": false,
+    "autonomousDelegation": false,
+    "authentication": "3ds2-browser-native-only-if-negotiated-and-verified"
+  },
+  "requiredBindings": [
+    "tenant-and-run-scope",
+    "trusted-merchant-origin-and-signing-key",
+    "exact-ACP-version-and-frozen-checkout-bytes",
+    "merchant-signed-checkout-JWT",
+    "AP2-checkout-hash-and-payment-transaction-id-equality",
+    "payee-and-amount-and-instrument",
+    "expiry-and-audience-and-replay-policy",
+    "ACP-session-handler-and-allowance",
+    "single-execution-owner-and-stable-idempotency",
+    "verified-authentication-session-and-provider-result"
+  ],
+  "proposedTransport": {
+    "checkoutPayload": "Unmodified pinned ACP CheckoutSession in merchant-signed JWT, requiring an agreed AP2 Checkout Object extension/profile.",
+    "mandates": "Authenticated bridge sidecar scoped to checkout-session/revision/digest; no undeclared ACP top-level fields.",
+    "credentials": "Vault/trusted-UI/merchant payment boundary; never graph/checkpoint/log context.",
+    "receipts": "Authenticated signed-evidence store; graph sees opaque references and safe normalized state."
+  },
+  "cryptographicImplementationEnabled": false,
+  "proposedHash": "sha-256 consistent with pinned AP2 _sd_alg profile; exact serialized checkout_jwt value, not reserialized JSON.",
+  "requiredReviewDecisions": [
+    "SD-JWT/delegate-SD-JWT normative revisions and conformance vectors",
+    "JOSE algorithm and randomized merchant-signature requirements",
+    "merchant/user/agent-provider trust anchors, rotation, revocation and nonce/audience policy",
+    "AP2-to-ACP negotiated checkout-object and mandate transport contract",
+    "released-schema contradictions and complete/authentication continuation responses",
+    "vault/instrument schema and provider account/enrollment permissions",
+    "PSP idempotency/lookup/event retention and unknown-outcome recovery",
+    "independent Astra protocol/security review"
+  ],
+  "forbiddenFallbacks": [
+    "local-fake authority presented as real AP2",
+    "raw credentials or OTPs in model context",
+    "invented ACP statuses or provider enum values",
+    "replacing AP2 authority with 3DS or vice versa",
+    "second PSP charge after external merchant completion timeout",
+    "NOT_FOUND interpreted as proof of no effect",
+    "project results presented as vendor/PCI/regulatory/network certification"
+  ]
+}

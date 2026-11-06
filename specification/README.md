@@ -1,6 +1,6 @@
 # Extension specification versions
 
-Status: documentation foundation. The [0.1.0 draft](0.1.0-draft/README.md) is a proposed requirements baseline for review, not a published protocol, executable schema, SDK release, or compatibility claim.
+Status: reviewed draft requirements with executable local-profile schemas, fixtures and a Java SDK reference. The [0.1.0 draft](0.1.0-draft/README.md) is not a published external standard or package release. Implemented and incomplete obligations are separated in the evidence report.
 
 The enclosing platform payment-intent workflow is AP2-based and embeds OpenAI agentic checkout. This project proposes a separate extension contract between the platform core, adapters, and trusted customer-action surfaces. It does not amend AP2 or OpenAI checkout. An adapter supporting a provider internally does not make that provider available through an external protocol.
 
@@ -14,6 +14,6 @@ The enclosing platform payment-intent workflow is AP2-based and embeds OpenAI ag
 
 ## Normative scope
 
-`MUST`, `MUST NOT`, and `SHOULD` in the draft express proposed project requirements. They become an implementation target only after design review accepts a pinned revision. Examples, conceptual operation names, evidence field proposals, and roadmap entries are nonnormative. There are no executable JSON Schemas, OpenAPI files, Java APIs, fixtures, or test runner in this milestone.
+`MUST`, `MUST NOT`, and `SHOULD` express project requirements. The accepted local profile has executable JSON Schemas, Java APIs, fixtures and an evidence runner. Examples, conceptual future operations and roadmap entries remain nonnormative. Missing evidence is not an implicit conformance pass.
 
-The design gate must pin upstream revisions, settle cryptographic integration and execution ownership, define schemas and errors, and review migration/security effects before implementation. The [adapter brief](../docs/adapter-sdk.md) and [simulator/conformance brief](../docs/simulator-and-conformance.md) describe the next design work.
+The separate real-protocol gate must pin upstream revisions and settle cryptographic integration, execution ownership and wire mappings. The [adapter brief](../docs/adapter-sdk.md) and [simulator/conformance brief](../docs/simulator-and-conformance.md) preserve the broader target; [current status](../docs/status.md) identifies actual support.

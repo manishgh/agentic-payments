@@ -6,14 +6,14 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 
 ## Implemented
 
-- Versioned extension requirements, 20 JSON Schema contracts and canonical positive/negative fixtures.
-- Java adapter SDK and explicit capability negotiation for `local-fake-single-tender-0.1`.
+- Versioned extension requirements, 21 JSON Schema contracts and canonical positive/negative fixtures.
+- Java SDK with local execution ports, extensible provider/method/action descriptors and a reusable adapter TCK.
 - Atomic reservations, scoped idempotency, one execution owner and normalized PostgreSQL persistence.
 - Durable simulator journal, trusted challenges, revocation, unknown-outcome recovery and conflicting-evidence handling.
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
 - Automated database, HTTP, UI, schema and workflow checks with version-bound evidence and CI.
 
-The SDK currently accepts only its synthetic profile. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
+Execution currently accepts only the synthetic profile. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
 
 ## Run locally on Windows
 
@@ -23,6 +23,7 @@ Requirements: PowerShell 7, Python 3.12, Node.js 24/npm and Git. Bootstrap insta
 ./scripts/Bootstrap-Toolchain.ps1
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r workflows/requirements-lock.txt
+.venv/Scripts/python.exe integrations/upstream/probe_contracts.py --fetch
 ./scripts/Start-Platform.ps1
 ```
 
@@ -65,6 +66,7 @@ The report explicitly returns `NOT_CERTIFIED`: seeded multi-intent replay and pa
 - [Status and remaining work](docs/status.md), [roadmap](docs/roadmap.md), [backlog](docs/backlog.md)
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
+- [Generic extensions and adapter TCK](docs/extensions-and-tck.md), [pinned upstream bridge design](docs/ap2-acp-bridge-design.md)
 - [Independent core review](docs/reviews/0006-reference-code-review.md), [client/tooling review](docs/reviews/0007-client-tooling-review.md), [gate decisions](docs/reviews/gates.md)
 
 Public licensing and package distribution remain explicit release decisions; no open-source license has been selected. Reviewed source is pushed to milestone branches. No automatic merge, package release, deployment or live-money execution is performed.

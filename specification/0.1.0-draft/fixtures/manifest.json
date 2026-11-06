@@ -243,6 +243,30 @@
       "schema": "../schemas/quote-response.schema.json",
       "valid": false,
       "reason": "Calendar-invalid timestamps fail format assertions even when their spelling matches the UTC pattern."
+    },
+    {
+      "file": "valid/adapter-descriptor.json",
+      "schema": "../schemas/adapter-descriptor.schema.json",
+      "valid": true,
+      "reason": "Generic metadata declares explicit capability tuples without enabling execution."
+    },
+    {
+      "file": "invalid/descriptor-implicit-action.json",
+      "schema": "../schemas/adapter-descriptor.schema.json",
+      "valid": false,
+      "reason": "Authentication absence must be explicit none, not an empty action set."
+    },
+    {
+      "file": "invalid/descriptor-network-endpoint.json",
+      "schema": "../schemas/adapter-descriptor.schema.json",
+      "valid": false,
+      "reason": "Registry descriptors cannot supply network endpoints."
+    },
+    {
+      "file": "invalid/descriptor-trailing-newline.json",
+      "schema": "../schemas/adapter-descriptor.schema.json",
+      "valid": false,
+      "reason": "Identifier patterns require absolute end, rejecting a final line break."
     }
   ],
   "bindingFixtures": [

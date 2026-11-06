@@ -1,6 +1,6 @@
 # First implementation slice: persisted synthetic approval
 
-Status: implementation task specification, not implemented. Execute only within the accepted design scope recorded in [gate decisions](reviews/gates.md).
+Status: implemented for the bounded local profile; retained as the original acceptance task. See [implementation evidence](implementation-evidence.md) and [gate decisions](reviews/gates.md) for the later execution scope and actual validation.
 
 ## Outcome
 
