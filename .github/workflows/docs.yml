@@ -1,0 +1,21 @@
+name: Documentation checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified 2026-11-06
+        with:
+          persist-credentials: false
+      - name: Validate documentation
+        shell: pwsh
+        run: ./scripts/Check-Docs.ps1

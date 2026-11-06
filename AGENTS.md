@@ -1,0 +1,39 @@
+# Project agent instructions
+
+## Purpose and sequence
+
+Build a versioned agentic-payment extension specification, adapter SDK, deterministic simulator, conformance/certification suite and reference implementation. The enclosing AP2-based platform payment-intent workflow embeds OpenAI agentic checkout. Payment authentication, including 3DS or provider 2FA, is part of execution. Preserve this composition.
+
+Work in order: documentation and requirements -> reviewed design -> implementation in tested vertical slices. The current milestone is documentation foundation. Do not describe planned components as implemented or certified.
+
+## Required reading
+
+Read README.md and relevant docs before work. In this workspace also follow C:/project/engineering_standards.md; do not publish that workspace file. Keep this repository self-contained with the rules below.
+
+## Agent assignments
+
+- User requests GPT-6.1 Sol (`gpt-6.1-sol`) at high reasoning for bounded documentation, design, implementation and tests.
+- Use GPT-6 Astra (`gpt-6-astra`) for complex protocol composition, authorization/cryptographic boundaries, concurrency, recovery and independent design reviews. Prefer high reasoning unless the task warrants more.
+- Supply explicit context with model overrides. Give agents disjoint file ownership. Integration owner reviews all changes.
+
+## Engineering boundaries
+
+- Proposed stack: Java payment core/SDK, Python LangGraph reference workflow, TypeScript trusted UI, PostgreSQL transaction storage. Record language/framework decisions as proposed until the design milestone resolves them.
+- Use a modular core with domain/application/ports/infrastructure boundaries; domain code cannot depend on providers, persistence or orchestration.
+- A payment has one execution owner. Never initiate a second charge simply because checkout or a provider timed out.
+- Provider, method, credential and customer-action capabilities are separate; unknown required capabilities fail closed.
+- Keep graph checkpoints separate from payment truth. Use exact money, atomic reservations, scoped idempotency and verified external events.
+- Never send credentials, OTPs, private keys or sensitive payment payloads to model context or logs. Use synthetic fixtures only.
+- No live money movement in development. Sandbox integrations must be explicit.
+- Compatibility and conformance claims must name the exact version/profile and evidence. Project certification is not PCI, regulatory, network or vendor certification.
+- Keep patches and commits focused; document changed contracts, dependency rationale, errors, migrations and security consequences. Do not disable checks or introduce unrelated refactoring.
+
+## Git and publication
+
+The user authorized incremental pushes to https://github.com/manishgh/agentic-payments.git, verified initially empty on 2026-11-06. Push reviewed milestone branches without force, preserving existing remote history. Do not merge or deploy merely because a push was authorized.
+
+Do not select a public license or publish package releases silently. Record licensing as an open release decision; documentation work can proceed. No secrets, local credentials or workspace-private files in commits.
+
+## Validation and reporting
+
+There is no application build yet. Run `pwsh -NoProfile -File scripts/Check-Docs.ps1` and `git diff --check`. Once implementation begins, document exact runnable build/test commands and run relevant unit, integration, contract and failure-recovery checks. Report files changed, checks actually run, current milestone, limitations and the next bounded task.

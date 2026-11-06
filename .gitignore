@@ -1,0 +1,26 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+
+# Build and development output
+.idea/
+.vscode/
+.venv/
+__pycache__/
+*.pyc
+target/
+build/
+dist/
+node_modules/
+.pytest_cache/
+.coverage
+coverage/
+*.log
+.DS_Store
+Thumbs.db
