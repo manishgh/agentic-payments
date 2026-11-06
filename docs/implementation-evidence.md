@@ -40,3 +40,26 @@ The staged SDK/TCK/upstream checkpoint was exported with `git archive` into an i
 All eight aggregate stages passed: 67 Java tests with no failures/errors/skips, eight HTTP tests, three UI regressions, 12 LangGraph tests, four upstream integrity tests and 12 structural probes. Contracts covered 21 schemas, 17 positive, 27 schema-negative, six binding-negative and one parser-negative fixture. The separately executed JDBC adapter TCK passed its four selected cases and retained its exact plan and evaluated capabilities. `jdeps -summary` found only `java.base` for the built adapter SDK classifier JAR; release POM separation remains required before package publication.
 
 [Independent SDK/TCK review](reviews/0008-extension-tck-review.md) accepted the bounded source after corrections. [Independent upstream review](reviews/0009-upstream-bridge-review.md) accepted only the pinned research and a separate offline artifact-lab contract. This checkpoint does not include replay implementation or the artifact lab. Its certification verdict remains **NOT_CERTIFIED**; structural schema acceptance is not cryptographic or wire interoperability evidence.
+
+Published as `0f60d93de1045967a48a65c521ceae0abf7bcfe1` on the implementation branch. Hosted [reference checks](https://github.com/manishgh/agentic-payments/actions/runs/42307004050) and [documentation checks](https://github.com/manishgh/agentic-payments/actions/runs/42307004092) both passed for that exact commit.
+
+## Integrated replay and offline artifact checkpoint
+
+Date: 2026-11-07, Europe/Berlin. The integration owner ran `python scripts/conformance.py` against a fresh PostgreSQL database after independent replay, artifact-lab and integration-tooling acceptance. Run `b46fbaca340140e8a10db197970afa55` passed all 11 stages with identical before/after source-manifest SHA-256 `66121c775907dbccce4d1ffd439c990ca00e0eda3c60d307f3891efd93fd3d89`. The 219-file manifest now sorts complete POSIX path strings, making its ordering portable across Windows and Linux. Historical hashes above retain their original runner semantics.
+
+| Check | Observed result |
+| --- | --- |
+| Java/PostgreSQL | 99 tests, no failures/errors/skips: 33 core/boundary, two operation-binding, 21 replay/plan, 43 SDK/checkout/descriptor/TCK. All six migrations applied to the fresh database. |
+| Crash and clock boundaries | Real JVM halt after independent journal commit; two fresh recovery processes preserve one effect. Six PostgreSQL lock-order cases cover clock versus approval, admission and customer action. |
+| Replay CLI | Two-intent example passed with raw invariants and normalized core/journal/audit/combined digests. Separate integration tests compare fresh runs and retain failed/incomplete evidence. |
+| Adapter TCK and package | JDBC CLI passed four selected cases with plan provenance; SDK JAR inspection reports only java.base. |
+| Offline lab | 26 tests and the safe demo passed; merchant signature/content checks retain native AP2 authority, interoperability and dispatch as false. |
+| Upstream | Five integrity tests, 11 exact cached schema files and 12 structural probes passed without runtime downloads. |
+| Clients | Eight HTTP, three UI and 12 LangGraph tests passed, including fresh Python workflow processes. |
+| Draft contracts | 21 schemas; 17 positive, 27 schema-negative, six binding-negative and one parser-negative fixture passed. |
+
+The 11-stage run includes 153 test methods across Java, HTTP, UI, LangGraph, lab and upstream-integrity suites; structural probes, fixture checks and CLI executions are recorded separately. Documentation and staged whitespace checks also passed. Generated evidence and logs remain in ignored target/conformance and the per-run tools archive; they contain no provider credentials.
+
+[Replay review 0010](reviews/0010-replay-code-review.md), [artifact review 0011](reviews/0011-offline-artifact-code-review.md) and [integration review 0012](reviews/0012-integration-tooling-review.md) record exact identities and independent review limits. The owner independently reproduced the replay source/test, lab and integration group hashes before publication. Final review findings were fixed before this aggregate run.
+
+Result: **preview checks PASS; NOT_CERTIFIED**. Authenticated conflicts, disputed exposure and frozen budgets fail replay normalization without an equality digest; their reproducible safe-conflict projection remains unfinished. The complete adversarial/privacy and process-crash matrix, certification policy, real AP2/ACP authority/wire integration, provider connectors, split tender/refunds and managed operations remain separate work. Hosted validation for this checkpoint is attached to its GitHub commit; prior hosted runs above validate only their named earlier revisions.

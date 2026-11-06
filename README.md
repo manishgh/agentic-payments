@@ -10,6 +10,8 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Java SDK with local execution ports, extensible provider/method/action descriptors and a reusable adapter TCK.
 - Atomic reservations, scoped idempotency, one execution owner and normalized PostgreSQL persistence.
 - Durable simulator journal, trusted challenges, revocation, unknown-outcome recovery and conflicting-evidence handling.
+- Recorded multi-intent replay with seeded choices, crash/recovery tests and normalized evidence digests.
+- Isolated offline lab for exact signed checkout bytes, pinned schema checks and durable synthetic sidecar bindings.
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
 - Automated database, HTTP, UI, schema and workflow checks with version-bound evidence and CI.
 
@@ -23,7 +25,8 @@ Requirements: PowerShell 7, Python 3.12, Node.js 24/npm and Git. Bootstrap insta
 ./scripts/Bootstrap-Toolchain.ps1
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r workflows/requirements-lock.txt
-.venv/Scripts/python.exe integrations/upstream/probe_contracts.py --fetch
+.venv/Scripts/python.exe -m pip install -r integrations/offline_lab/requirements-crypto.lock.txt
+.venv/Scripts/python.exe integrations/upstream/probe_contracts.py --fetch --include-offline-lab
 ./scripts/Start-Platform.ps1
 ```
 
@@ -59,7 +62,7 @@ git diff --check
 
 The evidence runner uses real PostgreSQL, isolated HTTP services and fresh Python processes. Results go to ignored `target/conformance/`. Missing database configuration, failed checks or source mutation during validation fail the run.
 
-The report explicitly returns `NOT_CERTIFIED`: seeded multi-intent replay and parts of the full adversarial/privacy matrix remain incomplete. `--require-certification` fails until those obligations and certification policy are satisfied. Project evidence grants no provider, AP2/ACP, PCI, regulatory or network certification.
+The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/privacy matrix and certification policy remain incomplete. `--require-certification` fails until those obligations are satisfied. Project evidence grants no provider, AP2/ACP, PCI, regulatory or network certification.
 
 ## Documentation
 
@@ -67,6 +70,7 @@ The report explicitly returns `NOT_CERTIFIED`: seeded multi-intent replay and pa
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
 - [Generic extensions and adapter TCK](docs/extensions-and-tck.md), [pinned upstream bridge design](docs/ap2-acp-bridge-design.md)
+- [Recorded simulator replay](docs/replay.md), [offline artifact lab](docs/offline-artifact-lab.md)
 - [Independent core review](docs/reviews/0006-reference-code-review.md), [client/tooling review](docs/reviews/0007-client-tooling-review.md), [gate decisions](docs/reviews/gates.md)
 
 Public licensing and package distribution remain explicit release decisions; no open-source license has been selected. Reviewed source is pushed to milestone branches. No automatic merge, package release, deployment or live-money execution is performed.

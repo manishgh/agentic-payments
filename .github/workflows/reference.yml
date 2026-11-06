@@ -50,9 +50,10 @@ jobs:
       - name: Install pinned client dependencies
         run: |
           python -m pip install -r workflows/requirements-lock.txt
+          python -m pip install -r integrations/offline_lab/requirements-crypto.lock.txt
           npm ci --ignore-scripts --prefix ui
       - name: Hydrate immutable upstream schema probes
-        run: python integrations/upstream/probe_contracts.py --fetch
+        run: python integrations/upstream/probe_contracts.py --fetch --include-offline-lab
       - name: Run version-bound reference evidence suite
         run: python scripts/conformance.py
       - name: Show evidence summary

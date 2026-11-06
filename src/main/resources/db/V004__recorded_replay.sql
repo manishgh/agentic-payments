@@ -1,0 +1,17 @@
+ALTER TABLE simulation_runs ADD COLUMN execution_mode text NOT NULL DEFAULT 'INTERACTIVE' CHECK(execution_mode IN ('INTERACTIVE','REPLAY'));
+ALTER TABLE simulation_runs ADD COLUMN replay_owner uuid;
+ALTER TABLE simulation_runs ADD COLUMN next_work_sequence bigint NOT NULL DEFAULT 0;
+ALTER TABLE simulation_runs ADD COLUMN next_intent_sequence bigint NOT NULL DEFAULT 0;
+ALTER TABLE simulation_runs ADD COLUMN sequence_origin text NOT NULL DEFAULT 'LEGACY' CHECK(sequence_origin IN ('LEGACY','RECORDED'));
+ALTER TABLE payment_intents ADD COLUMN creation_sequence bigint;
+WITH initial_order AS (SELECT i.tenant_id,i.run_id,i.intent_id,row_number() OVER(PARTITION BY i.tenant_id,i.run_id ORDER BY COALESCE(min(a.step_sequence),9223372036854775807),i.intent_id) AS seq FROM payment_intents i LEFT JOIN audit_events a ON a.tenant_id=i.tenant_id AND a.run_id=i.run_id AND a.intent_id=i.intent_id AND a.state='DRAFT' GROUP BY i.tenant_id,i.run_id,i.intent_id) UPDATE payment_intents i SET creation_sequence=o.seq FROM initial_order o WHERE i.tenant_id=o.tenant_id AND i.run_id=o.run_id AND i.intent_id=o.intent_id;
+ALTER TABLE payment_intents ALTER COLUMN creation_sequence SET NOT NULL;
+ALTER TABLE payment_intents ADD CONSTRAINT intent_creation_sequence_unique UNIQUE(tenant_id,run_id,creation_sequence);
+ALTER TABLE outbox ADD COLUMN enqueue_sequence bigint;
+WITH historical_order AS (SELECT tenant_id,run_id,operation_id,kind,row_number() OVER(PARTITION BY tenant_id,run_id ORDER BY CASE kind WHEN 'PREPARE' THEN 0 WHEN 'DISPATCH' THEN 1 ELSE 2 END,operation_id,kind) AS seq FROM outbox) UPDATE outbox w SET enqueue_sequence=h.seq FROM historical_order h WHERE w.tenant_id=h.tenant_id AND w.run_id=h.run_id AND w.operation_id=h.operation_id AND w.kind=h.kind;
+ALTER TABLE outbox ALTER COLUMN enqueue_sequence SET NOT NULL;
+ALTER TABLE outbox ADD CONSTRAINT work_enqueue_sequence_unique UNIQUE(tenant_id,run_id,enqueue_sequence);
+UPDATE simulation_runs r SET next_work_sequence=COALESCE((SELECT max(enqueue_sequence) FROM outbox w WHERE w.tenant_id=r.tenant_id AND w.run_id=r.run_id),0),next_intent_sequence=COALESCE((SELECT max(creation_sequence) FROM payment_intents i WHERE i.tenant_id=r.tenant_id AND i.run_id=r.run_id),0);
+CREATE TABLE replay_runs (tenant_id text NOT NULL,run_id uuid NOT NULL,execution_id uuid NOT NULL UNIQUE,logical_name text NOT NULL,seed text NOT NULL,canonical_plan text NOT NULL,plan_digest text NOT NULL,configuration_digest text NOT NULL,core_digest text NOT NULL,adapter_digest text NOT NULL,catalog_digest text NOT NULL,normalizer_digest text NOT NULL,initial_clock timestamptz NOT NULL,owner_id uuid NOT NULL,state text NOT NULL CHECK(state IN ('RUNNING','PASS','FAIL','INCOMPLETE')),final_report text,PRIMARY KEY(tenant_id,run_id),FOREIGN KEY(tenant_id,run_id) REFERENCES simulation_runs);
+CREATE TABLE replay_steps (tenant_id text NOT NULL,run_id uuid NOT NULL,ordinal int NOT NULL,label text NOT NULL,action text NOT NULL,request_digest text NOT NULL,state text NOT NULL CHECK(state IN ('STARTED','DONE','FAILED')),safe_receipt text,PRIMARY KEY(tenant_id,run_id,ordinal),UNIQUE(tenant_id,run_id,label),FOREIGN KEY(tenant_id,run_id) REFERENCES replay_runs);
+CREATE TABLE replay_aliases (tenant_id text NOT NULL,run_id uuid NOT NULL,kind text NOT NULL,alias text NOT NULL,physical_id uuid NOT NULL,PRIMARY KEY(tenant_id,run_id,kind,alias),UNIQUE(tenant_id,run_id,kind,physical_id),FOREIGN KEY(tenant_id,run_id) REFERENCES replay_runs);

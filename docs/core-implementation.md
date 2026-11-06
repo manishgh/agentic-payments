@@ -87,6 +87,17 @@ Example when the environment is already configured:
 The full Java suite passed after the safety fixes; the exact current command/count and source identity belong in the integration-owner test report.
 Tests use explicit latches for reviewed ordering gaps and virtual time for expiry, rather than timing sleeps.
 
+`DurableBoundaryIntegrationTest` adds executable evidence beyond service-object reconstruction:
+
+- A fresh JVM executes the already-persisted operation and abruptly calls `Runtime.halt(73)` immediately after the independent journal commits success, before a fact reaches core.
+- Parent-side database witnesses then prove ADMITTED/HELD, one journal success and zero core evidence. A second fresh JVM reconnects and consumes once; a third replays recovery without another charge or consumption.
+- Test credentials travel only through inherited environment variables. Child arguments contain mode and nonsecret resource IDs; output is limited to safe outcome markers.
+- A test-only DataSource proxy holds the actual PostgreSQL run-row lock while a competing command attempts it. Both deterministic commit orders are tested for clock advance versus quote approval, grant admission and trusted action completion at exact expiry.
+- Trusted checkout refuses wrong subject, merchant scope, tenant, run, grant scope and role; denial creates no attempt or budget exposure.
+- Authenticated wrong-binding and lower-sequence contradictory final facts preserve safe conflict evidence and freeze the budget; a distinct stale pending event cannot regress success or replace its accepted proof.
+
+These eleven boundary tests passed against local PostgreSQL. They do not add production fault hooks or a public event injection endpoint.
+
 ## Limits and remaining verification
 
 `JdbcPaymentStore` currently combines transactional use-case coordination and SQL repository work behind the application port.
@@ -95,7 +106,8 @@ The local scope requires the complete exact simulator capability offer; broader 
 Run seeding and runner authentication are local fixture mechanisms, not production identity, enrollment or authorization services.
 The journal-backed verifier establishes local adapter trust only; it is not cryptographic provider webhook verification.
 The integration tests cover selected deliberate conflicts through a trusted injected test adapter unavailable to HTTP callers.
-They do not constitute exhaustive provider-state, cryptographic, secret-canary, process-kill or complete deterministic-replay evidence.
+One actual abrupt-JVM commit-gap/recovery path is tested; this does not cover every possible process-kill point or every provider state.
+Cryptographic, broad secret-canary and complete deterministic-replay evidence remain outside these boundary tests.
 In particular, a seed/config/schedule evidence runner and normalized whole-run replay digest still require further CT-011 work.
 Relevant core fault tests are evidence for their named cases, not a claim that all CT-001 through CT-012 pass.
 Project certification, real provider compatibility, managed availability and live operation remain unclaimed and separately gated.

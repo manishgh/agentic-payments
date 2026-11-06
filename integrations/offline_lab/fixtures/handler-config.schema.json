@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "merchant_id": {
+      "const": "synthetic-merchant-1"
+    },
+    "environment": {
+      "const": "offline-only"
+    }
+  },
+  "required": [
+    "merchant_id",
+    "environment"
+  ],
+  "additionalProperties": false
+}

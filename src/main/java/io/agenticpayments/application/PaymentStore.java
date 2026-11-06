@@ -18,5 +18,6 @@ public interface PaymentStore {
     void seedRun(Session session,Instant clock,long budget);
     void advanceClock(Session session,Instant clock);
     boolean runNext(Session session);
+    WorkerReceipt runNextRecorded(Session session);
     void reconcile(Session session,UUID id,boolean sealIfAbsent);
 }

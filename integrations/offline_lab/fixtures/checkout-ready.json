@@ -1,0 +1,60 @@
+{
+  "id": "synthetic-checkout-1",
+  "protocol": {
+    "version": "2026-04-17"
+  },
+  "status": "ready_for_payment",
+  "currency": "eur",
+  "line_items": [
+    {
+      "id": "synthetic-line-1",
+      "item": {
+        "id": "synthetic-sku-1",
+        "name": "Synthetic item",
+        "unit_amount": 1250
+      },
+      "quantity": 1,
+      "totals": [
+        {
+          "type": "total",
+          "display_text": "Total",
+          "amount": 1250
+        }
+      ]
+    }
+  ],
+  "totals": [
+    {
+      "type": "total",
+      "display_text": "Total",
+      "amount": 1250
+    }
+  ],
+  "fulfillment_options": [],
+  "messages": [],
+  "links": [],
+  "capabilities": {
+    "payment": {
+      "handlers": [
+        {
+          "id": "synthetic-handler-1",
+          "name": "invalid.example.synthetic.card",
+          "version": "2026-04-17",
+          "spec": "https://merchant.example.invalid/handler",
+          "requires_delegate_payment": false,
+          "requires_pci_compliance": false,
+          "psp": "synthetic-psp",
+          "config_schema": "https://merchant.example.invalid/config.schema.json",
+          "instrument_schemas": [
+            "https://merchant.example.invalid/instrument.schema.json"
+          ],
+          "config": {
+            "merchant_id": "synthetic-merchant-1",
+            "environment": "offline-only"
+          }
+        }
+      ]
+    }
+  },
+  "expires_at": "2026-11-06T10:30:00Z"
+}

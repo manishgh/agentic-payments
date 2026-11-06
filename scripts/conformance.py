@@ -27,6 +27,7 @@ def source_identity():
                 continue
             entries.append((file.relative_to(ROOT).as_posix(), hashlib.sha256(file.read_bytes()).hexdigest()))
     entries.append(("pom.xml", hashlib.sha256((ROOT / "pom.xml").read_bytes()).hexdigest()))
+    entries.sort(key=lambda entry: entry[0])
     encoded = json.dumps(entries, separators=(",", ":")).encode()
     return {"sha256": hashlib.sha256(encoded).hexdigest(), "files": dict(entries)}
 
@@ -58,9 +59,12 @@ def main():
     steps = [
         ("contracts", [sys.executable, "scripts/validate_contracts.py"], ROOT),
         ("upstream-integrity", [sys.executable, "integrations/upstream/test_probes.py"], ROOT),
-        ("upstream-structural", [sys.executable, "integrations/upstream/probe_contracts.py"], ROOT),
+        ("upstream-structural", [sys.executable, "integrations/upstream/probe_contracts.py", "--include-offline-lab"], ROOT),
+        ("offline-artifacts", [sys.executable, "-m", "unittest", "discover", "-s", "integrations/offline_lab/tests", "-v"], ROOT),
+        ("offline-artifact-demo", [sys.executable, "-m", "integrations.offline_lab"], ROOT),
         ("java-postgresql", [maven, "-B", "-ntp", "clean", "verify", "dependency:build-classpath", "-Dmdep.outputFile=target/classpath.txt"], ROOT),
         ("adapter-tck", lambda: java_entrypoint("io.agenticpayments.infrastructure.tck.TckMain"), ROOT),
+        ("recorded-replay", lambda: java_entrypoint("io.agenticpayments.replay.ReplayMain", "--demo"), ROOT),
         ("trusted-ui", [npm, "test"], ROOT / "ui"),
         ("http", [sys.executable, "scripts/test_http.py"], ROOT),
         ("langgraph", [sys.executable, "-m", "unittest", "workflows.test_payment_workflow", "workflows.test_live", "-v"], ROOT),
@@ -71,7 +75,7 @@ def main():
         print(f"Running {name}...", flush=True)
         # Maven clean removes target; keep open logs outside it and copy them after checks.
         log = log_root / f"{name}.log"
-        if name in {"adapter-tck", "http", "langgraph"} and not any(result["name"] == "java-postgresql" and result["outcome"] == "PASS" for result in results):
+        if name in {"adapter-tck", "recorded-replay", "http", "langgraph"} and not any(result["name"] == "java-postgresql" and result["outcome"] == "PASS" for result in results):
             log.write_text("Incomplete: the required Java/database build did not pass.\n", encoding="utf-8")
             results.append({"name": name, "outcome": "INCOMPLETE", "exitCode": 125, "durationSeconds": 0, "log": log.name})
             continue
@@ -116,11 +120,11 @@ def main():
             "CT-008": "NOT_APPLICABLE: split/voucher profile unsupported; baseline refusal is tested.",
             "CT-009": "Revocation, virtual expiry and admission-order checks.",
             "CT-010": "Synthetic canary checks in HTTP/checkpoints; comprehensive logging/action-secret coverage remains incomplete.",
-            "CT-011": "PARTIAL: explicit virtual clock and isolated runs; seeded multi-intent schedule replay is not implemented.",
+            "CT-011": "Recorded seeded multi-intent schedules, raw invariant checks and normalized state/journal digest equality; bounded local recipes. Authenticated conflicts fail closed without equality digests.",
             "CT-012": "Source-bound evidence, failures, limitations and optional exclusions retained."
         },
         "requiredBeforeCertification": [
-            "Seeded multi-intent recorded-schedule replay with normalized state/journal digest equality.",
+            "Reviewed normalized replay evidence for authenticated conflicts, disputed exposure and frozen budgets.",
             "Complete CT-006 and CT-010 adversarial evidence matrix and independent acceptance.",
             "Reviewed certification policy and public release licensing decision."
         ],

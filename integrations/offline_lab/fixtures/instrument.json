@@ -1,0 +1,8 @@
+{
+  "id": "synthetic-instrument-1",
+  "type": "synthetic-card",
+  "credential": {
+    "type": "synthetic-reference",
+    "token": "SYNTHETIC_NON_USABLE_TOKEN"
+  }
+}

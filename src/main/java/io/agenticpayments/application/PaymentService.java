@@ -30,5 +30,6 @@ public final class PaymentService {
     public void seedRun(Session s,Instant clock,long budget) { store.seedRun(s,clock,budget); }
     public void advanceClock(Session s,Instant clock) { store.advanceClock(s,clock); }
     public boolean runNext(Session s) { return store.runNext(s); }
+    public WorkerReceipt runNextRecorded(Session s) { return store.runNextRecorded(s); }
     public void reconcile(Session s,UUID id,boolean sealIfAbsent) { store.reconcile(s,id,sealIfAbsent); }
 }

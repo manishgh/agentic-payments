@@ -1,7 +1,7 @@
 # Delivery backlog
 
-Status snapshot: runnable local-fake reference implementation independently reviewed, 2026-11-06 (Europe/Berlin).
-This register distinguishes the implemented synthetic reference from unfinished provider integration and certification. See status.md and implementation-evidence.md for actual checks.
+Status snapshot: local-fake reference and descriptor/TCK checkpoints published; bounded replay and artifact lab accepted and aggregate-tested, 2026-11-07 (Europe/Berlin).
+This register distinguishes implemented/tested source, accepted milestones, branch delivery and actual releases. See [current status](status.md), [implementation evidence](implementation-evidence.md) and [gate records](reviews/gates.md) for exact observations. No full-platform certification, real integration or production release is complete.
 Stable IDs are retained across replanning; add findings as new rows rather than renumbering existing work.
 The integration owner updates status only when the stated evidence exists.
 
@@ -12,10 +12,12 @@ The integration owner updates status only when the stated evidence exists.
 - **Planned**: future task; prerequisites or gate acceptance still outstanding.
 - **Blocked**: named external decision/access prevents that task; unrelated work can proceed.
 - **Done**: acceptance evidence reviewed and linked in the completion record.
+- **Partial**: an explicitly named bounded subset is implemented/accepted; remaining scope is stated in the row or linked evidence.
+- **Implemented; acceptance pending**: source and focused tests exist, but independent/final integrated acceptance or delivery evidence is still open. This is not Done.
 
 **Sol** means GPT-6.1 Sol at high reasoning; **Astra** means GPT-6 Astra, normally high reasoning.
 **IO** means integration owner; **PO** means user/product owner. These are responsibility labels, not guaranteed staffing.
-Current bounded work: publish the reviewed local reference, then complete missing deterministic replay/conformance obligations and the real-protocol profile design. Bootstrap, execution design and local source reviews are complete. G2-P remains open; licensing and provider access constrain later releases/integration, not local engineering.
+Current bounded work: publish the accepted replay/lab checkpoint, then complete the remaining composed conformance matrix. Local reference 314bd2f and SDK/TCK checkpoint 0f60d93 are published; the latter passed local and hosted checks. Replay/lab has separate unchanged-source evidence with 99 Java tests and all client/lab checks passing. G2-P remains open despite source pins/probes; licensing and provider access constrain their applicable releases/integrations, not independent local engineering. User authorization covers continued implementation within reviewed slices, without waiting for estimated weeks.
 
 ## Documentation foundation — Week 1 / workdays 1-5
 
@@ -38,11 +40,12 @@ Current bounded work: publish the reviewed local reference, then complete missin
 | DES-002 | Versioned local-fake extension contracts and state model — Sol, independent review | Done (local profile) | DES-001 | IDs, transitions, errors and negotiation; project-only continuation explicit; unsupported real ACP mappings tracked in DES-009. |
 | DES-003 | Authority, customer action and threat model — design author, Astra review | Done (local profile) | DES-001/002 | Scoped simulated authority, trust boundaries, expiry/replay, 3DS/2FA-style action lifecycle, credential isolation and refusal rules; no real cryptographic claim. |
 | DES-004 | Exact money, reservations and recovery design — Sol, Astra review | Done (local profile) | DES-002/003 | Atomic policy reservation, scoped idempotency, local event verification and one execution owner through crashes/timeouts; revocation order defined. |
-| DES-005 | Capability and adapter contract design — Sol, independent review | Done (local profile) | DOC-004; DES-002 | Provider/method/credential/action dimensions, unknown-required refusal and partial-support behavior. |
+| DES-005 | Capability and adapter contract design — Sol, independent review | Done (bounded metadata/local profile) | DOC-004; DES-002 | Local ports plus ADR 0003 descriptor/availability/selection and optional-seal TCK contracts; no generic real-execution approval. |
 | DES-006 | Simulator and conformance profile design — Sol, independent review | In progress | DES-002..005 | Deterministic scenario catalog, requirement mapping, clock/event controls and incompatible reference fixtures; local-fake labels. |
 | DES-007 | Runtime/framework/dependency ADRs — Sol, independent review / IO | Done (local profile) | DES-001..006 for acceptance | Java/Python LangGraph/TypeScript/PostgreSQL proposals reviewed; versions, licenses and dependency rationale recorded for the selected slice. |
 | DES-008 | Independent local-fake design review and G2-S decision — Astra / IO | Done (bounded execution) | DES-001..007; G1 | Independent of design author and plan reviewer; no critical local authority/concurrency/recovery findings; implementable first slice and test plan accepted. |
-| DES-009 | Real AP2/ACP profile, pins and integration review — design author, Astra review / IO | Planned | DOC-002; DES-001..005; applicable partner/API evidence | G2-P: immutable upstream artifacts, permitted wire/continuation mapping, real roles/trust/signatures/receipts, provider assumptions and negative fixtures reviewed. Does not block pure local-fake work. |
+| DES-009 | Real AP2/ACP profile, pins and integration review — design author, Astra review / IO | In progress | DOC-002; DES-001..005; applicable partner/API evidence | Immutable source lock and structural probes exist. G2-P still requires accepted wire/continuation/ownership mapping, native mandate/trust/credential/receipt verification and scoped partner evidence. Artifact-lab work is LAB-001, not G2-P acceptance. |
+| DES-010 | Additional tender/action and refund design — Sol, Astra review / IO | Planned | DES-002..005; capability research | Separate voucher payment versus discount; split reservations/per-leg outcomes, bank/wallet actions, original-tender refunds, compensation failure and budget effects specified with negative fixtures before implementation. |
 | REL-003 | Reviewed design milestone commit/push — IO | Done | DES-008 for local-fake scope; REL-001 for push | Focused design diff, G2-S scope and remaining G2-P exclusions, validation evidence and recorded branch/commit. |
 
 ## Implementation in vertical slices — Weeks 3-8
@@ -52,14 +55,18 @@ Current bounded work: publish the reviewed local reference, then complete missin
 | IMP-001 | Local build/CI and first persisted intent slice — Sol / IO | Done (local reference) | G2-S | Reproducible documented build; domain logic independent; exact money validation; PostgreSQL integration and migration evidence; local-fake only. |
 | IMP-002 | Simulated embedded checkout and action lifecycle — Sol / IO | Done (local profile) | IMP-001; DES-003/006 | Purchase reaches result; required action can suspend/resume; denied/expired/invalid actions tested. |
 | IMP-003 | Idempotent execution and event processing — Sol, Astra review | Done (local profile) | IMP-001/002 | Duplicate commands/events cause no duplicate charge; event verification and scope conflicts tested. |
-| IMP-004 | Concurrent reservations and ambiguous-outcome recovery — Sol, Astra review | Done (local profile) | IMP-003 | Contention, timeout and crash/restart tests prove one execution owner; unresolved state is visible and recoverable. |
-| IMP-005 | Adapter SDK and capability negotiation slice — Sol / IO | Partial; see status | IMP-004; DES-005 | Reference/synthetic second adapters work through ports; unsupported requirements fail before execution. |
+| IMP-004 | Concurrent reservations and ambiguous-outcome recovery — Sol, Astra review | Done (bounded local reference) | IMP-003 | Published contention, timeout and reconstruction evidence; one execution owner and unresolved exposure maintained. Complete fresh-process/concurrent-clock matrix remains CON-005. |
+| IMP-005 | Adapter SDK and capability negotiation slice — Sol / IO | Done (bounded metadata/local TCK) | IMP-004; DES-005 | Checkpoint 0f60d93: local SDK, generic descriptors/schema, independent no-seal fixture, optional-seal TCK and classifier reviewed and aggregate-tested. SDK bytecode depends only on java.base; no package release or generic real execution is implied. Hosted reference CI 42307004050 and documentation CI 42307004092 passed. |
 | IMP-006 | LangGraph reference integration — Sol / IO | Done (local profile) | IMP-004/005 | Workflow resumes safely from checkpoints and queries payment truth; no autonomous duplicate execution. |
 | IMP-007 | Trusted TypeScript customer action UI — Sol, Astra review | Done (local profile) | IMP-002/006 | Authorized action handoff, expiry/replay/access checks; no OTP/credential passage through model context. |
-| IMP-008 | Sanitized transaction visibility — Sol / IO | Partial; see status | IMP-004/007 | State timeline, correlation IDs and unresolved outcomes visible under tenant access rules; redaction tests. |
-| IMP-009 | Incremental slice documentation and GitHub delivery — Sol / IO | Partial; see status | Each reviewed slice; REL-001 for push | Contract changes, commands, failure behavior and evidence included in each focused commit/push. |
+| IMP-008 | Sanitized transaction visibility — Sol / IO | Partial (local status UI) | IMP-004/007 | Authenticated status/action/checkout views exist; full tenant timeline, operational visibility and access/redaction coverage remain IMP-013/CON-004. |
+| IMP-009 | Incremental slice documentation and GitHub delivery — Sol / IO | In progress; incremental checkpoints | Each reviewed slice; REL-001 for push | 69fe8d7/314bd2f/0f60d93 published; replay/lab now has final aggregate evidence and scoped acceptance for non-force milestone delivery. Each commit requires its own hosted checks. No package release implied. |
+| IMP-010 | Extract application/domain coordination — Sol, Astra review | Ready for bounded design | Published core and ports; regression baseline | Move transaction/use-case coordination out of JDBC infrastructure without changing authorization, ordering or financial invariants; retain real PostgreSQL/race regression evidence. |
+| IMP-011 | Timed work leases and stale-worker recovery — Sol, Astra review | Planned | Reviewed lease design; IMP-004/010 | Current claim fences are not timed leases. Define expiry, ownership/fencing and same-operation reconciliation; test process loss and stale workers without duplicate effects. |
+| IMP-012 | Managed identity and tenant lifecycle slice — Sol, Astra review / IO | Planned | Reviewed service/identity design | Replace static local sessions only in a separately gated profile; tenant/subject/grant scope, session revocation, audit access, retention and secret handling tested. |
+| IMP-013 | Operational visibility and reconciliation console — Sol / IO | Planned | IMP-008/012; reviewed access/operations design | Tenant-scoped timeline, unresolved exposure queue, safe evidence access, escalation and support ownership; no manual success assertion or unsafe budget release. |
 
-Implemented statuses apply only to the synthetic reference and observed test cases. Generic provider extensibility, complete certification evidence and managed operation remain unfinished. The Java/Python/TypeScript/PostgreSQL stack is accepted for this reference.
+Implemented statuses apply only to the named source scope and observed test cases. Generic metadata/TCK extensibility exists; real generic execution profiles, complete certification evidence and managed operation remain unfinished. The Java/Python/TypeScript/PostgreSQL stack is accepted for this reference.
 No development task authorizes production credentials, paid services, deployment or live money movement.
 
 ## Preview, compatibility and evidence — Weeks 9-12
@@ -68,8 +75,12 @@ No development task authorizes production credentials, paid services, deployment
 | --- | --- | --- | --- | --- |
 | CON-001 | Executable project conformance profiles — Sol / IO | Partial; see status | IMP-001..008 | Deterministic tests map to normative requirement IDs and exact profile/suite versions. |
 | CON-002 | Negative adapter fixtures and independent evidence review — Astra / IO | Partial; see status | CON-001 | Intentionally incompatible adapters fail for the correct requirements; G3 decision recorded. |
+| CON-003 | Recorded multi-intent replay and independent acceptance — Sol, Astra review / IO | Done (bounded); conflict projection remains | ADR 0003; DES-006 | Durable schedules, ownership, raw invariants, normalized digests, reconstruction and two finite recipes accepted in review 0010 and aggregate-tested. Conflicted/frozen runs fail without digests; broader conflict projection remains open. |
+| CON-004 | Complete adversarial event/privacy matrix — Sol, Astra review / IO | Planned | Current reference; accepted test design | Fill CT-006/010 and remaining binding/action/access negatives with requirement-level evidence, canaries and failure retention; distinguish authenticated conflicts from unauthenticated spoofing. |
+| CON-005 | Concurrent-clock and fresh-JVM crash matrix — Sol, Astra review / IO | Partial; selected boundaries accepted | ADR 0002/0003; CON-003 | Six ordered clock cases and one actual JVM journal-commit crash boundary with fresh-process recovery passed and were reviewed. Full crash matrix remains; reconstruction alone retains its narrower label. |
+| LAB-001 | Offline signed-artifact/content-binding laboratory — Sol, Astra review / IO | Done (isolated offline scope) | Accepted isolated lab design; pinned sources | Review 0011 accepted merchant JWS/content/schema/handler and synthetic sidecar behavior; 26 lab tests and integrated aggregate passed. Outputs cannot authorize core dispatch or claim native AP2 mandate/interoperability verification. |
 | INT-001 | Select first provider/method/region sandbox scope — PO / IO | Planned | DOC-004; DES-005 | Candidate chosen with authorized account, terms, API access and test authentication availability. |
-| INT-002 | First optional external sandbox vertical slice — Sol, Astra review | Planned | INT-001; IMP-005; applicable G2-P mapping/provider design; access | Verified request/event/reconciliation behavior; exact capability matrix and deviations; simulator fallback if access/design blocked. |
+| INT-002 | First optional external sandbox vertical slice — Sol, Astra review | Planned; access/design dependent | INT-001; IMP-005; applicable G2-P mapping/provider design; access | Verified request/event/reconciliation behavior; exact capability matrix and deviations. Local fixtures continue independently; do not substitute simulated evidence for provider support. |
 | REL-004 | License and distribution decision — PO / IO | Blocked | User decision; dependency inventory | Explicit license/visibility/distribution policy before public package/spec release; no silent license choice. |
 | REL-005 | Clean-environment preview readiness review — Sol, Astra review / IO | Planned | G3; IMP docs | Reproduced setup, build/tests, security/dependency review, limitations and compatibility policy; G4 record. |
 | REL-006 | Versioned preview publication — IO / PO | Planned | G4; REL-001/004 | Authorized exact artifacts/versions, tag, evidence bundle and release notes; G5 record or explicit deferral. |
@@ -88,9 +99,9 @@ INT-002 is optional for the initial simulator preview; absent provider access mu
 | MNG-003 | Legal/compliance/security and live authorization — PO / specialists / IO | Planned | M2 | Role assessment, production provider approval, explicit live scope/limits and written M3 go/no-go. |
 | MNG-004 | Controlled live pilot — IO / PO | Planned | M3 | Monitoring/support staffed, stop conditions and exposure limits enforced; M4 findings. |
 | MNG-005 | Wider managed availability decision — PO / IO | Planned | M4 findings resolved | Commercial/support/privacy commitments and operating capacity accepted; M5 decision. |
-| INT-003 | Additional providers and card/bank/iDEAL method profiles — Sol / IO | Planned | Access, demand, design | Per-combination contracts and evidence; no provider-wide claims from one method. |
-| INT-004 | Amazon Pay / PayPal / PayPay wallet tracks — IO / PO | Planned | Vendor-specific access/terms | Distinct onboarding and adapter contracts, region/action coverage and sandbox evidence. |
-| INT-005 | Voucher track — IO / PO | Planned | Issuer access/agreement | Issuer/redemption/expiry/partial-use semantics and accounting test plan. |
+| INT-003 | Additional providers and card/bank/iDEAL method profiles — Sol / IO | Planned | Reviewed profiles; real access when connecting | Stripe/Adyen and further provider/method/region/credential/action contracts and synthetic negative fixtures may advance locally; real connectors require access and per-combination evidence. |
+| INT-004 | Amazon Pay / PayPal / PayPay wallet tracks — IO / PO | Planned | Vendor-specific contracts; access before connection | Distinct wallet onboarding, method/action profiles, synthetic fixtures and later sandbox evidence; PayPal and PayPay remain separate. |
+| INT-005 | Voucher/split-tender/refund execution track — IO / PO, Astra review | Planned | DES-010; issuer/PSP access for real execution | Implement reviewed per-leg reservations, partial/unknown redemption, compensation and refund controls in simulation first; actual issuer/PSP use requires separate permitted interfaces and evidence. |
 | INT-006 | Uber Pay partner track — PO / IO | Blocked | Partner sponsorship, docs, access and permission | Permitted interface established before implementation commitments; retain simulation otherwise. |
 
 ## Completion records and working rules
@@ -98,14 +109,24 @@ INT-002 is optional for the initial simulator preview; absent provider access mu
 For each completed task record: ID, commit, reviewer, exact checks/commands, outcome, evidence location and remaining limitations.
 For blockers record: owner, requested decision/access, impact and independent tasks that can proceed.
 No task is marked done solely because prose was drafted, a target date passed or a model reported success.
-Remaining release/integration blockers do not prevent local-fake design: public release license, real protocol pins/mapping, and applicable provider/partner access. The supplied and verified GitHub destination is no longer a blocker.
-No build/test command exists yet; documentation validation comprises consistency, links and whitespace checks.
+Remaining release/integration blockers do not prevent local development: public license/distribution terms, accepted real protocol/trust mapping, applicable provider/partner access and later operational/live authorization. Exact research pins exist; they are not integration acceptance. The supplied GitHub destination and published milestone history are established.
+Runnable build/test commands exist in README and implementation evidence. The aggregate runner uses real PostgreSQL and preserves source/version identities, incomplete obligations and NOT_CERTIFIED; documentation checks alone are not execution evidence.
 See the [roadmap](roadmap.md) for gate criteria and [product brief](product-brief.md) for product scope.
 
 ## Recorded milestone evidence
 
 - G1 / DOC-001..006: accepted baseline and independent plan review; initial documentation commit 15f0776a2fa1628ac8e77999885cd86811380204.
 - REL-001/002: exact public remote verified empty, reviewed baseline pushed to main, hosted documentation CI run 42293811152 passed.
-- DES-008: review 0003 accepts only create/quote/approve/reserve/read design; artifact hashes and residual limits are recorded there. DES-001..007 contain broader future work and are not blanket-completed.
-- IMP-001: only bootstrap is ready to execute now; no Java application build or payment test has run. Follow implementation-slice-001.md and gates.md.
+- DES-008: review 0003 initially accepted create/quote/approve/reserve/read; ADR 0002 and later owner acceptance extended the bounded execution/client design. The original gate did not retroactively cover that later scope. See gate records and reviews 0005..0007.
+- IMP-001..004/006/007: reference commit 314bd2fe2303892857816944e97a990195581dce published with actual aggregate evidence (47 Java, seven HTTP, three UI and 12 workflow tests at that revision); reference and documentation CI passed. These are historical counts, not the unaccepted current working tree's final result.
 - REL-003: design commit 65c39dd0d8fe80a2a8d72fc5680471d414288448 pushed to codex/simulator-design; hosted docs CI 42294677444 passed; reviewer artifact hashes match. Draft PR creation returned integration HTTP403; branch comparison remains available. No merge/deploy.
+- IMP-005: checkpoint 0f60d93 published after review 0008, package inspection and unchanged-source isolated aggregate manifest c2b7722352753012f3de99690fbf99d49ed613eb94f1457055d944e752c0c83b. Actual checkpoint evidence: 67 Java, eight HTTP, three UI, 12 graph tests; four upstream integrity tests and 12 structural probes; 21 schemas, 17 positive, 27 schema-negative, six binding-negative and one parser-negative. SDK jdeps reports java.base only. Hosted reference CI 42307004050 and documentation CI 42307004092 passed; current replay/lab working tree is not covered by those checkpoint results.
+- CON-003/005 and LAB-001: reviews 0010..0012 accepted bounded source after corrections; fresh aggregate run b46fbaca340140e8a10db197970afa55 passed all 11 stages with stable source hash 66121c775907dbccce4d1ffd439c990ca00e0eda3c60d307f3891efd93fd3d89. Recorded replay has 14 integration and seven plan tests; lab has 26 tests. Conflict projection and the full crash matrix remain open.
+
+## Prioritized remaining work
+
+1. Continue IMP-009 delivery of the accepted replay/lab checkpoint; close the remaining CON-003 conflict projection and CON-004/005 adversarial/privacy/crash matrix with fresh evidence rather than reusing earlier checkpoint results.
+2. Complete CON-004 and the outstanding CON-001/002 requirement matrix; retain intentionally failing fixtures, missing evidence and profile-specific exclusions before considering G3.
+3. Design and deliver IMP-010/011, then managed identity/visibility slices IMP-012/013. Preserve current safety invariants and add tests for the new behavior rather than claiming a production service from the local UI.
+4. Continue DES-009/010 and local provider/method/action/tender fixtures under INT-003..006. Real integrations depend on accepted mappings and account/partner access; local protocol and SDK work can continue without those accounts.
+5. Execute REL-005 clean-environment/readiness review and REL-006 only when G3/G4 and explicit license/distribution decisions permit an actual preview release. Source branch delivery remains distinct from release/publication gates.

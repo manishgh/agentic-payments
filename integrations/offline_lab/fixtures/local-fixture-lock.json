@@ -1,0 +1,8 @@
+{
+  "profile": "offline-ap2-acp-artifact-lab-0.1",
+  "sha256": {
+    "handler.json": "83756481808a73ac55668fbf83b7bc5edd7bceb4e5d025df89f5f39340a08dba",
+    "handler-config.schema.json": "e344781b48777b227f7e866a20bfb472eccf1fd53f5fb7687445653e40fc829c",
+    "instrument.schema.json": "8dd0c2e9037502460939821ce89671673bf52a1b6ff1e185178743ba998b04e0"
+  }
+}

@@ -23,6 +23,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, default=repo / ".tools" / "upstream-research")
     parser.add_argument("--fetch", action="store_true", help="Explicitly hydrate only required immutable public schema artifacts")
+    parser.add_argument("--include-offline-lab", action="store_true", help="Also verify the artifact lab's pinned schema dependencies")
     args = parser.parse_args()
     lock = json.loads((here / "source-lock.json").read_text(encoding="utf-8"))
     lock_schema = json.loads((here / "source-lock.schema.json").read_text(encoding="utf-8"))
@@ -42,6 +43,9 @@ def main() -> None:
     needed = {probe["artifactId"] for probe in manifest["probes"]}
     # PaymentReceipt's only external schema dependency is ReceiptStatus.
     needed.add("ap2-code-sdk-schemas-ap2-types-receipt-status-json")
+    if args.include_offline_lab:
+        lab_manifest = json.loads((repo / "integrations/offline_lab/required-source-artifacts.json").read_text(encoding="utf-8"))
+        needed.update(lab_dependencies(lab_manifest, artifacts))
     schemas = {}
     for artifact_id in sorted(needed):
         artifact = artifacts[artifact_id]
@@ -103,6 +107,28 @@ def main() -> None:
     print(json.dumps({"status": "STRUCTURAL_PROBES_MATCH_PINNED_SOURCES", "sourcesVerified": len(schemas),
                       "probeCount": len(results), "interoperabilityEvidence": False,
                       "signaturesVerified": False, "localReferenceAliases": aliases, "results": results}, indent=2))
+
+
+def lab_dependencies(manifest: dict, locked: dict) -> set[str]:
+    if manifest["profile"] != "offline-ap2-acp-artifact-lab-0.1" or manifest["networkRetrievalAllowed"] is not False:
+        raise ValueError("Unexpected artifact-lab dependency profile")
+    identities = set()
+    for requested in manifest["artifacts"]:
+        artifact = locked.get(requested["id"])
+        if artifact is None or requested["id"] in identities or artifact["role"] != "schema":
+            raise ValueError("Unknown or duplicate artifact-lab schema identity")
+        if any(requested[field] != artifact[field] for field in ("sourceId", "path", "commit", "sha256", "byteLength")):
+            raise ValueError("Artifact-lab dependency differs from immutable source lock")
+        identities.add(requested["id"])
+    required = {
+        "acp-checkout-schema", "ap2-checkout-mandate-schema", "ap2-payment-mandate-schema",
+        "ap2-payment-receipt-schema", "ap2-code-sdk-schemas-ap2-types-receipt-status-json",
+        "ap2-code-sdk-schemas-ap2-types-amount-json", "ap2-code-sdk-schemas-ap2-types-merchant-json",
+        "ap2-code-sdk-schemas-ap2-types-payment-instrument-json", "ap2-code-sdk-schemas-ap2-types-pisp-json",
+    }
+    if identities != required:
+        raise ValueError("Artifact-lab schema dependency set is incomplete or unexpected")
+    return identities
 
 
 def verify_bytes(artifact: dict, data: bytes) -> None:

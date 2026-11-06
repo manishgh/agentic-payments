@@ -1,0 +1,17 @@
+{
+  "id": "synthetic-handler-1",
+  "name": "invalid.example.synthetic.card",
+  "version": "2026-04-17",
+  "spec": "https://merchant.example.invalid/handler",
+  "requires_delegate_payment": false,
+  "requires_pci_compliance": false,
+  "psp": "synthetic-psp",
+  "config_schema": "https://merchant.example.invalid/config.schema.json",
+  "instrument_schemas": [
+    "https://merchant.example.invalid/instrument.schema.json"
+  ],
+  "config": {
+    "merchant_id": "synthetic-merchant-1",
+    "environment": "offline-only"
+  }
+}

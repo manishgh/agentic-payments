@@ -1,6 +1,7 @@
 """Offline integrity checks for source identification and disabled bridge claims."""
 
 import hashlib
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -19,6 +20,25 @@ MODULE_SPEC.loader.exec_module(PROBES)
 
 
 class UpstreamIntegrityTest(unittest.TestCase):
+    def test_lab_dependencies_must_match_the_existing_source_lock(self):
+        lock = json.loads((HERE / "source-lock.json").read_text())
+        artifacts = {artifact["id"]: artifact for artifact in lock["artifacts"]}
+        manifest = json.loads((HERE.parent / "offline_lab/required-source-artifacts.json").read_text())
+        self.assertEqual(9, len(PROBES.lab_dependencies(manifest, artifacts)))
+        for field, value in (("commit", "0" * 40), ("sha256", "0" * 64), ("path", "../../outside.json"), ("id", "unregistered")):
+            changed = copy.deepcopy(manifest)
+            changed["artifacts"][0][field] = value
+            with self.assertRaises(ValueError):
+                PROBES.lab_dependencies(changed, artifacts)
+        changed = copy.deepcopy(manifest)
+        changed["artifacts"].append(changed["artifacts"][0])
+        with self.assertRaises(ValueError):
+            PROBES.lab_dependencies(changed, artifacts)
+        for subset in ([], manifest["artifacts"][1:]):
+            changed = {**manifest, "artifacts": subset}
+            with self.assertRaises(ValueError):
+                PROBES.lab_dependencies(changed, artifacts)
+
     def test_lock_has_unique_immutable_artifacts_and_license_references(self):
         lock = json.loads((HERE / "source-lock.json").read_text())
         schema = json.loads((HERE / "source-lock.schema.json").read_text())

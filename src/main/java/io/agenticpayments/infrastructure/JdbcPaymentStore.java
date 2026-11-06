@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import io.agenticpayments.application.PaymentException;
 import io.agenticpayments.application.PaymentStore;
+import io.agenticpayments.application.WorkerReceipt;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.domain.PaymentRules;
 import io.agenticpayments.domain.OperationBinding;
@@ -18,18 +19,20 @@ import static io.agenticpayments.infrastructure.Sql.*;
 public final class JdbcPaymentStore implements PaymentStore {
     private final DataSource ds;
     private final PaymentAdapter adapter;
+    private final UUID replayOwner;
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
     private record Dispatch(ChargeOperation operation,String kind,long fence) {}
-    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter) { this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter); }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter) { this(ds,adapter,null); }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner) { this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; }
 
     public void seedRun(Session s,Instant clock,long budget) {
         role(s,"runner:write"); if(clock==null||budget<1250) fail(400,"INVALID_REQUEST");
         try(var c=ds.getConnection()) {
             c.setAutoCommit(false);
-            update(c,"INSERT INTO simulation_runs(tenant_id,run_id,virtual_time) VALUES(?,?,?) ON CONFLICT DO NOTHING",s.tenantId(),s.runId(),clock);
-            one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=? FOR UPDATE",s.tenantId(),s.runId());
+            update(c,"INSERT INTO simulation_runs(tenant_id,run_id,virtual_time,sequence_origin) VALUES(?,?,?,'RECORDED') ON CONFLICT DO NOTHING",s.tenantId(),s.runId(),clock);
+            owner(one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=? FOR UPDATE",s.tenantId(),s.runId()));
             for(String currency:List.of("EUR","USD")) {
                 String budgetId="budget-"+currency.toLowerCase(Locale.ROOT), grant=currency.equals("EUR")?"fixture-grant-1":"fixture-grant-usd";
                 update(c,"INSERT INTO budgets(tenant_id,run_id,budget_id,currency,limit_minor) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING",s.tenantId(),s.runId(),budgetId,currency,budget);
@@ -46,7 +49,8 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(!PaymentRules.SCENARIOS.contains(cmd.scenarioId())) fail(400,"INVALID_REQUEST");
         if(cmd.requiredCapabilities().size()>16||new HashSet<>(cmd.requiredCapabilities()).size()!=cmd.requiredCapabilities().size()||!PaymentRules.CAPABILITIES.containsAll(cmd.requiredCapabilities())) fail(422,"UNSUPPORTED_CAPABILITY");
         return command(s,key,"POST /intents","new",cmd,tx->{
-            UUID id=UUID.randomUUID(); update(tx.c,"INSERT INTO payment_intents(tenant_id,run_id,intent_id,merchant_id,scenario_id,state) VALUES(?,?,?,?,?,'DRAFT')",s.tenantId(),s.runId(),id,cmd.merchantId(),cmd.scenarioId());
+            var sequence=one(tx.c,"UPDATE simulation_runs SET next_intent_sequence=next_intent_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING next_intent_sequence",s.tenantId(),s.runId());
+            UUID id=UUID.randomUUID(); update(tx.c,"INSERT INTO payment_intents(tenant_id,run_id,intent_id,merchant_id,scenario_id,state,creation_sequence) VALUES(?,?,?,?,?,'DRAFT',?)",s.tenantId(),s.runId(),id,cmd.merchantId(),cmd.scenarioId(),sequence.get("next_intent_sequence"));
             audit(tx,id,"DRAFT"); return result(201,map("intentId",id,"state","DRAFT","version",1));
         });
     }
@@ -143,9 +147,9 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(cmd==null||!Set.of("user-request","policy-revoked","test-revocation").contains(cmd.reason())) fail(400,"INVALID_REQUEST");
         return command(s,key,"POST /authorities/{id}/revoke",authorityId,cmd,tx->{
             var g=grant(tx,authorityId); if(!Objects.equals(g.get("subject_id"),s.principalId())) fail(404,"RESOURCE_NOT_FOUND");
-            if(text(g,"state").equals("ACTIVE")) update(tx.c,"UPDATE authority_grants SET state='REVOKED',version=version+1 WHERE tenant_id=? AND run_id=? AND grant_id=?",s.tenantId(),s.runId(),authorityId);
+            if(text(g,"state").equals("ACTIVE")) update(tx.c,"UPDATE authority_grants SET state='REVOKED',version=version+1,revoked_at=?,revoked_admission_sequence=(SELECT admission_sequence FROM simulation_runs WHERE tenant_id=? AND run_id=?) WHERE tenant_id=? AND run_id=? AND grant_id=?",tx.now,s.tenantId(),s.runId(),s.tenantId(),s.runId(),authorityId);
             var admitted=new ArrayList<String>();
-            for(var a:rows(tx.c,"SELECT * FROM payment_attempts WHERE tenant_id=? AND run_id=? AND grant_id=? ORDER BY intent_id",s.tenantId(),s.runId(),authorityId)) {
+            for(var a:rows(tx.c,"SELECT a.* FROM payment_attempts a JOIN payment_intents i USING(tenant_id,run_id,intent_id) WHERE a.tenant_id=? AND a.run_id=? AND a.grant_id=? ORDER BY i.creation_sequence",s.tenantId(),s.runId(),authorityId)) {
                 var i=intentUnchecked(tx,(UUID)a.get("intent_id")); var o=operation(tx,(UUID)a.get("attempt_id"));
                 if(o!=null&&o.get("admitted_sequence")!=null) admitted.add(a.get("attempt_id").toString());
                 else if(!PaymentRules.TERMINAL.contains(text(i,"state"))) terminate(tx,i,a,"CANCELLED");
@@ -157,19 +161,26 @@ public final class JdbcPaymentStore implements PaymentStore {
     public void advanceClock(Session s,Instant clock) {
         role(s,"runner:write"); transaction(s,tx->{
             if(clock==null||clock.isBefore(tx.now)) fail(400,"INVALID_REQUEST");
-            update(tx.c,"UPDATE simulation_runs SET virtual_time=?,step_sequence=step_sequence+1 WHERE tenant_id=? AND run_id=?",clock,s.tenantId(),s.runId()); return null;
+            update(tx.c,"UPDATE simulation_runs SET virtual_time=? WHERE tenant_id=? AND run_id=?",clock,s.tenantId(),s.runId());audit(new Tx(tx.c,s,clock),null,"CLOCK_ADVANCED");return null;
         });
     }
     public boolean runNext(Session s) {
+        WorkerReceipt receipt=runNextRecorded(s);return receipt.operationId()!=null||receipt.progressed();
+    }
+    public WorkerReceipt runNextRecorded(Session s) {
         role(s,"runner:write");
         capabilities();
+        long[] before=new long[4];Object[] selection=new Object[3];
         Dispatch d=transaction(s,tx->{
+            activity(tx,before);
             expire(tx);
-            var pending=one(tx.c,"SELECT w.*,a.intent_id FROM outbox w JOIN financial_operations o USING(tenant_id,run_id,operation_id) JOIN payment_attempts a USING(tenant_id,run_id,attempt_id) WHERE w.tenant_id=? AND w.run_id=? AND NOT w.done ORDER BY CASE w.kind WHEN 'PREPARE' THEN 0 WHEN 'DISPATCH' THEN 1 ELSE 2 END,w.operation_id LIMIT 1",s.tenantId(),s.runId());
+            var pending=one(tx.c,"SELECT w.*,a.intent_id FROM outbox w JOIN financial_operations o USING(tenant_id,run_id,operation_id) JOIN payment_attempts a USING(tenant_id,run_id,attempt_id) WHERE w.tenant_id=? AND w.run_id=? AND NOT w.done ORDER BY CASE w.kind WHEN 'PREPARE' THEN 0 WHEN 'DISPATCH' THEN 1 ELSE 2 END,w.enqueue_sequence LIMIT 1",s.tenantId(),s.runId());
             if(pending==null) return null;
             UUID op=(UUID)pending.get("operation_id"), id=(UUID)pending.get("intent_id"); var i=intentUnchecked(tx,id); var a=attempt(tx,id); String kind=text(pending,"kind");
+            selection[0]=op;selection[1]=kind;selection[2]=number(pending,"fence");
             if(PaymentRules.TERMINAL.contains(text(i,"state"))) { done(tx,op,kind); return null; }
             long fence=number(pending,"fence")+1;
+            selection[2]=fence;
             update(tx.c,"UPDATE outbox SET fence=? WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",fence,s.tenantId(),s.runId(),op,kind);
             if(kind.equals("DISPATCH")) {
                 if(!text(i,"state").equals("READY")) { done(tx,op,kind); return null; }
@@ -182,12 +193,12 @@ public final class JdbcPaymentStore implements PaymentStore {
                 if(needsAction&&(ac==null||!text(ac,"state").equals("VERIFIED")||!tx.now.isBefore(instant(ac,"expires_at"))||!Objects.equals(ac.get("subject_id"),a.get("subject_id"))||!Objects.equals(ac.get("checkout_digest"),q.get("digest")))) { terminate(tx,i,a,"FAILED"); return null; }
                 if(!text(r,"state").equals("HELD")) throw new IllegalStateException("Missing execution exposure");
                 var seq=one(tx.c,"UPDATE simulation_runs SET admission_sequence=admission_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING admission_sequence",s.tenantId(),s.runId());
-                update(tx.c,"UPDATE financial_operations SET admitted_sequence=? WHERE tenant_id=? AND run_id=? AND operation_id=?",seq.get("admission_sequence"),s.tenantId(),s.runId(),op);
+                update(tx.c,"UPDATE financial_operations SET admitted_sequence=?,admitted_at=?,admitted_grant_version=? WHERE tenant_id=? AND run_id=? AND operation_id=?",seq.get("admission_sequence"),tx.now,g.get("version"),s.tenantId(),s.runId(),op);
                 change(tx,id,"ADMITTED"); done(tx,op,"DISPATCH"); work(tx,op,"RECONCILE");
             }
             return new Dispatch(envelope(tx,i,a,operationById(tx,op)),kind,fence);
         });
-        if(d==null) return false;
+        if(d==null) return receipt(s,before,selection);
         if(d.kind.equals("PREPARE")) {
             Preparation preparation=adapter.prepare(d.operation);
             transaction(s,tx->{
@@ -217,7 +228,7 @@ public final class JdbcPaymentStore implements PaymentStore {
                 } else markUnknown(s,d.operation.identity());
             } catch(AdapterUnavailableException e) { markUnknown(s,d.operation.identity()); }
         }
-        return true;
+        return receipt(s,before,selection);
     }
     public void reconcile(Session s,UUID id,boolean sealIfAbsent) {
         role(s,"runner:write"); ChargeOperation op=transaction(s,tx->{
@@ -270,7 +281,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         transaction(s,tx->{ var i=intentUnchecked(tx,id.intentId()); if(!PaymentRules.TERMINAL.contains(text(i,"state"))&&!text(i,"state").equals("UNKNOWN")) change(tx,id.intentId(),"UNKNOWN"); work(tx,id.operationId(),"RECONCILE"); return null; });
     }
     private void expire(Tx tx) throws SQLException {
-        for(var i:rows(tx.c,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND state IN ('QUOTED','APPROVED','PREPARING','WAITING_ACTION','READY') ORDER BY intent_id",tx.s.tenantId(),tx.s.runId())) {
+        for(var i:rows(tx.c,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND state IN ('QUOTED','APPROVED','PREPARING','WAITING_ACTION','READY') ORDER BY creation_sequence",tx.s.tenantId(),tx.s.runId())) {
             var a=attempt(tx,(UUID)i.get("intent_id"));
             if(a==null) { if(!tx.now.isBefore(instant(quote(tx,i),"expires_at"))) change(tx,(UUID)i.get("intent_id"),"EXPIRED"); continue; }
             var g=grant(tx,text(a,"grant_id"));
@@ -333,6 +344,7 @@ public final class JdbcPaymentStore implements PaymentStore {
                 c.setAutoCommit(false);
                 try {
                     var run=one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=? FOR UPDATE",s.tenantId(),s.runId()); if(run==null) fail(404,"RESOURCE_NOT_FOUND");
+                    owner(run);
                     T result=work.run(new Tx(c,s,instant(run,"virtual_time"))); c.commit(); return result;
                 } catch(Exception e) { c.rollback(); throw e; }
             } catch(PaymentException e) { throw e; }
@@ -374,7 +386,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         var seq=one(tx.c,"UPDATE simulation_runs SET step_sequence=step_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING step_sequence",tx.s.tenantId(),tx.s.runId());
         update(tx.c,"INSERT INTO audit_events VALUES(?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),UUID.randomUUID(),id,state,tx.now,seq.get("step_sequence"));
     }
-    private void work(Tx tx,UUID op,String kind) throws SQLException { update(tx.c,"INSERT INTO outbox(tenant_id,run_id,operation_id,kind) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",tx.s.tenantId(),tx.s.runId(),op,kind); }
+    private void work(Tx tx,UUID op,String kind) throws SQLException {
+        if(one(tx.c,"SELECT enqueue_sequence FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",tx.s.tenantId(),tx.s.runId(),op,kind)!=null)return;
+        var sequence=one(tx.c,"UPDATE simulation_runs SET next_work_sequence=next_work_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING next_work_sequence",tx.s.tenantId(),tx.s.runId());
+        update(tx.c,"INSERT INTO outbox(tenant_id,run_id,operation_id,kind,enqueue_sequence) VALUES(?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),op,kind,sequence.get("next_work_sequence"));
+    }
     private void done(Tx tx,UUID op,String kind) throws SQLException { update(tx.c,"UPDATE outbox SET done=true WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",tx.s.tenantId(),tx.s.runId(),op,kind); }
     private boolean fence(Tx tx,UUID op,String kind,long fence) throws SQLException { var w=one(tx.c,"SELECT * FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",tx.s.tenantId(),tx.s.runId(),op,kind); return w!=null&&!Boolean.TRUE.equals(w.get("done"))&&number(w,"fence")==fence; }
     private String encode(Object value) { try { return json.writeValueAsString(value); } catch(Exception e) { throw new IllegalArgumentException("Invalid synthetic request"); } }
@@ -391,5 +407,17 @@ public final class JdbcPaymentStore implements PaymentStore {
     private static void unavailable() { throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); }
     private void capabilities() {
         if(!CapabilityOffer.localFake().equals(adapter.capabilities())) fail(422,"UNSUPPORTED_CAPABILITY");
+    }
+    private void owner(Map<String,Object> run) { if("REPLAY".equals(run.get("execution_mode"))&&!Objects.equals(run.get("replay_owner"),replayOwner))fail(403,"FORBIDDEN"); }
+    private void activity(Tx tx,long[] values) throws SQLException {
+        values[0]=number(one(tx.c,"SELECT COALESCE(max(step_sequence),0) AS value FROM audit_events WHERE tenant_id=? AND run_id=?",tx.s.tenantId(),tx.s.runId()),"value");
+        values[1]=number(one(tx.c,"SELECT count(*) AS value FROM outbox WHERE tenant_id=? AND run_id=? AND done",tx.s.tenantId(),tx.s.runId()),"value");
+        values[2]=number(one(tx.c,"SELECT count(*) AS value FROM operation_evidence WHERE tenant_id=? AND run_id=?",tx.s.tenantId(),tx.s.runId()),"value");
+        values[3]=number(one(tx.c,"SELECT (SELECT count(*) FROM conflict_evidence WHERE tenant_id=? AND run_id=?)+(SELECT count(*) FROM disputed_exposure WHERE tenant_id=? AND run_id=?) AS value",tx.s.tenantId(),tx.s.runId(),tx.s.tenantId(),tx.s.runId()),"value");
+    }
+    private WorkerReceipt receipt(Session s,long[] before,Object[] selected) {
+        return transaction(s,tx->{long[] after=new long[4];activity(tx,after);boolean progress=!Arrays.equals(before,after);
+            var extent=one(tx.c,"SELECT COALESCE(min(step_sequence),0) AS first,COALESCE(max(step_sequence),0) AS last FROM audit_events WHERE tenant_id=? AND run_id=? AND step_sequence>?",s.tenantId(),s.runId(),before[0]);
+            return new WorkerReceipt((UUID)selected[0],(String)selected[1],selected[2]==null?0:(long)selected[2],number(extent,"first"),number(extent,"last"),progress);});
     }
 }
