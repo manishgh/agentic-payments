@@ -22,6 +22,8 @@ Next: complete verified distribution/dependency/checksum and license inventory b
 
 This is not blanket G2-S approval: dispatch, customer actions, simulator journal, reconciliation, LangGraph and UI implementation require their later scoped reviews. Split tender, refunds and real protocols remain unsupported in the first slice. G2-P remains open.
 
+Publication evidence: reviewed design commit `65c39dd0d8fe80a2a8d72fc5680471d414288448` on `codex/simulator-design`; [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42294677444) passed. Four artifact hashes in review 0003 were rechecked after commit and matched. This validates document identity/format, not payment execution.
+
 ## G2-P: real protocol/provider integration
 
 Decision: open. Immutable upstream pins, real signature/trust/credential verification, exact ACP transport/continuation mapping and scoped provider evidence remain outstanding. No real protocol compatibility is claimed.

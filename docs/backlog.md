@@ -15,7 +15,7 @@ The integration owner updates status only when the stated evidence exists.
 
 **Sol** means GPT-6.1 Sol at high reasoning; **Astra** means GPT-6 Astra, normally high reasoning.
 **IO** means integration owner; **PO** means user/product owner. These are responsibility labels, not guaranteed staffing.
-Current bounded work: **IMP-001 bootstrap** and **REL-003 design publication**. G1 and limited G2-S for create/quote/approve/reserve/read are accepted in reviews/gates.md. Bootstrap verification is mandatory before application source; broader execution design remains open. G2-P independently governs real AP2/ACP integration. Continued design is authorized; estimates do not create waiting periods.
+Current bounded work: **IMP-001 bootstrap**. REL-003 design branch publication is complete; no PR was created because the GitHub integration denied that operation. G1 and limited G2-S for create/quote/approve/reserve/read are accepted in reviews/gates.md. Bootstrap verification is mandatory before application source; broader execution design remains open. G2-P independently governs real AP2/ACP integration. Continued design is authorized; estimates do not create waiting periods.
 
 ## Documentation foundation — Week 1 / workdays 1-5
 
@@ -43,7 +43,7 @@ Current bounded work: **IMP-001 bootstrap** and **REL-003 design publication**. 
 | DES-007 | Runtime/framework/dependency ADRs — Sol, independent review / IO | In progress | DES-001..006 for acceptance | Java/Python LangGraph/TypeScript/PostgreSQL proposals reviewed; versions, licenses and dependency rationale recorded for the selected slice. |
 | DES-008 | Independent local-fake design review and G2-S decision — Astra / IO | Done (first slice only) | DES-001..007; G1 | Independent of design author and plan reviewer; no critical local authority/concurrency/recovery findings; implementable first slice and test plan accepted. |
 | DES-009 | Real AP2/ACP profile, pins and integration review — design author, Astra review / IO | Planned | DOC-002; DES-001..005; applicable partner/API evidence | G2-P: immutable upstream artifacts, permitted wire/continuation mapping, real roles/trust/signatures/receipts, provider assumptions and negative fixtures reviewed. Does not block pure local-fake work. |
-| REL-003 | Reviewed design milestone commit/push — IO | In progress | DES-008 for local-fake scope; REL-001 for push | Focused design diff, G2-S scope and remaining G2-P exclusions, validation evidence and recorded branch/commit. |
+| REL-003 | Reviewed design milestone commit/push — IO | Done | DES-008 for local-fake scope; REL-001 for push | Focused design diff, G2-S scope and remaining G2-P exclusions, validation evidence and recorded branch/commit. |
 
 ## Implementation in vertical slices — Weeks 3-8
 
@@ -108,3 +108,4 @@ See the [roadmap](roadmap.md) for gate criteria and [product brief](product-brie
 - REL-001/002: exact public remote verified empty, reviewed baseline pushed to main, hosted documentation CI run 42293811152 passed.
 - DES-008: review 0003 accepts only create/quote/approve/reserve/read design; artifact hashes and residual limits are recorded there. DES-001..007 contain broader future work and are not blanket-completed.
 - IMP-001: only bootstrap is ready to execute now; no Java application build or payment test has run. Follow implementation-slice-001.md and gates.md.
+- REL-003: design commit 65c39dd0d8fe80a2a8d72fc5680471d414288448 pushed to codex/simulator-design; hosted docs CI 42294677444 passed; reviewer artifact hashes match. Draft PR creation returned integration HTTP403; branch comparison remains available. No merge/deploy.

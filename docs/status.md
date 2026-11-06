@@ -17,10 +17,12 @@ Documentation baseline accepted and published; first simulator slice design inde
 - Hosted [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42293811152) completed successfully for that baseline.
 - Detailed simulator API, transaction/locking design, canonical fixture and runtime ADR reviewed by Astra; blocking findings corrected for create/quote/approve/reserve/read scope. Reviewed hashes are in review 0003.
 - G2-S limited design acceptance recorded; toolchain bootstrap is mandatory before source scaffolding. Broader execution/G2-P gates remain open.
+- Reviewed design pushed to `codex/simulator-design`: `65c39dd0d8fe80a2a8d72fc5680471d414288448`. Its [hosted documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42294677444) passed.
+- All four reviewed artifact SHA-256 hashes matched after commit; documentation validator passed for 24 Markdown files.
 
-## In progress
+## Publication outcome
 
-- Publish reviewed design on `codex/simulator-design` with a pull request; no automatic merge.
+The baseline is on main and the reviewed design is on `codex/simulator-design`. [Compare the design branch](https://github.com/manishgh/agentic-payments/compare/main...codex/simulator-design). A draft PR creation attempt was denied by the GitHub integration with HTTP 403 `Resource not accessible by integration`; no PR was created. Pushes succeeded. No merge or deployment was performed. The branch is ready for review and further authorized implementation work.
 
 ## Pending decisions / dependencies
 
