@@ -1,6 +1,6 @@
 # Delivery backlog
 
-Status snapshot: documentation baseline accepted (G1); detailed design in progress, 2026-11-06 (Europe/Berlin).
+Status snapshot: documentation baseline accepted (G1); first-slice G2-S design accepted with explicit limits, 2026-11-06 (Europe/Berlin).
 This is a planning register. No implementation, provider integration or certification is complete.
 Stable IDs are retained across replanning; add findings as new rows rather than renumbering existing work.
 The integration owner updates status only when the stated evidence exists.
@@ -15,7 +15,7 @@ The integration owner updates status only when the stated evidence exists.
 
 **Sol** means GPT-6.1 Sol at high reasoning; **Astra** means GPT-6 Astra, normally high reasoning.
 **IO** means integration owner; **PO** means user/product owner. These are responsibility labels, not guaranteed staffing.
-Current bounded work: **DES-001..008** detailed design and independent review. G1 is accepted in reviews/gates.md; G2-S remains required before local-fake implementation. G2-P independently governs real AP2/ACP integration. Continued design is authorized; estimates do not create waiting periods.
+Current bounded work: **IMP-001 bootstrap** and **REL-003 design publication**. G1 and limited G2-S for create/quote/approve/reserve/read are accepted in reviews/gates.md. Bootstrap verification is mandatory before application source; broader execution design remains open. G2-P independently governs real AP2/ACP integration. Continued design is authorized; estimates do not create waiting periods.
 
 ## Documentation foundation — Week 1 / workdays 1-5
 
@@ -28,7 +28,7 @@ Current bounded work: **DES-001..008** detailed design and independent review. G
 | DOC-005 | Security, operational and release risk register — Sol, Astra review | Done | DOC-002/003/004 | Named owner/mitigation for authority, duplicate execution, credential handling and release-claim risks. |
 | DOC-006 | Independent documentation/plan review and G1 decision — independent reviewer / IO | Done | DOC-001..005 | Baseline scope/scenario findings resolved; review 0002 and integration-owner G1 outcome recorded. Not a design approval. |
 | REL-001 | Confirm exact GitHub remote, visibility and history — PO / IO | Done | User destination supplied | Destination `https://github.com/manishgh/agentic-payments.git` supplied and verified empty; record visibility/publication context and pre-push checks in delivery evidence. No user-destination blocker remains. |
-| REL-002 | Focused reviewed documentation commit and push — IO | Planned | DOC-006; REL-001 for push | Secret/private-file and whitespace/link checks; local commit; non-force branch push when destination verified. |
+| REL-002 | Focused reviewed documentation commit and push — IO | Done | DOC-006; REL-001 for push | Secret/private-file and whitespace/link checks; local commit; non-force branch push when destination verified. |
 
 ## Reviewed design — Week 2 / target workdays 6-10
 
@@ -41,15 +41,15 @@ Current bounded work: **DES-001..008** detailed design and independent review. G
 | DES-005 | Capability and adapter contract design — Sol, independent review | In progress | DOC-004; DES-002 | Provider/method/credential/action dimensions, unknown-required refusal and partial-support behavior. |
 | DES-006 | Simulator and conformance profile design — Sol, independent review | In progress | DES-002..005 | Deterministic scenario catalog, requirement mapping, clock/event controls and incompatible reference fixtures; local-fake labels. |
 | DES-007 | Runtime/framework/dependency ADRs — Sol, independent review / IO | In progress | DES-001..006 for acceptance | Java/Python LangGraph/TypeScript/PostgreSQL proposals reviewed; versions, licenses and dependency rationale recorded for the selected slice. |
-| DES-008 | Independent local-fake design review and G2-S decision — Astra / IO | Planned | DES-001..007; G1 | Independent of design author and plan reviewer; no critical local authority/concurrency/recovery findings; implementable first slice and test plan accepted. |
+| DES-008 | Independent local-fake design review and G2-S decision — Astra / IO | Done (first slice only) | DES-001..007; G1 | Independent of design author and plan reviewer; no critical local authority/concurrency/recovery findings; implementable first slice and test plan accepted. |
 | DES-009 | Real AP2/ACP profile, pins and integration review — design author, Astra review / IO | Planned | DOC-002; DES-001..005; applicable partner/API evidence | G2-P: immutable upstream artifacts, permitted wire/continuation mapping, real roles/trust/signatures/receipts, provider assumptions and negative fixtures reviewed. Does not block pure local-fake work. |
-| REL-003 | Reviewed design milestone commit/push — IO | Planned | DES-008 for local-fake scope; REL-001 for push | Focused design diff, G2-S scope and remaining G2-P exclusions, validation evidence and recorded branch/commit. |
+| REL-003 | Reviewed design milestone commit/push — IO | In progress | DES-008 for local-fake scope; REL-001 for push | Focused design diff, G2-S scope and remaining G2-P exclusions, validation evidence and recorded branch/commit. |
 
 ## Implementation in vertical slices — Weeks 3-8
 
 | ID | Task / owner | Status | Dependencies | Acceptance evidence |
 | --- | --- | --- | --- | --- |
-| IMP-001 | Local build/CI and first persisted intent slice — Sol / IO | Planned | G2-S | Reproducible documented build; domain logic independent; exact money validation; PostgreSQL integration and migration evidence; local-fake only. |
+| IMP-001 | Local build/CI and first persisted intent slice — Sol / IO | Ready: bootstrap first | G2-S | Reproducible documented build; domain logic independent; exact money validation; PostgreSQL integration and migration evidence; local-fake only. |
 | IMP-002 | Simulated embedded checkout and action lifecycle — Sol / IO | Planned | IMP-001; DES-003/006 | Purchase reaches result; required action can suspend/resume; denied/expired/invalid actions tested. |
 | IMP-003 | Idempotent execution and event processing — Sol, Astra review | Planned | IMP-001/002 | Duplicate commands/events cause no duplicate charge; event verification and scope conflicts tested. |
 | IMP-004 | Concurrent reservations and ambiguous-outcome recovery — Sol, Astra review | Planned | IMP-003 | Contention, timeout and crash/restart tests prove one execution owner; unresolved state is visible and recoverable. |
@@ -101,3 +101,10 @@ No task is marked done solely because prose was drafted, a target date passed or
 Remaining release/integration blockers do not prevent local-fake design: public release license, real protocol pins/mapping, and applicable provider/partner access. The supplied and verified GitHub destination is no longer a blocker.
 No build/test command exists yet; documentation validation comprises consistency, links and whitespace checks.
 See the [roadmap](roadmap.md) for gate criteria and [product brief](product-brief.md) for product scope.
+
+## Recorded milestone evidence
+
+- G1 / DOC-001..006: accepted baseline and independent plan review; initial documentation commit 15f0776a2fa1628ac8e77999885cd86811380204.
+- REL-001/002: exact public remote verified empty, reviewed baseline pushed to main, hosted documentation CI run 42293811152 passed.
+- DES-008: review 0003 accepts only create/quote/approve/reserve/read design; artifact hashes and residual limits are recorded there. DES-001..007 contain broader future work and are not blanket-completed.
+- IMP-001: only bootstrap is ready to execute now; no Java application build or payment test has run. Follow implementation-slice-001.md and gates.md.

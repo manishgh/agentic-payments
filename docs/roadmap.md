@@ -1,6 +1,6 @@
 # Delivery roadmap
 
-Status: documentation baseline under review; detailed design in progress. No implementation is complete.
+Status: documentation baseline accepted; first local-fake slice design independently reviewed with limited G2-S acceptance. No payment implementation is complete. See [gate decisions](reviews/gates.md) for exact scope and mandatory bootstrap; later design/implementation gates remain open.
 Kickoff: 2026-11-06, Europe/Berlin. Day numbers mean relative working days, not calendar-day promises.
 The initial horizon is approximately 12 working weeks, subject to review findings, access and available work sessions.
 No unattended work or automatic future execution is scheduled by this plan.

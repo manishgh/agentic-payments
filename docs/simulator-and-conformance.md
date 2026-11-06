@@ -35,6 +35,8 @@ IDs are permanent under the [version policy](../specification/README.md). These 
 | CT-011 | EXT-011 | Run and replay seeded faults with the same clock/schedule/configuration, then isolate/reset scenarios. | Matching normalized state and invariant digest; no cross-test contamination or live network/payment path. |
 | CT-012 | EXT-012 | Generate a report with failures, unsupported optional profiles, and missing upstream integration evidence. | Report preserves failures/exclusions and exact scope; cannot emit an unqualified or external accreditation claim. |
 
+For `local-fake-single-tender-0.1`, CT-005 exercises only the synthetic-challenge continuation subset; no real card/3DS, provider-2FA or bank-action profile passes as a result. CT-008's voucher/partial-funding behavior is not applicable because that capability is not advertised; baseline negative tests must still reject split or underfunded allocations before reservation.
+
 An optional profile is `not applicable` only when it is not claimed; record why and its capability declaration. An advertised but untested profile is incomplete, not a pass. Required failures, missing evidence, and unexplained skips block a project-scoped certification decision.
 
 ## Evidence JSON plan
