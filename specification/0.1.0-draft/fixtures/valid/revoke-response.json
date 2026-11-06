@@ -1,0 +1,11 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "authorityId": "fixture-grant-1",
+  "state": "REVOKED",
+  "version": 2,
+  "futureAdmissionBlocked": true,
+  "alreadyAdmittedAttemptIds": [
+    "20000000-0000-4000-8000-000000000001"
+  ]
+}

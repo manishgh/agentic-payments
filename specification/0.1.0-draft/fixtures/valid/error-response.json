@@ -1,0 +1,9 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "error": {
+    "code": "OUTCOME_UNRESOLVED",
+    "message": "The existing operation requires reconciliation.",
+    "retry": "READ_STATUS"
+  }
+}

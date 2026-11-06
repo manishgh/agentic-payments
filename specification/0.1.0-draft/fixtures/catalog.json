@@ -1,0 +1,74 @@
+{
+  "catalogVersion": "fixtures-0.1",
+  "syntheticData": true,
+  "merchants": [
+    "merchant-demo"
+  ],
+  "scenarios": [
+    "success",
+    "challenge-then-success",
+    "response-loss-after-acceptance",
+    "delayed-success",
+    "definitive-no-effect"
+  ],
+  "currencies": [
+    {
+      "currency": "EUR",
+      "exponent": 2
+    },
+    {
+      "currency": "USD",
+      "exponent": 2
+    }
+  ],
+  "credentialReferences": [
+    "fixture-credential-1"
+  ],
+  "authorityReferences": [
+    "fixture-grant-1"
+  ],
+  "carts": [
+    {
+      "cartFixtureId": "cart-1250-eur",
+      "merchantId": "merchant-demo",
+      "items": [
+        {
+          "sku": "sku-demo",
+          "quantity": 1,
+          "unitMinorUnits": "1250"
+        }
+      ],
+      "fulfillmentFixtureId": "delivery-demo",
+      "money": {
+        "currency": "EUR",
+        "minorUnits": "1250"
+      },
+      "tender": {
+        "provider": "simulator",
+        "method": "synthetic-card",
+        "credentialReference": "fixture-credential-1"
+      }
+    },
+    {
+      "cartFixtureId": "cart-1250-usd",
+      "merchantId": "merchant-demo",
+      "items": [
+        {
+          "sku": "sku-demo",
+          "quantity": 1,
+          "unitMinorUnits": "1250"
+        }
+      ],
+      "fulfillmentFixtureId": "delivery-demo",
+      "money": {
+        "currency": "USD",
+        "minorUnits": "1250"
+      },
+      "tender": {
+        "provider": "simulator",
+        "method": "synthetic-card",
+        "credentialReference": "fixture-credential-1"
+      }
+    }
+  ]
+}

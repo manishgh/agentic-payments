@@ -1,0 +1,39 @@
+{
+  "platform": "windows-x64",
+  "verifiedOn": "2026-11-06",
+  "artifacts": [
+    {
+      "name": "Temurin JDK",
+      "version": "21.0.13+9",
+      "file": "OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip",
+      "checksumUrl": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip.sha256.txt",
+      "algorithm": "SHA256",
+      "hash": "a4dbaa05fca4bd89d84584e58c459bd732efebb1722af80ab13c6516832004f9",
+      "destination": ".",
+      "executable": "jdk-21.0.13+9/bin/java.exe"
+    },
+    {
+      "name": "Apache Maven",
+      "version": "3.9.16",
+      "file": "apache-maven-3.9.16-bin.zip",
+      "url": "https://dlcdn.apache.org/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.zip",
+      "checksumUrl": "https://dlcdn.apache.org/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.zip.sha512",
+      "algorithm": "SHA512",
+      "hash": "ed41650d42485cfc243fad22158caf9cbb5dc408ce7a09ddb94dd42a019de929ca43065bfa450612cf12bf78b5cafa3884b96c090de326ff590448c933454af3",
+      "destination": ".",
+      "executable": "apache-maven-3.9.16/bin/mvn.cmd"
+    },
+    {
+      "name": "EDB PostgreSQL binaries",
+      "version": "17.11-5",
+      "file": "postgresql-17.11-5-windows-x64-binaries.zip",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-17.11-5-windows-x64-binaries.zip",
+      "checksumUrl": "https://get.enterprisedb.com/postgresql/postgresql-17.11-5-windows-x64-binaries.zip.sha256",
+      "algorithm": "SHA256",
+      "hash": "80379b2c04d51c30225532e0ae04509899141e9957ed096fe749d7fd9df8f82f",
+      "destination": "postgresql-17.11-5",
+      "executable": "postgresql-17.11-5/pgsql/bin/postgres.exe"
+    }
+  ]
+}

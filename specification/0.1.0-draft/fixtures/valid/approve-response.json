@@ -1,0 +1,15 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "intentId": "10000000-0000-4000-8000-000000000001",
+  "state": "APPROVED",
+  "version": 3,
+  "attemptId": "20000000-0000-4000-8000-000000000001",
+  "executionOwner": "simulator-core",
+  "authorityProfile": "local-fake",
+  "authorityVersion": 1,
+  "reserved": {
+    "currency": "EUR",
+    "minorUnits": "1250"
+  }
+}

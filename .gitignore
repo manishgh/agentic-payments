@@ -9,6 +9,7 @@
 credentials*.json
 
 # Build and development output
+.tools/
 .idea/
 .vscode/
 .venv/

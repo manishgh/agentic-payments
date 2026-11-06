@@ -1,0 +1,11 @@
+{
+  "expectedVersion": 1,
+  "cartFixtureId": "cart-1250-eur",
+  "tenders": [
+    {
+      "provider": "simulator",
+      "method": "synthetic-card",
+      "credentialReference": "fixture-credential-1"
+    }
+  ]
+}

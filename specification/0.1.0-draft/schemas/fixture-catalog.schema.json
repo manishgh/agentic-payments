@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/specification/0.1.0-draft/schemas/fixture-catalog.schema.json",
+  "type": "object",
+  "properties": {
+    "catalogVersion": {
+      "const": "fixtures-0.1"
+    },
+    "syntheticData": {
+      "const": true
+    },
+    "merchants": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contracts.schema.json#/$defs/fixtureId"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "success",
+          "challenge-then-success",
+          "response-loss-after-acceptance",
+          "delayed-success",
+          "definitive-no-effect"
+        ]
+      }
+    },
+    "currencies": {
+      "const": [
+        {
+          "currency": "EUR",
+          "exponent": 2
+        },
+        {
+          "currency": "USD",
+          "exponent": 2
+        }
+      ]
+    },
+    "credentialReferences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contracts.schema.json#/$defs/fixtureId"
+      }
+    },
+    "authorityReferences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "contracts.schema.json#/$defs/fixtureId"
+      }
+    },
+    "carts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "properties": {
+          "cartFixtureId": {
+            "$ref": "contracts.schema.json#/$defs/fixtureId"
+          },
+          "merchantId": {
+            "$ref": "contracts.schema.json#/$defs/fixtureId"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "$ref": "contracts.schema.json#/$defs/fixtureId"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "unitMinorUnits": {
+                  "$ref": "contracts.schema.json#/$defs/minorUnits"
+                }
+              },
+              "required": [
+                "sku",
+                "quantity",
+                "unitMinorUnits"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "fulfillmentFixtureId": {
+            "$ref": "contracts.schema.json#/$defs/fixtureId"
+          },
+          "money": {
+            "$ref": "contracts.schema.json#/$defs/money"
+          },
+          "tender": {
+            "$ref": "contracts.schema.json#/$defs/tender"
+          }
+        },
+        "required": [
+          "cartFixtureId",
+          "merchantId",
+          "items",
+          "fulfillmentFixtureId",
+          "money",
+          "tender"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "catalogVersion",
+    "syntheticData",
+    "merchants",
+    "scenarios",
+    "currencies",
+    "credentialReferences",
+    "authorityReferences",
+    "carts"
+  ],
+  "additionalProperties": false
+}

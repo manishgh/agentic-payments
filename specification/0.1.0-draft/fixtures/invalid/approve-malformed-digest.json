@@ -1,0 +1,6 @@
+{
+  "expectedVersion": 2,
+  "checkoutRevision": 1,
+  "checkoutDigest": "sha256:fixture-digest",
+  "authorityReference": "fixture-grant-1"
+}

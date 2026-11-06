@@ -1,0 +1,14 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "actionId": "40000000-0000-4000-8000-000000000001",
+  "version": 1,
+  "type": "synthetic-challenge",
+  "attemptId": "20000000-0000-4000-8000-000000000001",
+  "state": "OPEN",
+  "expiresAt": "2026-11-06T10:10:00Z",
+  "choices": [
+    "approve",
+    "deny"
+  ]
+}

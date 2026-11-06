@@ -1,0 +1,77 @@
+{
+  "extensionVersion": "0.1.0-draft",
+  "contractVersion": "simulator-api-0.1-draft",
+  "profile": "local-fake-single-tender-0.1",
+  "catalogVersion": "fixtures-0.1",
+  "authorityProfile": "local-fake",
+  "executionOwner": "simulator-core",
+  "syntheticData": true,
+  "networkPaymentAccess": false,
+  "capabilities": [
+    "single-tender",
+    "exact-money",
+    "customer-action",
+    "idempotent-execution",
+    "reconciliation"
+  ],
+  "allowedCombinations": [
+    {
+      "provider": "simulator",
+      "method": "synthetic-card",
+      "credentialType": "synthetic-reference",
+      "actionTypes": [
+        "none",
+        "synthetic-challenge"
+      ]
+    }
+  ],
+  "operations": {
+    "prepare": "effect-free",
+    "execute": "synthetic-full-charge",
+    "lookup": true,
+    "sealNoEffect": "local-journal-atomic",
+    "refund": false,
+    "capture": false,
+    "cancelProvider": false,
+    "splitTender": false
+  },
+  "money": {
+    "currencies": [
+      {
+        "currency": "EUR",
+        "exponent": 2
+      },
+      {
+        "currency": "USD",
+        "exponent": 2
+      }
+    ],
+    "minimumMinorUnits": "1",
+    "maximumMinorUnits": "999999999999",
+    "tenderCount": 1,
+    "allocation": "full-total"
+  },
+  "conformanceScope": {
+    "requiredCases": [
+      "CT-001",
+      "CT-002",
+      "CT-003",
+      "CT-004",
+      "CT-005",
+      "CT-006",
+      "CT-007",
+      "CT-009",
+      "CT-010",
+      "CT-011",
+      "CT-012"
+    ],
+    "limitations": [
+      "CT-005 is synthetic-challenge only.",
+      "CT-007 is local binding only; no AP2 signatures or trust chain.",
+      "CT-008 voucher/partial funding is not advertised; rejection tests remain required.",
+      "No AP2/ACP/OpenAI/provider, PCI, regulatory or network accreditation."
+    ],
+    "evidence": [],
+    "decision": "not-assessed"
+  }
+}

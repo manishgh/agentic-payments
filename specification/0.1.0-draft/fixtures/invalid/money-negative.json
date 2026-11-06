@@ -1,0 +1,24 @@
+{
+  "schema": "local-checkout-0.1",
+  "merchantId": "merchant-demo",
+  "checkoutRevision": 1,
+  "catalogVersion": "fixtures-0.1",
+  "cartFixtureId": "cart-1250-eur",
+  "items": [
+    {
+      "sku": "sku-demo",
+      "quantity": 1,
+      "unitMinorUnits": "1250"
+    }
+  ],
+  "fulfillmentFixtureId": "delivery-demo",
+  "money": {
+    "currency": "EUR",
+    "minorUnits": "-1"
+  },
+  "tender": {
+    "provider": "simulator",
+    "method": "synthetic-card",
+    "credentialReference": "fixture-credential-1"
+  }
+}

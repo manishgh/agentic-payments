@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/specification/0.1.0-draft/schemas/profile.schema.json",
+  "title": "Exact local-only 0.1 profile descriptor",
+  "type": "object",
+  "properties": {
+    "extensionVersion": {
+      "const": "0.1.0-draft"
+    },
+    "contractVersion": {
+      "const": "simulator-api-0.1-draft"
+    },
+    "profile": {
+      "const": "local-fake-single-tender-0.1"
+    },
+    "catalogVersion": {
+      "const": "fixtures-0.1"
+    },
+    "authorityProfile": {
+      "const": "local-fake"
+    },
+    "executionOwner": {
+      "const": "simulator-core"
+    },
+    "syntheticData": {
+      "const": true
+    },
+    "networkPaymentAccess": {
+      "const": false
+    },
+    "capabilities": {
+      "const": [
+        "single-tender",
+        "exact-money",
+        "customer-action",
+        "idempotent-execution",
+        "reconciliation"
+      ]
+    },
+    "allowedCombinations": {
+      "const": [
+        {
+          "provider": "simulator",
+          "method": "synthetic-card",
+          "credentialType": "synthetic-reference",
+          "actionTypes": [
+            "none",
+            "synthetic-challenge"
+          ]
+        }
+      ]
+    },
+    "operations": {
+      "const": {
+        "prepare": "effect-free",
+        "execute": "synthetic-full-charge",
+        "lookup": true,
+        "sealNoEffect": "local-journal-atomic",
+        "refund": false,
+        "capture": false,
+        "cancelProvider": false,
+        "splitTender": false
+      }
+    },
+    "money": {
+      "const": {
+        "currencies": [
+          {
+            "currency": "EUR",
+            "exponent": 2
+          },
+          {
+            "currency": "USD",
+            "exponent": 2
+          }
+        ],
+        "minimumMinorUnits": "1",
+        "maximumMinorUnits": "999999999999",
+        "tenderCount": 1,
+        "allocation": "full-total"
+      }
+    },
+    "conformanceScope": {
+      "const": {
+        "requiredCases": [
+          "CT-001",
+          "CT-002",
+          "CT-003",
+          "CT-004",
+          "CT-005",
+          "CT-006",
+          "CT-007",
+          "CT-009",
+          "CT-010",
+          "CT-011",
+          "CT-012"
+        ],
+        "limitations": [
+          "CT-005 is synthetic-challenge only.",
+          "CT-007 is local binding only; no AP2 signatures or trust chain.",
+          "CT-008 voucher/partial funding is not advertised; rejection tests remain required.",
+          "No AP2/ACP/OpenAI/provider, PCI, regulatory or network accreditation."
+        ],
+        "evidence": [],
+        "decision": "not-assessed"
+      }
+    }
+  },
+  "required": [
+    "extensionVersion",
+    "contractVersion",
+    "profile",
+    "catalogVersion",
+    "authorityProfile",
+    "executionOwner",
+    "syntheticData",
+    "networkPaymentAccess",
+    "capabilities",
+    "allowedCombinations",
+    "operations",
+    "money",
+    "conformanceScope"
+  ],
+  "additionalProperties": false
+}

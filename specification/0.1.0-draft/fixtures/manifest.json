@@ -1,0 +1,304 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "extensionVersion": "0.1.0-draft",
+  "profile": "local-fake-single-tender-0.1",
+  "syntheticData": true,
+  "schemaFixtures": [
+    {
+      "file": "valid/create-request.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": true,
+      "reason": "Known explicit profile and catalog capabilities."
+    },
+    {
+      "file": "valid/quote-request.json",
+      "schema": "../schemas/quote-request.schema.json",
+      "valid": true,
+      "reason": "Single full-total fixture tender."
+    },
+    {
+      "file": "valid/approve-request.json",
+      "schema": "../schemas/approve-request.schema.json",
+      "valid": true,
+      "reason": "Exact canonical checkout digest."
+    },
+    {
+      "file": "valid/execute-request.json",
+      "schema": "../schemas/execute-request.schema.json",
+      "valid": true,
+      "reason": "Sole server-generated attempt identity."
+    },
+    {
+      "file": "valid/complete-action-request.json",
+      "schema": "../schemas/complete-action-request.schema.json",
+      "valid": true,
+      "reason": "Trusted action decision shape; authorization is external."
+    },
+    {
+      "file": "valid/revoke-request.json",
+      "schema": "../schemas/revoke-request.schema.json",
+      "valid": true,
+      "reason": "Monotonic revocation needs no expectedVersion."
+    },
+    {
+      "file": "valid/create-response.json",
+      "schema": "../schemas/create-response.schema.json",
+      "valid": true,
+      "reason": "Created resource."
+    },
+    {
+      "file": "valid/quote-response.json",
+      "schema": "../schemas/quote-response.schema.json",
+      "valid": true,
+      "reason": "Immutable quote."
+    },
+    {
+      "file": "valid/approve-response.json",
+      "schema": "../schemas/approve-response.schema.json",
+      "valid": true,
+      "reason": "Full-total reservation."
+    },
+    {
+      "file": "valid/execute-response.json",
+      "schema": "../schemas/execute-response.schema.json",
+      "valid": true,
+      "reason": "Accepted original command response."
+    },
+    {
+      "file": "valid/get-action-response.json",
+      "schema": "../schemas/get-action-response.schema.json",
+      "valid": true,
+      "reason": "Synthetic trusted action."
+    },
+    {
+      "file": "valid/complete-action-response.json",
+      "schema": "../schemas/complete-action-response.schema.json",
+      "valid": true,
+      "reason": "Action verification does not prove success."
+    },
+    {
+      "file": "valid/revoke-response.json",
+      "schema": "../schemas/revoke-response.schema.json",
+      "valid": true,
+      "reason": "Prior admission still needs reconciliation."
+    },
+    {
+      "file": "valid/get-intent-response.json",
+      "schema": "../schemas/get-intent-response.schema.json",
+      "valid": true,
+      "reason": "Graph-safe unresolved status preserves exposure."
+    },
+    {
+      "file": "valid/error-response.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": true,
+      "reason": "Fixed safe error, no replacement attempt recommendation."
+    },
+    {
+      "file": "invalid/create-unknown-field.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": false,
+      "reason": "Unknown caller-controlled tenant rejected."
+    },
+    {
+      "file": "invalid/create-unknown-capability.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": false,
+      "reason": "Unknown required capability fails closed."
+    },
+    {
+      "file": "invalid/create-duplicate-capability.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": false,
+      "reason": "Capabilities are distinct."
+    },
+    {
+      "file": "invalid/create-implicit-profile.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": false,
+      "reason": "No downgrade."
+    },
+    {
+      "file": "invalid/quote-split-tender.json",
+      "schema": "../schemas/quote-request.schema.json",
+      "valid": false,
+      "reason": "Split tender rejected before reservation."
+    },
+    {
+      "file": "invalid/quote-live-provider.json",
+      "schema": "../schemas/quote-request.schema.json",
+      "valid": false,
+      "reason": "Only simulator provider."
+    },
+    {
+      "file": "invalid/quote-price-injection.json",
+      "schema": "../schemas/quote-request.schema.json",
+      "valid": false,
+      "reason": "Prices belong to trusted catalog."
+    },
+    {
+      "file": "invalid/approve-malformed-digest.json",
+      "schema": "../schemas/approve-request.schema.json",
+      "valid": false,
+      "reason": "Placeholder prose digest is not a production-shaped fixture."
+    },
+    {
+      "file": "invalid/approve-zero-version.json",
+      "schema": "../schemas/approve-request.schema.json",
+      "valid": false,
+      "reason": "Version is positive signed 32-bit."
+    },
+    {
+      "file": "invalid/execute-shorthand-id.json",
+      "schema": "../schemas/execute-request.schema.json",
+      "valid": false,
+      "reason": "Resource IDs are UUIDs."
+    },
+    {
+      "file": "invalid/money-number.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/money-negative.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/money-zero.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/money-fraction.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/money-exponent.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/money-leading-zero.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/money-overflow.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Exact positive bounded decimal string required."
+    },
+    {
+      "file": "invalid/snapshot-unknown-nested-field.json",
+      "schema": "../schemas/checkout-snapshot.schema.json",
+      "valid": false,
+      "reason": "Unknown nested fields rejected."
+    },
+    {
+      "file": "invalid/status-credential-leak.json",
+      "schema": "../schemas/get-intent-response.schema.json",
+      "valid": false,
+      "reason": "Graph-safe response is closed."
+    },
+    {
+      "file": "invalid/verified-action-with-choices.json",
+      "schema": "../schemas/get-action-response.schema.json",
+      "valid": false,
+      "reason": "Consumed actions expose no choices."
+    },
+    {
+      "file": "invalid/complete-action-claims-success.json",
+      "schema": "../schemas/complete-action-response.schema.json",
+      "valid": false,
+      "reason": "Action approval cannot claim payment success."
+    },
+    {
+      "file": "invalid/error-extra-field.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": false,
+      "reason": "Errors have only fixed safe fields."
+    },
+    {
+      "file": "valid/get-checkout-response.json",
+      "schema": "../schemas/get-checkout-response.schema.json",
+      "valid": true,
+      "reason": "Trusted subject reviews server-owned checkout binding before approval."
+    },
+    {
+      "file": "invalid/checkout-review-credential-leak.json",
+      "schema": "../schemas/get-checkout-response.schema.json",
+      "valid": false,
+      "reason": "Trusted review projection excludes credential references."
+    },
+    {
+      "file": "invalid/quote-impossible-date.json",
+      "schema": "../schemas/quote-response.schema.json",
+      "valid": false,
+      "reason": "Calendar-invalid timestamps fail format assertions even when their spelling matches the UTC pattern."
+    }
+  ],
+  "bindingFixtures": [
+    {
+      "file": "tampered/checkout-merchant.json",
+      "expectedSchemaValid": true,
+      "expectedBindingValid": false,
+      "approvedDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+      "reason": "Altered merchant cannot match the approved checkout."
+    },
+    {
+      "file": "tampered/checkout-amount.json",
+      "expectedSchemaValid": true,
+      "expectedBindingValid": false,
+      "approvedDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+      "reason": "Altered amount cannot match the approved checkout."
+    },
+    {
+      "file": "tampered/checkout-currency.json",
+      "expectedSchemaValid": true,
+      "expectedBindingValid": false,
+      "approvedDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+      "reason": "Altered currency cannot match the approved checkout."
+    },
+    {
+      "file": "tampered/checkout-revision.json",
+      "expectedSchemaValid": true,
+      "expectedBindingValid": false,
+      "approvedDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+      "reason": "Altered revision cannot match the approved checkout."
+    },
+    {
+      "file": "tampered/checkout-credential.json",
+      "expectedSchemaValid": true,
+      "expectedBindingValid": false,
+      "approvedDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+      "reason": "Altered credential cannot match the approved checkout."
+    },
+    {
+      "file": "tampered/checkout-items.json",
+      "expectedSchemaValid": true,
+      "expectedBindingValid": false,
+      "approvedDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+      "reason": "Altered items cannot match the approved checkout."
+    }
+  ],
+  "canonical": {
+    "file": "checkout-canonical.json",
+    "metadata": "checkout-canonical.metadata.json",
+    "schema": "../schemas/checkout-snapshot.schema.json"
+  },
+  "parserFixtures": [
+    {
+      "file": "invalid/create-duplicate-keys.json",
+      "expectedParseAccepted": false,
+      "reason": "Duplicate JSON object member names must reject before request materialization and schema evaluation."
+    }
+  ]
+}

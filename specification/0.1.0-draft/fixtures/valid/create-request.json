@@ -1,0 +1,10 @@
+{
+  "merchantId": "merchant-demo",
+  "scenarioId": "challenge-then-success",
+  "profile": "local-fake-single-tender-0.1",
+  "requiredCapabilities": [
+    "single-tender",
+    "exact-money",
+    "customer-action"
+  ]
+}

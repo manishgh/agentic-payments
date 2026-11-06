@@ -1,0 +1,878 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/specification/0.1.0-draft/schemas/contracts.schema.json",
+  "title": "Local-fake simulator API 0.1 draft definitions",
+  "$comment": "Internal local-only contract. Fixture-ID syntax is not authorization or catalog membership. Reject duplicate keys before schema evaluation; require format assertions. No AP2/ACP wire compatibility is claimed.",
+  "$defs": {
+    "fixtureId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[\\x20-\\x7e]+$"
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "minorUnits": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,11}$"
+    },
+    "profile": {
+      "const": "local-fake-single-tender-0.1"
+    },
+    "capability": {
+      "enum": [
+        "single-tender",
+        "exact-money",
+        "customer-action",
+        "idempotent-execution",
+        "reconciliation"
+      ]
+    },
+    "intentState": {
+      "enum": [
+        "DRAFT",
+        "QUOTED",
+        "APPROVED",
+        "PREPARING",
+        "WAITING_ACTION",
+        "READY",
+        "ADMITTED",
+        "PENDING",
+        "UNKNOWN",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED",
+        "EXPIRED"
+      ]
+    },
+    "actionState": {
+      "enum": [
+        "OPEN",
+        "VERIFIED",
+        "DENIED",
+        "EXPIRED",
+        "CANCELLED"
+      ]
+    },
+    "exposureState": {
+      "enum": [
+        "NONE",
+        "HELD",
+        "CONSUMED",
+        "RELEASED"
+      ]
+    },
+    "money": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "enum": [
+            "EUR",
+            "USD"
+          ]
+        },
+        "minorUnits": {
+          "$ref": "#/$defs/minorUnits"
+        }
+      },
+      "required": [
+        "currency",
+        "minorUnits"
+      ],
+      "additionalProperties": false
+    },
+    "tender": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "const": "simulator"
+        },
+        "method": {
+          "const": "synthetic-card"
+        },
+        "credentialReference": {
+          "$ref": "#/$defs/fixtureId"
+        }
+      },
+      "required": [
+        "provider",
+        "method",
+        "credentialReference"
+      ],
+      "additionalProperties": false
+    },
+    "createRequest": {
+      "type": "object",
+      "properties": {
+        "merchantId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "scenarioId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capability"
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "merchantId",
+        "scenarioId",
+        "profile",
+        "requiredCapabilities"
+      ],
+      "additionalProperties": false
+    },
+    "quoteRequest": {
+      "type": "object",
+      "properties": {
+        "expectedVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "cartFixtureId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "tenders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tender"
+          },
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "expectedVersion",
+        "cartFixtureId",
+        "tenders"
+      ],
+      "additionalProperties": false
+    },
+    "approveRequest": {
+      "type": "object",
+      "properties": {
+        "expectedVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "checkoutRevision": {
+          "$ref": "#/$defs/version"
+        },
+        "checkoutDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "authorityReference": {
+          "$ref": "#/$defs/fixtureId"
+        }
+      },
+      "required": [
+        "expectedVersion",
+        "checkoutRevision",
+        "checkoutDigest",
+        "authorityReference"
+      ],
+      "additionalProperties": false
+    },
+    "executeRequest": {
+      "type": "object",
+      "properties": {
+        "expectedVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "required": [
+        "expectedVersion",
+        "attemptId"
+      ],
+      "additionalProperties": false
+    },
+    "completeActionRequest": {
+      "type": "object",
+      "properties": {
+        "expectedVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "decision": {
+          "enum": [
+            "approve",
+            "deny"
+          ]
+        }
+      },
+      "required": [
+        "expectedVersion",
+        "decision"
+      ],
+      "additionalProperties": false
+    },
+    "revokeRequest": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "enum": [
+            "user-request",
+            "policy-revoked",
+            "test-revocation"
+          ]
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "createResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "intentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "state": {
+          "const": "DRAFT"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "intentId",
+        "state",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "quoteResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "intentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "state": {
+          "const": "QUOTED"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "checkoutRevision": {
+          "$ref": "#/$defs/version"
+        },
+        "checkoutDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "money": {
+          "$ref": "#/$defs/money"
+        },
+        "quoteExpiresAt": {
+          "$ref": "#/$defs/instant"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "intentId",
+        "state",
+        "version",
+        "checkoutRevision",
+        "checkoutDigest",
+        "money",
+        "quoteExpiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "approveResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "intentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "state": {
+          "const": "APPROVED"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "executionOwner": {
+          "const": "simulator-core"
+        },
+        "authorityProfile": {
+          "const": "local-fake"
+        },
+        "authorityVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "reserved": {
+          "$ref": "#/$defs/money"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "intentId",
+        "state",
+        "version",
+        "attemptId",
+        "executionOwner",
+        "authorityProfile",
+        "authorityVersion",
+        "reserved"
+      ],
+      "additionalProperties": false
+    },
+    "executeResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "intentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "state": {
+          "const": "PREPARING"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "operationId": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "intentId",
+        "state",
+        "version",
+        "attemptId",
+        "operationId"
+      ],
+      "additionalProperties": false
+    },
+    "getActionResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "actionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "type": {
+          "const": "synthetic-challenge"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "state": {
+          "$ref": "#/$defs/actionState"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/instant"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "approve",
+              "deny"
+            ]
+          },
+          "uniqueItems": true,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "actionId",
+        "version",
+        "type",
+        "attemptId",
+        "state",
+        "expiresAt",
+        "choices"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "OPEN"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "choices": {
+                "const": [
+                  "approve",
+                  "deny"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "choices": {
+                "const": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completeActionResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "actionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "state": {
+          "enum": [
+            "VERIFIED",
+            "DENIED"
+          ]
+        },
+        "intentState": {
+          "enum": [
+            "READY",
+            "FAILED"
+          ]
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "actionId",
+        "version",
+        "state",
+        "intentState"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "VERIFIED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "intentState": {
+                "const": "READY"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "intentState": {
+                "const": "FAILED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "revokeResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "authorityId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "state": {
+          "const": "REVOKED"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "futureAdmissionBlocked": {
+          "const": true
+        },
+        "alreadyAdmittedAttemptIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "authorityId",
+        "state",
+        "version",
+        "futureAdmissionBlocked",
+        "alreadyAdmittedAttemptIds"
+      ],
+      "additionalProperties": false
+    },
+    "getIntentResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "intentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "state": {
+          "$ref": "#/$defs/intentState"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "runId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "attemptId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operationId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "money": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exposureState": {
+          "$ref": "#/$defs/exposureState"
+        },
+        "reconciliationRequired": {
+          "type": "boolean"
+        },
+        "actionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcomeEvidenceId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "intentId",
+        "state",
+        "version",
+        "profile",
+        "runId",
+        "attemptId",
+        "operationId",
+        "money",
+        "exposureState",
+        "reconciliationRequired",
+        "actionId",
+        "outcomeEvidenceId"
+      ],
+      "additionalProperties": false
+    },
+    "errorResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "INVALID_REQUEST",
+                "INVALID_MONEY",
+                "UNKNOWN_FIELD",
+                "UNAUTHENTICATED",
+                "FORBIDDEN",
+                "RESOURCE_NOT_FOUND",
+                "VERSION_CONFLICT",
+                "IDEMPOTENCY_CONFLICT",
+                "INVALID_STATE",
+                "CHECKOUT_CHANGED",
+                "BUDGET_EXCEEDED",
+                "AUTHORITY_REVOKED",
+                "ACTION_ALREADY_CONSUMED",
+                "OUTCOME_UNRESOLVED",
+                "AUTHORITY_EXPIRED",
+                "ACTION_EXPIRED",
+                "UNSUPPORTED_PROFILE",
+                "UNSUPPORTED_CAPABILITY",
+                "UNSUPPORTED_TENDER",
+                "AUTHORITY_BINDING_INVALID",
+                "TEMPORARILY_UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[\\x20-\\x7e]+$"
+            },
+            "retry": {
+              "enum": [
+                "NEVER",
+                "SAME_COMMAND",
+                "READ_STATUS"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retry"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "checkoutSnapshot": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "local-checkout-0.1"
+        },
+        "merchantId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "checkoutRevision": {
+          "$ref": "#/$defs/version"
+        },
+        "catalogVersion": {
+          "const": "fixtures-0.1"
+        },
+        "cartFixtureId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "sku": {
+                "$ref": "#/$defs/fixtureId"
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "unitMinorUnits": {
+                "$ref": "#/$defs/minorUnits"
+              }
+            },
+            "required": [
+              "sku",
+              "quantity",
+              "unitMinorUnits"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "fulfillmentFixtureId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "money": {
+          "$ref": "#/$defs/money"
+        },
+        "tender": {
+          "$ref": "#/$defs/tender"
+        }
+      },
+      "required": [
+        "schema",
+        "merchantId",
+        "checkoutRevision",
+        "catalogVersion",
+        "cartFixtureId",
+        "items",
+        "fulfillmentFixtureId",
+        "money",
+        "tender"
+      ],
+      "additionalProperties": false
+    },
+    "getCheckoutResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "simulator-api-0.1-draft"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/correlationId"
+        },
+        "intentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "state": {
+          "enum": [
+            "QUOTED",
+            "APPROVED"
+          ]
+        },
+        "merchantId": {
+          "$ref": "#/$defs/fixtureId"
+        },
+        "checkoutRevision": {
+          "$ref": "#/$defs/version"
+        },
+        "checkoutDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "money": {
+          "$ref": "#/$defs/money"
+        },
+        "quoteExpiresAt": {
+          "$ref": "#/$defs/instant"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "correlationId",
+        "intentId",
+        "version",
+        "state",
+        "merchantId",
+        "checkoutRevision",
+        "checkoutDigest",
+        "money",
+        "quoteExpiresAt"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

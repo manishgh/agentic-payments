@@ -1,0 +1,8 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "actionId": "40000000-0000-4000-8000-000000000001",
+  "version": 2,
+  "state": "VERIFIED",
+  "intentState": "READY"
+}

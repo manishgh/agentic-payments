@@ -1,0 +1,14 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "intentId": "10000000-0000-4000-8000-000000000001",
+  "state": "QUOTED",
+  "version": 2,
+  "checkoutRevision": 1,
+  "checkoutDigest": "sha256:c1f63c9e22cb8953af008e171b42d17fa188e027651ff07fc8620fceb6c238ad",
+  "money": {
+    "currency": "EUR",
+    "minorUnits": "1250"
+  },
+  "quoteExpiresAt": "2026-11-06T10:15:00Z"
+}

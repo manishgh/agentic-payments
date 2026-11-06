@@ -8,7 +8,7 @@ $rootPath = (Resolve-Path -LiteralPath $Root).Path
 $rootPrefix = $rootPath.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 $failures = [Collections.Generic.List[string]]::new()
 $files = @(Get-ChildItem -LiteralPath $rootPath -Recurse -File -Filter '*.md' |
-    Where-Object { $_.FullName -notmatch '[/\\](\.git|node_modules|\.venv|target|build)[/\\]' })
+    Where-Object { $_.FullName -notmatch '[/\\](\.git|\.tools|node_modules|\.venv|target|build)[/\\]' })
 
 if ($files.Count -eq 0) {
     throw "No Markdown files found in the supplied root."

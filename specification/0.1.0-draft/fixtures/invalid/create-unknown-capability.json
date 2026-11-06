@@ -1,0 +1,8 @@
+{
+  "merchantId": "merchant-demo",
+  "scenarioId": "challenge-then-success",
+  "profile": "local-fake-single-tender-0.1",
+  "requiredCapabilities": [
+    "real-ap2-signature"
+  ]
+}

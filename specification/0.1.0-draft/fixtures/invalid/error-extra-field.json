@@ -1,0 +1,10 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-1",
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Invalid request.",
+    "retry": "NEVER",
+    "stackTrace": "forbidden"
+  }
+}
