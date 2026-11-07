@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/evidence/receipt.schema.json",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "const": "execution-receipt-0.1"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^(?:[0-9a-f]{32})(?![\\s\\S])"
+    },
+    "sourceBefore": {
+      "type": "object",
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+        },
+        "files": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)(?![\\s\\S])"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+          },
+          "minProperties": 1,
+          "maxProperties": 2000
+        }
+      },
+      "required": [
+        "sha256",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "sourceAfter": {
+      "type": "object",
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+        },
+        "files": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)(?![\\s\\S])"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+          },
+          "minProperties": 1,
+          "maxProperties": 2000
+        }
+      },
+      "required": [
+        "sha256",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "inputHashes": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "pattern": "^(?:[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)(?![\\s\\S])"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+      },
+      "minProperties": 1,
+      "maxProperties": 2000
+    },
+    "runtimeVersions": {
+      "type": "object",
+      "properties": {
+        "java": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^(?:[0-9A-Za-z.+_-]{1,60})(?![\\s\\S])"
+        },
+        "maven": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^(?:[0-9A-Za-z.+_-]{1,60})(?![\\s\\S])"
+        },
+        "node": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^(?:[0-9A-Za-z.+_-]{1,60})(?![\\s\\S])"
+        },
+        "python": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^(?:[0-9A-Za-z.+_-]{1,60})(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "java",
+        "maven",
+        "node",
+        "python"
+      ],
+      "additionalProperties": false
+    },
+    "buildArtifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "enum": [
+              "reference-jar",
+              "adapter-sdk"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+          }
+        },
+        "required": [
+          "id",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "enum": [
+              "contracts",
+              "evidence-tooling",
+              "upstream-integrity",
+              "upstream-structural",
+              "offline-artifacts",
+              "offline-artifact-demo",
+              "java-postgresql",
+              "adapter-tck",
+              "recorded-replay",
+              "trusted-ui",
+              "http",
+              "langgraph"
+            ]
+          },
+          "executionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^(?:[0-9a-f]{32})(?![\\s\\S])"
+          },
+          "outcome": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INCOMPLETE"
+            ]
+          },
+          "exitCode": {
+            "type": "integer",
+            "minimum": -9999999999,
+            "maximum": 9999999999
+          },
+          "durationSeconds": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "artifact": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "^(?:artifacts/[a-z][a-z-]{0,63}\\.json)(?![\\s\\S])"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "executionId",
+          "outcome",
+          "exitCode",
+          "durationSeconds",
+          "artifact"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "formatVersion",
+    "runId",
+    "sourceBefore",
+    "sourceAfter",
+    "inputHashes",
+    "runtimeVersions",
+    "buildArtifacts",
+    "stages"
+  ],
+  "additionalProperties": false
+}

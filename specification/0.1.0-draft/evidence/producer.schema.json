@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/evidence/producer.schema.json",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "const": "suite-observations-0.1"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^(?:[0-9a-f]{32})(?![\\s\\S])"
+    },
+    "stage": {
+      "enum": [
+        "contracts",
+        "evidence-tooling",
+        "upstream-integrity",
+        "upstream-structural",
+        "offline-artifacts",
+        "offline-artifact-demo",
+        "java-postgresql",
+        "adapter-tck",
+        "recorded-replay",
+        "trusted-ui",
+        "http",
+        "langgraph"
+      ]
+    },
+    "executionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^(?:[0-9a-f]{32})(?![\\s\\S])"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^(?:[0-9a-f]{64})(?![\\s\\S])"
+    },
+    "producer": {
+      "enum": [
+        "python-unittest",
+        "java-surefire",
+        "node-junit"
+      ]
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "observationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^(?:[A-Z][A-Z0-9-]{1,95})(?![\\s\\S])"
+          },
+          "observedStatus": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "ERROR",
+              "SKIPPED",
+              "EXPECTED_FAILURE",
+              "UNEXPECTED_SUCCESS",
+              "MISSING"
+            ]
+          }
+        },
+        "required": [
+          "observationId",
+          "observedStatus"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 1000,
+      "uniqueItems": true
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "tests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "expectedFailures": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "unexpectedSuccesses": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "unmapped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "duplicates": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "tests",
+        "passed",
+        "failed",
+        "errors",
+        "skipped",
+        "expectedFailures",
+        "unexpectedSuccesses",
+        "unmapped",
+        "duplicates"
+      ],
+      "additionalProperties": false
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "MISSING_ARTIFACT",
+          "MALFORMED_ARTIFACT",
+          "COUNT_MISMATCH",
+          "DUPLICATE_SELECTOR",
+          "LIFECYCLE_ERROR",
+          "EMPTY_SUITE",
+          "INCOMPLETE_PRODUCER",
+          "BUILD_FAILED"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1000,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "formatVersion",
+    "runId",
+    "stage",
+    "executionId",
+    "sourceSha256",
+    "producer",
+    "complete",
+    "results",
+    "counts",
+    "issues"
+  ],
+  "additionalProperties": false
+}

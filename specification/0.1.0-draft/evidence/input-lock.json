@@ -1,0 +1,21 @@
+{
+  "formatVersion": "evidence-input-lock-0.1",
+  "files": {
+    "docs/adr/0004-requirement-evidence.md": "2466075b822ef5d410ae9b5daf96a8d3a945df2d88b14b4f1b6d77e27df23a67",
+    "docs/reviews/0013-evidence-design-review.md": "2a63397b75039f7c5c6f8a2bd9a4489a2e98f238e2aff4067add83440f7546ac",
+    "docs/simulator-and-conformance.md": "18b5719968c39f652052af6065453bea2ca2c458a7070bc1291a37107ec3ffd6",
+    "integrations/offline_lab/requirements-crypto.lock.txt": "16b2e11a0b9b963c7238f3199bf9d2fc570954b245740c60ad1634738dabf292",
+    "pom.xml": "c6383e143efc8cec03705cebbbadcf9c4c611591830acde5f09a25a23f86b5e8",
+    "specification/0.1.0-draft/README.md": "154051b23dafeb87955ff1f803bb908b25dd106cf4770cea76ef8734c4d9a135",
+    "specification/0.1.0-draft/evidence/inventory.json": "c7f584fba060a8b927f88e3b198bcf853ed573f22aea21bb1f0bb86dca995122",
+    "specification/0.1.0-draft/evidence/inventory.schema.json": "7b89d729761c34f33350ecf16cd8b24ce81200175e4db79321b78bce4371f048",
+    "specification/0.1.0-draft/evidence/mapping.json": "002735d63028b7b1fdf8cbefb759d7aefdf0f88a9969a914eeab497d3d6b2446",
+    "specification/0.1.0-draft/evidence/mapping.schema.json": "9e8110e343f6a0a134f9b603e4e8eb41c33a566fc8d14f343d48bde1cea872f2",
+    "specification/0.1.0-draft/evidence/producer.schema.json": "2e827c5ebd3d98defa5a25bb4597b365cff32c7b84bec12d40fccd724f4f0362",
+    "specification/0.1.0-draft/evidence/receipt.schema.json": "edb84f46e49d2321e0dd51b325e33509d3073e705bc6d290d528443f25cbce03",
+    "specification/0.1.0-draft/evidence/report.schema.json": "f658e2f1a572d202afcfce95a55e818340b4e950a97e80b9d34e97f6b7343041",
+    "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java": "18eba4bad2bd56398a67bc6a540175826bb9e9b0fb6f72077518cce5f1678447",
+    "ui/package-lock.json": "2d32e553a8894512d841012132d7d0b402e673d9dd8fdcdec5057c2e937a0eaf",
+    "workflows/requirements-lock.txt": "3792819416fbfaf3df4e01fdbdf1529be86f6e1f9fc49043f486f50b7a7b1b49"
+  }
+}

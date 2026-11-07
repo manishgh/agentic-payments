@@ -1,0 +1,390 @@
+{
+  "formatVersion": "test-inventory-0.1",
+  "profile": "local-fake-single-tender-0.1",
+  "observations": [
+    {
+      "id": "OBS-NEGOTIATION",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#reducedCapabilitiesFailBeforeReservationAndBeforeAdmission",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPLAY-COMMAND",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#sameCommandReplayAndConflictHaveNoDuplicateIntent",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-RESERVATIONS",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#concurrentReservationsCannotOverspend",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-LOST-RESPONSE",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#responseLossRetainsExposureThenSameJournalResolves",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-NO-EFFECT-SEAL",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#bareNotFoundRetainsHoldUntilAtomicSealFencesStaleSend",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-TRUSTED-ACTION",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#challengeRequiresTrustedSubjectAndIsSingleUse",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-ACTION-EXPIRY",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#actionExpiryAtExactClockBoundaryCannotAdmit",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-CHECKOUT-BINDING",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#changedCheckoutCannotAuthorizeAndTrustedCheckoutOmitsCredential",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-SPLIT-REFUSAL",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#splitTenderAndUnknownCapabilitiesRefuseBeforeReservation",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REVOKE-BEFORE",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#revokeBeforeAdmissionBlocksChargeAndReleasesOnce",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REVOKE-IN-FLIGHT",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.PaymentCoreIntegrationTest#revokeBetweenAdmissionAndPhysicalSendAllowsOnlyTheAdmittedOperation",
+      "source": "src/test/java/io/agenticpayments/core/PaymentCoreIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EXACT-VERSION",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.sdk.descriptor.AdapterRegistryTest#exactRevisionAndUnknownRequiredCapabilityCannotDowngrade",
+      "source": "src/test/java/io/agenticpayments/sdk/descriptor/AdapterRegistryTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-COMBINATION",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.sdk.descriptor.AdapterRegistryTest#providerWideCapabilitiesCannotInventAnAuthenticationOrMethodCrossProduct",
+      "source": "src/test/java/io/agenticpayments/sdk/descriptor/AdapterRegistryTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-AVAILABILITY",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.sdk.descriptor.AdapterRegistryTest#supportedButUnconfiguredDisabledUnavailableExpiredOrWrongScopeFailsClosed",
+      "source": "src/test/java/io/agenticpayments/sdk/descriptor/AdapterRegistryTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-MONEY-BOUNDS",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.sdk.descriptor.AdapterRegistryTest#amountOutsideDeclaredTupleLimitsIsRefused",
+      "source": "src/test/java/io/agenticpayments/sdk/descriptor/AdapterRegistryTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-BINDING-GOLDENS",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.sdk.GoldenContractTest#everyBindingMutationDiffersFromTheApprovedSnapshotAndDigest",
+      "source": "src/test/java/io/agenticpayments/sdk/GoldenContractTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-PROCESS-CRASH",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.DurableBoundaryIntegrationTest#abruptFreshJvmLossAfterJournalCommitRecoversSameChargeExactlyOnce",
+      "source": "src/test/java/io/agenticpayments/core/DurableBoundaryIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-REPLAY",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#exactJournalEventReplayHasNoDurableEffect",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-VERIFIER",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#journalVerifierRejectsAbsentAndCrossBoundEventHandles",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-FORGERY",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#forgedAdapterDeliveryCannotReachInbox",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-BINDING",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#authenticatedBindingVariantsAreRetainedWithoutAuthority",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-SEQUENCE",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#sameSequenceDistinctEventFreezesWithoutConsumption",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-CONTRADICTION",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#contradictorySuccessAfterSealedNoEffectCannotRewriteRelease",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-EVENT-FINAL-PROOF",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#higherSequenceSameFinalCannotReplaceAcceptedProof",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-CORE-PRIVACY",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.core.AdversarialEvidenceIntegrationTest#rejectedCredentialAndActionCanariesStayOutOfSafeCoreSurfaces",
+      "source": "src/test/java/io/agenticpayments/core/AdversarialEvidenceIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPLAY-EQUALITY",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.replay.ReplayIntegrationTest#sameExpandedMultiIntentPlanHasEqualDigestsInFreshPhysicalRuns",
+      "source": "src/test/java/io/agenticpayments/replay/ReplayIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPLAY-OWNERSHIP",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.replay.ReplayIntegrationTest#ordinaryGraphUiAndBackgroundStoresCannotMutateReplayOwnedRun",
+      "source": "src/test/java/io/agenticpayments/replay/ReplayIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPLAY-INTERRUPTION",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.replay.ReplayIntegrationTest#orphanStartedStepIsIncompleteAndDoesNotBlindlySelectAnotherWorkItem",
+      "source": "src/test/java/io/agenticpayments/replay/ReplayIntegrationTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-TCK-EXCLUSIONS",
+      "stage": "java-postgresql",
+      "producer": "java-surefire",
+      "selector": "io.agenticpayments.sdk.tck.AdapterTckTest#advertisedFeaturesOmittedFromAPlanRemainExplicitlyUnevaluated",
+      "source": "src/test/java/io/agenticpayments/sdk/tck/AdapterTckTest.java",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-HTTP-PRIVACY",
+      "stage": "http",
+      "producer": "python-unittest",
+      "selector": "scripts.test_http.HttpContractTests.test_credentials_and_rejected_inputs_stay_out_of_responses_and_process_logs",
+      "source": "scripts/test_http.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-HTTP-ACTION",
+      "stage": "http",
+      "producer": "python-unittest",
+      "selector": "scripts.test_http.HttpContractTests.test_challenge_cannot_be_completed_by_graph",
+      "source": "scripts/test_http.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-HTTP-JSON",
+      "stage": "http",
+      "producer": "python-unittest",
+      "selector": "scripts.test_http.HttpContractTests.test_strict_json_and_no_secret_echo",
+      "source": "scripts/test_http.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-GRAPH-RESUME",
+      "stage": "langgraph",
+      "producer": "python-unittest",
+      "selector": "workflows.test_payment_workflow.WorkflowTests.test_sqlite_restart_and_spoofed_resume_cannot_approve",
+      "source": "workflows/test_payment_workflow.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-GRAPH-UNKNOWN",
+      "stage": "langgraph",
+      "producer": "python-unittest",
+      "selector": "workflows.test_payment_workflow.WorkflowTests.test_unknown_repeated_resume_never_creates_or_executes_again",
+      "source": "workflows/test_payment_workflow.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-GRAPH-ACTION",
+      "stage": "langgraph",
+      "producer": "python-unittest",
+      "selector": "workflows.test_payment_workflow.WorkflowTests.test_action_state_only_interrupts_and_has_no_completion_port",
+      "source": "workflows/test_payment_workflow.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-UPSTREAM-PINS",
+      "stage": "upstream-integrity",
+      "producer": "python-unittest",
+      "selector": "integrations.upstream.test_probes.UpstreamIntegrityTest.test_lock_has_unique_immutable_artifacts_and_license_references",
+      "source": "integrations/upstream/test_probes.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-LAB-PRIVACY",
+      "stage": "offline-artifacts",
+      "producer": "python-unittest",
+      "selector": "integrations.offline_lab.tests.test_lab.ArtifactLabTest.test_safe_report_reprs_exceptions_and_database_exclude_sensitive_artifacts",
+      "source": "integrations/offline_lab/tests/test_lab.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-UI-BOUND-CHECKOUT",
+      "stage": "trusted-ui",
+      "producer": "node-junit",
+      "selector": "approval displays money from the exact trusted checkout revision even if status was stale",
+      "source": "ui/tests/review.test.cjs",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-UI-CHANGED-INTENT",
+      "stage": "trusted-ui",
+      "producer": "node-junit",
+      "selector": "changing the typed intent invalidates the reviewed approval",
+      "source": "ui/tests/review.test.cjs",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-UI-RETRY",
+      "stage": "trusted-ui",
+      "producer": "node-junit",
+      "selector": "transport uncertainty preserves the idempotency key for the same approval",
+      "source": "ui/tests/review.test.cjs",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-1",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_valid_observations_keep_open_requirements_incomplete",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-2",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_failures_skips_and_missing_are_never_qualified_pass",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-3",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_stage_failure_and_source_change_invalidate_passes",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-4",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_stale_or_malformed_producer_is_not_credited",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-5",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_mapping_rejects_missing_duplicate_unknown_and_false_exclusions",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-6",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_bundle_recomputes_claims_from_independent_inputs",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-7",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_changed_inputs_and_artifact_paths_fail_closed",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    },
+    {
+      "id": "OBS-REPORT-8",
+      "stage": "evidence-tooling",
+      "producer": "python-unittest",
+      "selector": "scripts.test_requirement_evidence.RequirementEvidenceTests.test_safe_report_rejects_untrusted_payload_fields",
+      "source": "scripts/test_requirement_evidence.py",
+      "expectedCount": 1
+    }
+  ]
+}

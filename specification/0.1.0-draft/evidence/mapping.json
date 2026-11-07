@@ -1,0 +1,266 @@
+{
+  "formatVersion": "requirement-map-0.1",
+  "profile": "local-fake-single-tender-0.1",
+  "capabilityDeclaration": {
+    "source": "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java",
+    "advertised": [
+      "single-tender",
+      "exact-money",
+      "customer-action",
+      "idempotent-execution",
+      "reconciliation"
+    ]
+  },
+  "cases": [
+    {
+      "id": "CT-001",
+      "requirementId": "EXT-001",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-001-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-NEGOTIATION",
+            "OBS-EXACT-VERSION"
+          ],
+          "gaps": [
+            "GAP-HTTP-NEGOTIATION-MATRIX"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-002",
+      "requirementId": "EXT-002",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-002-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-COMBINATION",
+            "OBS-AVAILABILITY",
+            "OBS-MONEY-BOUNDS"
+          ],
+          "gaps": [
+            "GAP-EXECUTABLE-DESCRIPTOR-INTEGRATION"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-003",
+      "requirementId": "EXT-003",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-003-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-REPLAY-COMMAND",
+            "OBS-RESERVATIONS",
+            "OBS-PROCESS-CRASH",
+            "OBS-GRAPH-RESUME",
+            "OBS-UI-RETRY"
+          ],
+          "gaps": [
+            "GAP-FULL-CRASH-MATRIX"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-004",
+      "requirementId": "EXT-004",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-004-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-LOST-RESPONSE",
+            "OBS-NO-EFFECT-SEAL",
+            "OBS-GRAPH-UNKNOWN"
+          ],
+          "gaps": [
+            "GAP-TEMPORARY-LOOKUP-FAILURE"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-005",
+      "requirementId": "EXT-005",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-005-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-TRUSTED-ACTION",
+            "OBS-ACTION-EXPIRY",
+            "OBS-HTTP-ACTION",
+            "OBS-GRAPH-RESUME",
+            "OBS-GRAPH-ACTION",
+            "OBS-UI-BOUND-CHECKOUT",
+            "OBS-UI-CHANGED-INTENT"
+          ],
+          "gaps": [
+            "GAP-CONCURRENT-ACTION-COMPLETION"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-006",
+      "requirementId": "EXT-006",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-006-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-EVENT-REPLAY",
+            "OBS-EVENT-VERIFIER",
+            "OBS-EVENT-FORGERY",
+            "OBS-EVENT-BINDING",
+            "OBS-EVENT-SEQUENCE",
+            "OBS-EVENT-CONTRADICTION",
+            "OBS-EVENT-FINAL-PROOF"
+          ],
+          "gaps": [
+            "GAP-CONCURRENT-EVENT-DELIVERY"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-007",
+      "requirementId": "EXT-007",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-007-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-CHECKOUT-BINDING",
+            "OBS-BINDING-GOLDENS",
+            "OBS-HTTP-JSON",
+            "OBS-UI-BOUND-CHECKOUT"
+          ],
+          "gaps": [
+            "GAP-PROFILE-SUBSTITUTION-MATRIX"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-008",
+      "requirementId": "EXT-008",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-008-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-SPLIT-REFUSAL"
+          ],
+          "gaps": []
+        }
+      ],
+      "exclusion": {
+        "capabilities": [
+          "voucher",
+          "split-tender"
+        ],
+        "reason": "UNADVERTISED_OPTIONAL_PROFILE"
+      }
+    },
+    {
+      "id": "CT-009",
+      "requirementId": "EXT-009",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-009-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-ACTION-EXPIRY",
+            "OBS-REVOKE-BEFORE",
+            "OBS-REVOKE-IN-FLIGHT"
+          ],
+          "gaps": [
+            "GAP-FULL-REVOCATION-MATRIX"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-010",
+      "requirementId": "EXT-010",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-010-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-CORE-PRIVACY",
+            "OBS-HTTP-PRIVACY",
+            "OBS-HTTP-JSON",
+            "OBS-GRAPH-RESUME",
+            "OBS-GRAPH-ACTION",
+            "OBS-LAB-PRIVACY"
+          ],
+          "gaps": [
+            "GAP-COMPLETE-TELEMETRY-SINKS"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-011",
+      "requirementId": "EXT-011",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-011-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-REPLAY-EQUALITY",
+            "OBS-REPLAY-OWNERSHIP",
+            "OBS-REPLAY-INTERRUPTION"
+          ],
+          "gaps": [
+            "GAP-CONFLICT-NORMALIZATION"
+          ]
+        }
+      ],
+      "exclusion": null
+    },
+    {
+      "id": "CT-012",
+      "requirementId": "EXT-012",
+      "scope": "LOCAL-SYNTHETIC-OBSERVATIONS",
+      "obligations": [
+        {
+          "id": "CT-012-REVIEWED-SUBSET",
+          "observations": [
+            "OBS-TCK-EXCLUSIONS",
+            "OBS-UPSTREAM-PINS",
+            "OBS-REPORT-1",
+            "OBS-REPORT-2",
+            "OBS-REPORT-3",
+            "OBS-REPORT-4",
+            "OBS-REPORT-5",
+            "OBS-REPORT-6",
+            "OBS-REPORT-7",
+            "OBS-REPORT-8"
+          ],
+          "gaps": [
+            "GAP-CERTIFICATION-POLICY"
+          ]
+        }
+      ],
+      "exclusion": null
+    }
+  ]
+}

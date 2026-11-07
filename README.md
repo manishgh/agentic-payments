@@ -13,7 +13,7 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Recorded multi-intent replay with seeded choices, crash/recovery tests and normalized evidence digests.
 - Isolated offline lab for exact signed checkout bytes, pinned schema checks and durable synthetic sidecar bindings.
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
-- Automated database, HTTP, UI, schema and workflow checks with version-bound evidence and CI.
+- Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
 Execution currently accepts only the synthetic profile. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
 
@@ -60,7 +60,7 @@ pwsh -NoProfile -File scripts/Check-Docs.ps1
 git diff --check
 ```
 
-The evidence runner uses real PostgreSQL, isolated HTTP services and fresh Python processes. Results go to ignored `target/conformance/`. Missing database configuration, failed checks or source mutation during validation fail the run.
+The evidence runner uses real PostgreSQL, isolated HTTP services and fresh Python processes. Safe reports, execution receipts and observations go to ignored `target/conformance/`; raw diagnostics stay private under `.tools/conformance/`. Missing database configuration, failed checks or source mutation during validation fail the run. Verify the bundle with `python -m scripts.requirement_evidence --bundle target/conformance`; see [requirement evidence](docs/requirement-evidence.md) for identity, coverage gaps and verification limits.
 
 The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/privacy matrix and certification policy remain incomplete. `--require-certification` fails until those obligations are satisfied. Project evidence grants no provider, AP2/ACP, PCI, regulatory or network certification.
 

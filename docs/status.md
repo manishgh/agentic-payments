@@ -16,6 +16,8 @@ Separate Astra [core review](reviews/0006-reference-code-review.md) and Sol 6.1 
 
 The integrated replay/lab checkpoint passed all 11 stages against a fresh database: 99 Java, eight HTTP, three UI, 12 LangGraph, 26 lab and five upstream-integrity tests, plus structural/schema fixtures and CLI checks. Source stayed unchanged across the run. Independent reviews 0010, 0011 and 0012 are accepted; exact identities and evidence are recorded in [implementation evidence](implementation-evidence.md).
 
+The requirement-evidence follow-on passed a fresh twelve-stage aggregate with 204 test methods, zero failures/errors/skips and unchanged source. All 48 selected named observations qualify PASS. Reviews 0013..0015 accept the bounded design, event/privacy tests and evidence pipeline after corrections. The report recomputes coverage from pinned definitions and current-run artifacts; eleven CT rows still retain explicit incomplete gaps, and CT-008's optional exclusion requires its baseline refusal evidence. See [requirement evidence](requirement-evidence.md) for verification and publication rules.
+
 The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Exhaustive adversarial/privacy evidence, broader conflict-normalization replay and certification policy are unfinished. The offline lab verifies merchant signatures/content only; native AP2 authority and dispatch remain disabled.
 
 ## Publication
@@ -23,6 +25,8 @@ The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks 
 Earlier milestones: documentation `15f0776a2fa1628ac8e77999885cd86811380204` on main, reviewed design `65c39dd0d8fe80a2a8d72fc5680471d414288448` and handoff `a82973df705df4d7f937f92a07e3d18b4579b3f4` on `codex/simulator-design`. Their documentation CI passed.
 
 Reference milestone `314bd2f` and SDK/TCK checkpoint `0f60d93` are published on the implementation branch. Hosted [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42307004050) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42307004092) passed for `0f60d93`. The GitHub connector previously denied PR creation with HTTP 403 `Resource not accessible by integration`; authenticated native pushes work. No merge, package release or deployment was performed.
+
+Replay/artifact checkpoint `9fd7dbbc5cef135007b7f2253aba24c825386954` is also published. Its [Linux reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571643) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571661) passed. The requirement-evidence follow-on has its own source review and local aggregate record above; earlier hosted runs do not validate later source. It does not enable providers or grant certification.
 
 Repository-local Git author remains `Agentic Payments Automation <automation@agentic-payments.invalid>` because no author was configured initially. Global settings were not changed. Binaries, database data, credentials, checkpoints, screenshots and generated reports remain ignored.
 

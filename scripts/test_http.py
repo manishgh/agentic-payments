@@ -94,7 +94,7 @@ class HttpContractTests(unittest.TestCase):
         else:
             schema = "get-action-response" if path.startswith("/actions/") else "get-intent-response"
         errors = list(self.validators[schema + ".schema.json"].iter_errors(body))
-        self.assertFalse(errors, f"Actual HTTP {schema} violates its versioned schema ({len(errors)} errors).")
+        self.assertFalse(bool(errors), f"Actual HTTP {schema} violates its versioned schema ({len(errors)} errors).")
         return status, body, dict(response.headers)
 
     def test_revocation_response_and_released_exposure(self):
@@ -212,6 +212,96 @@ class HttpContractTests(unittest.TestCase):
             self.assertEqual(expected, status)
         _, status, _ = self.request(f"/intents/{intent}")
         self.assertEqual("NONE", status["exposureState"])
+
+    def test_credentials_and_rejected_inputs_stay_out_of_responses_and_process_logs(self):
+        directory = ROOT / ".tools" / "http-privacy" / uuid4().hex
+        directory.mkdir(parents=True)
+        graph = "CANARY_GRAPH_" + secrets.token_hex(24)
+        trusted = "CANARY_TRUSTED_" + secrets.token_hex(24)
+        rejected = "canary-rejected-" + secrets.token_hex(12)
+        env = dict(os.environ, PAYMENTS_GRAPH_TOKEN=graph, PAYMENTS_UI_TOKEN=trusted,
+                   PAYMENTS_RUN_ID=str(uuid4()), PAYMENTS_PORT="0")
+        classpath = str(ROOT / "target/classes") + os.pathsep + (ROOT / "target/classpath.txt").read_text().strip()
+        java = str(Path(os.environ["JAVA_HOME"]) / "bin" / ("java.exe" if os.name == "nt" else "java"))
+        stdout_path, stderr_path = directory / "stdout.log", directory / "stderr.log"
+        with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open("w", encoding="utf-8") as stderr:
+            process = subprocess.Popen([java, "-cp", classpath, "io.agenticpayments.http.Main"],
+                                       cwd=ROOT, env=env, stdout=stdout, stderr=stderr)
+            try:
+                deadline = time.monotonic() + 20
+                ready = ""
+                while time.monotonic() < deadline and process.poll() is None:
+                    lines = stdout_path.read_text(encoding="utf-8").splitlines()
+                    ready = next((line for line in lines if " at http://127.0.0.1:" in line), "")
+                    if ready:
+                        break
+                    time.sleep(.025)
+                self.assertTrue(bool(ready), "The isolated privacy-test server must become ready.")
+                # Instance overrides cannot alter another test's shared server or tokens.
+                self.base, self.graph_token, self.ui_token = ready.split(" at ", 1)[1], graph, trusted
+                canaries = (graph, trusted, rejected, "fixture-credential-1")
+
+                def assert_safe(response, expected):
+                    status, body, headers = response
+                    self.assertEqual(expected, status)
+                    serialized = json.dumps([body, dict(headers)])
+                    self.assertFalse(any(value in serialized for value in canaries), "Sensitive synthetic input reached a response.")
+                    return body
+
+                assert_safe(self.request("/intents?session=" + rejected), 400)
+                assert_safe(self.request("/intents/" + rejected), 400)
+                assert_safe(self.request("/intents/" + str(uuid4()), token=rejected), 401)
+                assert_safe(self.request("/intents/" + str(uuid4()), headers={"Origin": "https://" + rejected + ".invalid"}), 403)
+                assert_safe(self.request("/intents", body={"credential": rejected}), 400)
+                created = assert_safe(self.request("/intents", body=dict(
+                    merchantId="merchant-demo", scenarioId="challenge-then-success",
+                    profile="local-fake-single-tender-0.1", requiredCapabilities=["single-tender", "exact-money"])), 201)
+                intent = created["intentId"]
+                assert_safe(self.request(f"/intents/{intent}/quote", {
+                    "expectedVersion": 1, "cartFixtureId": "cart-1250-eur", "tenders": [{
+                        "provider": "simulator", "method": "synthetic-card", "credentialReference": rejected}]}), 422)
+                assert_safe(self.request(f"/intents/{intent}"), 200)
+                # The canary is also an actual valid trusted bearer, not only rejected input.
+                assert_safe(self.request(f"/intents/{intent}", trusted=True), 200)
+                quote = assert_safe(self.request(f"/intents/{intent}/quote", {
+                    "expectedVersion": 1, "cartFixtureId": "cart-1250-eur", "tenders": [{
+                        "provider": "simulator", "method": "synthetic-card", "credentialReference": "fixture-credential-1"}]}), 200)
+                approval = assert_safe(self.request(f"/intents/{intent}/approve", {
+                    "expectedVersion": quote["version"], "checkoutRevision": quote["checkoutRevision"],
+                    "checkoutDigest": quote["checkoutDigest"], "authorityReference": "fixture-grant-1"}, trusted=True), 200)
+                assert_safe(self.request(f"/intents/{intent}/execute", {
+                    "expectedVersion": approval["version"], "attemptId": approval["attemptId"]}), 202)
+                deadline = time.monotonic() + 8
+                waiting = {}
+                while time.monotonic() < deadline:
+                    waiting = assert_safe(self.request(f"/intents/{intent}"), 200)
+                    if waiting["state"] == "WAITING_ACTION":
+                        break
+                    time.sleep(.025)
+                self.assertTrue(waiting.get("state") == "WAITING_ACTION", "The synthetic action must become available.")
+                action_path = f"/actions/{waiting['actionId']}"
+                before = assert_safe(self.request(action_path, trusted=True), 200)
+                for payload in ({"expectedVersion": before["version"], "decision": rejected},
+                                {"expectedVersion": before["version"], "decision": "approve", "otp": rejected}):
+                    assert_safe(self.request(action_path + "/complete", payload, trusted=True), 400)
+                after = assert_safe(self.request(action_path, trusted=True), 200)
+                def state_fields(body):
+                    return {key: value for key, value in body.items() if key != "correlationId"}
+                self.assertTrue(state_fields(before) == state_fields(after), "Rejected private input must not change the trusted action.")
+                current = assert_safe(self.request(f"/intents/{intent}"), 200)
+                self.assertTrue(state_fields(waiting) == state_fields(current), "Rejected private input must not change payment state.")
+            finally:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+                for name in ("base", "graph_token", "ui_token"):
+                    self.__dict__.pop(name, None)
+        output = stdout_path.read_text(encoding="utf-8") + stderr_path.read_text(encoding="utf-8")
+        self.assertFalse(any(value in output for value in (graph, trusted, rejected, "fixture-credential-1")), "Sensitive synthetic input reached process output.")
+        self.assertFalse("Exception in thread" in output, "Process output must not contain an uncaught exception.")
 
 
 if __name__ == "__main__":

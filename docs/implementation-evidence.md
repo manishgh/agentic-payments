@@ -63,3 +63,30 @@ The 11-stage run includes 153 test methods across Java, HTTP, UI, LangGraph, lab
 [Replay review 0010](reviews/0010-replay-code-review.md), [artifact review 0011](reviews/0011-offline-artifact-code-review.md) and [integration review 0012](reviews/0012-integration-tooling-review.md) record exact identities and independent review limits. The owner independently reproduced the replay source/test, lab and integration group hashes before publication. Final review findings were fixed before this aggregate run.
 
 Result: **preview checks PASS; NOT_CERTIFIED**. Authenticated conflicts, disputed exposure and frozen budgets fail replay normalization without an equality digest; their reproducible safe-conflict projection remains unfinished. The complete adversarial/privacy and process-crash matrix, certification policy, real AP2/ACP authority/wire integration, provider connectors, split tender/refunds and managed operations remain separate work. Hosted validation for this checkpoint is attached to its GitHub commit; prior hosted runs above validate only their named earlier revisions.
+
+Publication: `9fd7dbbc5cef135007b7f2253aba24c825386954` on `codex/reference-platform`. Hosted [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571643) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571661) passed for that commit.
+
+## Requirement-bound evidence checkpoint
+
+Date: 2026-11-07. Following accepted design review 0013 and independent source reviews 0014/0015, the integration owner ran `python scripts/conformance.py` against a newly created isolated PostgreSQL database. Run `7fb95c298b0f4f9aa09e4c096f4e23b3` passed all twelve stages with unchanged 238-file source SHA-256 `04a8f6c197987367d8ccfa19f85db54f91adf24c032d68f7de7eb1cc562219ca`. Actual runtimes: Java 21.0.13, Maven 3.9.16, Python 3.12.14 and Node 24.16.0. No dependency or migration was added by this slice.
+
+| Suite | Actual passing test methods |
+| --- | --- |
+| Java/PostgreSQL | 107 |
+| Evidence collectors, evaluator and runner | 42 |
+| HTTP | 9 |
+| Trusted UI | 3 |
+| LangGraph | 12 |
+| Offline signed-checkout lab | 26 |
+| Upstream integrity | 5 |
+| Total | 204 |
+
+All suites have zero failures, errors, skips, expected failures, unexpected successes and duplicate observations. The aggregate also passed draft schema/fixture checks, twelve structural probes, offline demo, adapter TCK CLI and recorded replay CLI. These supplementary checks are separate from the 204 method count and do not invent named requirement credit.
+
+The 48 selected observations all qualify PASS. The versioned mapping still reports eleven INCOMPLETE CT rows with explicit gaps; CT-008 is NOT_APPLICABLE for the absent voucher/split profile only after its required baseline refusal guard passes. The result is **preview PASS, evidence VALID, NOT_CERTIFIED**. No full CT or external integration is silently marked complete.
+
+The owner separately ran `python -m scripts.requirement_evidence --bundle target/conformance` successfully. Final local report SHA-256 is `55f7eef5eab4486ee1df1419a54911aeabe0d2f714781ee488ccc69b91acd8dc`. The safe bundle includes its owner receipt, producer artifacts and current-run hashes; raw diagnostics remain private under ignored `.tools/conformance/`. CI uploads only after complete bundle/source/claim verification, including refusal of unexpected files. Preserve the exact source revision with historical evidence.
+
+The first exploratory run `2ab79817ec1d4d11925f530ff18b26bc` had passing stage exits but source changed during review. It correctly failed evidence acceptance and is retained privately as a failing run; its results are not substituted for the final run. Review 0015 records the nested-XML injection, failure-precedence, CI upload gating, current-source identity and extra-file publication defects corrected before acceptance.
+
+The event/privacy tests add selected durable-journal, conflict and isolated-process canary coverage only. Concurrent event delivery, complete telemetry sinks, full crash/revocation matrices, conflict normalization, certification policy, real native AP2/ACP integration and provider/managed operation remain open. See the [evidence usage guide](requirement-evidence.md) and [backlog](backlog.md).

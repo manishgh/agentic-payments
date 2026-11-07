@@ -18,7 +18,7 @@ A future real AP2 profile must pin the upstream specification/revision and manda
 
 ## Proposed conformance matrix
 
-IDs are permanent under the [version policy](../specification/README.md). These are acceptance-case definitions to implement later, not completed tests. Every row applies to the baseline unless an optional profile is explicitly named.
+IDs are permanent under the [version policy](../specification/README.md). These are complete acceptance-case definitions; the implemented selected observations cover reviewed subsets, with open gaps retained in the versioned mapping. Every row applies to the baseline unless an optional profile is explicitly named.
 
 | Case ID | Requirement | SDK/core contract and simulator scenario | Pass evidence |
 | --- | --- | --- | --- |
@@ -39,10 +39,12 @@ For `local-fake-single-tender-0.1`, CT-005 exercises only the synthetic-challeng
 
 An optional profile is `not applicable` only when it is not claimed; record why and its capability declaration. An advertised but untested profile is incomplete, not a pass. Required failures, missing evidence, and unexplained skips block a project-scoped certification decision.
 
-## Evidence JSON plan
+## Evidence JSON and remaining certification work
 
 Design a machine-readable JSON report after contracts are reviewed. Proposed contents are: report-format version; extension version and profile; pinned upstream references; adapter/core/runner/scenario artifact versions and hashes; safe configuration digest; synthetic-data declaration; seed, initial virtual time and event schedule reference; requirement/case IDs; expected/observed invariant summaries; per-case pass/fail/not-applicable results and reasons; redacted trace artifact hashes; limitations; and review identity/date/decision. Preserve the original failing runs as well as reruns. Hashes support traceability but do not by themselves establish trustworthy provenance.
 
-Do not include credentials, raw mandates/payment payloads, OTPs, private keys, customer data, or sensitive provider responses. Decide the evidence schema, retention/access policy, tamper evidence, and reviewer approval policy at the design gate; there is no executable report schema today.
+The local runner implements `reference-evidence-0.2` under [ADR 0004](adr/0004-requirement-evidence.md), with a selected observation inventory, requirement mapping, closed schemas and independently recomputed report. See [evidence usage](requirement-evidence.md) for the bundle format and verification command. Named Java, Python and Node results supply observation evidence; unmapped tests supply counts only. A green execution preview does not close the full CT definitions above. The initial mapping retains all open gaps, and CT-008 requires passing baseline refusal evidence before its optional-profile exclusion applies.
+
+Do not include credentials, raw mandates/payment payloads, OTPs, private keys, customer data, or sensitive provider responses. Raw diagnostics remain in ignored private local storage; the safe bundle contains only allowlisted evidence fields. Public certification policy, signing/provenance, retention/access approval and independent release approval remain unfinished.
 
 “Project certification” means an internal, version/profile-scoped assessment of this project's conformance evidence. It is not AP2 or OpenAI certification, a vendor partnership, PCI compliance, regulatory approval, or network accreditation. No current certification claim is authorized by this documentation.

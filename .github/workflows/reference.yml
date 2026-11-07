@@ -57,18 +57,14 @@ jobs:
       - name: Run version-bound reference evidence suite
         run: python scripts/conformance.py
       - name: Show evidence summary
+        id: evidence
         if: always()
-        run: |
-          python -c "import json,pathlib; p=pathlib.Path('target/conformance/report.json'); r=json.loads(p.read_text()) if p.exists() else {'error':'evidence absent'}; print(json.dumps({k:v for k,v in r.items() if k != 'source'},indent=2))"
-      - name: Show failed check logs
-        if: failure()
-        run: |
-          for log in target/conformance/*.log; do test ! -f "$log" || tail -80 "$log"; done
-      - name: Preserve version-bound evidence report
-        if: always()
+        run: python -m scripts.requirement_evidence --bundle target/conformance --verify-only
+      - name: Preserve safe current-run evidence bundle
+        if: always() && steps.evidence.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: reference-evidence-${{ github.sha }}
-          path: target/conformance/report.json
+          path: target/conformance/
           if-no-files-found: warn
           retention-days: 30

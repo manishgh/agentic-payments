@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/evidence/inventory.schema.json",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "const": "test-inventory-0.1"
+    },
+    "profile": {
+      "const": "local-fake-single-tender-0.1"
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^(?:[A-Z][A-Z0-9-]{1,95})(?![\\s\\S])"
+          },
+          "stage": {
+            "enum": [
+              "contracts",
+              "evidence-tooling",
+              "upstream-integrity",
+              "upstream-structural",
+              "offline-artifacts",
+              "offline-artifact-demo",
+              "java-postgresql",
+              "adapter-tck",
+              "recorded-replay",
+              "trusted-ui",
+              "http",
+              "langgraph"
+            ]
+          },
+          "producer": {
+            "enum": [
+              "python-unittest",
+              "java-surefire",
+              "node-junit"
+            ]
+          },
+          "selector": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[^\\x00-\\x1f\\x7f]{1,300})(?![\\s\\S])"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)(?![\\s\\S])"
+          },
+          "expectedCount": {
+            "const": 1
+          }
+        },
+        "required": [
+          "id",
+          "stage",
+          "producer",
+          "selector",
+          "source",
+          "expectedCount"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "formatVersion",
+    "profile",
+    "observations"
+  ],
+  "additionalProperties": false
+}

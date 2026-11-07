@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-payments.example/evidence/mapping.schema.json",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "const": "requirement-map-0.1"
+    },
+    "profile": {
+      "const": "local-fake-single-tender-0.1"
+    },
+    "capabilityDeclaration": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "const": "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java"
+        },
+        "advertised": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^(?:[a-z][a-z0-9-]{0,63})(?![\\s\\S])"
+          },
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "source",
+        "advertised"
+      ],
+      "additionalProperties": false
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^(?:CT-00[1-9]|CT-01[0-2])(?![\\s\\S])"
+          },
+          "requirementId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^(?:EXT-00[1-9]|EXT-01[0-2])(?![\\s\\S])"
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^(?:[A-Z][A-Z0-9-]{1,95})(?![\\s\\S])"
+          },
+          "obligations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 96,
+                  "pattern": "^(?:[A-Z][A-Z0-9-]{1,95})(?![\\s\\S])"
+                },
+                "observations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 96,
+                    "pattern": "^(?:[A-Z][A-Z0-9-]{1,95})(?![\\s\\S])"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000,
+                  "uniqueItems": true
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 96,
+                    "pattern": "^(?:[A-Z][A-Z0-9-]{1,95})(?![\\s\\S])"
+                  },
+                  "minItems": 0,
+                  "maxItems": 1000,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "id",
+                "observations",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true
+          },
+          "exclusion": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "^(?:[a-z][a-z0-9-]{0,63})(?![\\s\\S])"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "uniqueItems": true
+                  },
+                  "reason": {
+                    "const": "UNADVERTISED_OPTIONAL_PROFILE"
+                  }
+                },
+                "required": [
+                  "capabilities",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "requirementId",
+          "scope",
+          "obligations",
+          "exclusion"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "formatVersion",
+    "profile",
+    "capabilityDeclaration",
+    "cases"
+  ],
+  "additionalProperties": false
+}
