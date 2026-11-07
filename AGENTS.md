@@ -19,6 +19,8 @@ Read README.md and relevant docs before work. In this workspace also follow C:/p
 ## Engineering boundaries
 
 - Accepted reference stack: Java payment core/SDK, Python LangGraph reference workflow, TypeScript trusted UI, PostgreSQL transaction storage. Exact toolchain and dependency versions are recorded in docs/toolchain.md and component locks.
+- Implement AP2 independently from its pinned normative specifications. Do not import, wrap or copy Google's AP2 implementation/SDK as our protocol engine. Its repository may supply specifications, schemas, examples and an interoperability counterpart; any upstream implementation behavior remains secondary to the reviewed normative requirements.
+- Use established cryptographic primitives/libraries for the independently authored protocol logic. Native AP2 support must name its exact implemented profile; unsupported delegation, credentials, instruments or transports must fail explicitly rather than inherit a compatibility claim.
 - Use a modular core with domain/application/ports/infrastructure boundaries; domain code cannot depend on providers, persistence or orchestration.
 - A payment has one execution owner. Never initiate a second charge simply because checkout or a provider timed out.
 - Provider, method, credential and customer-action capabilities are separate; unknown required capabilities fail closed.

@@ -1,0 +1,80 @@
+{
+  "profile": "ap2-v0.2-direct-tap-synthetic-0.1",
+  "sourceLock": "../upstream/source-lock.json",
+  "defaultCache": ".tools/upstream-research",
+  "networkRetrievalAllowed": false,
+  "artifacts": [
+    {
+      "id": "ap2-checkout-mandate-schema",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/checkout_mandate.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "10c0341edfeaa9084d3704ef8e94869de20499c8e357068d65f8d622bf79483a",
+      "byteLength": 1357
+    },
+    {
+      "id": "ap2-checkout-receipt-schema",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/checkout_receipt.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "941198a1fc1916d04813a8b8ccba4b407471305a6eb1b5338b1f67b6299764ea",
+      "byteLength": 1693
+    },
+    {
+      "id": "ap2-code-sdk-schemas-ap2-types-amount-json",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/types/amount.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "15271efa8064539b8ded7c69f213ed7a1e64f8d9634b405ce926c2dcbbc41c0f",
+      "byteLength": 562
+    },
+    {
+      "id": "ap2-code-sdk-schemas-ap2-types-merchant-json",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/types/merchant.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "13457334d8577230a1cce5265971cfc02f68f5d4e97f74bd2e78128105d3ab31",
+      "byteLength": 601
+    },
+    {
+      "id": "ap2-code-sdk-schemas-ap2-types-payment-instrument-json",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/types/payment_instrument.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "b3bcea7a7b5bbf2b0aa781135ac3b6907280822aa84797161c2d3d104d0cbe8c",
+      "byteLength": 690
+    },
+    {
+      "id": "ap2-code-sdk-schemas-ap2-types-pisp-json",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/types/pisp.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "60a5c8c09236f5d1e84a25bff4fd4cff05fb3fa8e3648cbab483322f27388630",
+      "byteLength": 699
+    },
+    {
+      "id": "ap2-code-sdk-schemas-ap2-types-receipt-status-json",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/types/receipt_status.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "ad51c1c20be72e286f4ff6fe2819145dcec7e5e3e0f6dc7870fcf748c06c1da0",
+      "byteLength": 267
+    },
+    {
+      "id": "ap2-payment-mandate-schema",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/payment_mandate.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "94c4af64ed29825cb956705ae763d42f3c04d22feb60b8d838dae2bb1eea1fb1",
+      "byteLength": 2110
+    },
+    {
+      "id": "ap2-payment-receipt-schema",
+      "sourceId": "ap2",
+      "path": "code/sdk/schemas/ap2/payment_receipt.json",
+      "commit": "b4587ac1d055888a73b4b21750973cffba961793",
+      "sha256": "e7d52266c407d32bcc49959f91e8ddb73024a1803bef75b7bd368fb93849ba88",
+      "byteLength": 2079
+    }
+  ]
+}

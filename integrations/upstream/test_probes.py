@@ -20,6 +20,20 @@ MODULE_SPEC.loader.exec_module(PROBES)
 
 
 class UpstreamIntegrityTest(unittest.TestCase):
+    def test_ap2_vector_schema_dependencies_require_exact_locked_inventory(self):
+        lock = json.loads((HERE / "source-lock.json").read_text())
+        artifacts = {artifact["id"]: artifact for artifact in lock["artifacts"]}
+        manifest = json.loads((HERE.parent / "ap2_vectors/required-source-artifacts.json").read_text())
+        self.assertEqual(9, len(PROBES.ap2_dependencies(manifest, artifacts)))
+        for field, value in (("commit", "0" * 40), ("sha256", "0" * 64), ("path", "../../outside.json"), ("id", "unregistered")):
+            changed = copy.deepcopy(manifest)
+            changed["artifacts"][0][field] = value
+            with self.assertRaises(ValueError):
+                PROBES.ap2_dependencies(changed, artifacts)
+        for subset in ([], manifest["artifacts"][1:], manifest["artifacts"] + [manifest["artifacts"][0]]):
+            with self.assertRaises(ValueError):
+                PROBES.ap2_dependencies({**manifest, "artifacts": subset}, artifacts)
+
     def test_lab_dependencies_must_match_the_existing_source_lock(self):
         lock = json.loads((HERE / "source-lock.json").read_text())
         artifacts = {artifact["id"]: artifact for artifact in lock["artifacts"]}

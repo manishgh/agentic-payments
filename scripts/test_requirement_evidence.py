@@ -135,6 +135,26 @@ class RequirementEvidenceTests(unittest.TestCase):
         self.assertEqual("NOT_APPLICABLE", self.case(report, "CT-008")["status"])
         self.assertEqual("NOT_CERTIFIED", report["certificationVerdict"])
 
+    def test_three_build_artifacts_survive_complete_bundle_validation(self):
+        self.receipt["buildArtifacts"].append({"id": "ap2-engine", "sha256": "c" * 64})
+        bundle = self.bundle()
+        evidence.validate_bundle(ROOT, bundle)
+        report = evidence.read_json(bundle / "report.json")
+        self.assertEqual(self.receipt["buildArtifacts"], report["buildArtifacts"])
+        self.assertEqual("PASS", report["previewChecks"])
+        self.assertEqual("NOT_CERTIFIED", report["certificationVerdict"])
+        for kind, document in (("receipt", self.receipt), ("report", report)):
+            with self.subTest(schema=kind, variant="fourth-artifact"):
+                invalid = deepcopy(document)
+                invalid["buildArtifacts"].append({"id": "ap2-engine", "sha256": "d" * 64})
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence.validate_shape(invalid, self.inputs["schemas"][kind])
+            with self.subTest(schema=kind, variant="unknown-artifact"):
+                invalid = deepcopy(document)
+                invalid["buildArtifacts"][2]["id"] = "unknown-engine"
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence.validate_shape(invalid, self.inputs["schemas"][kind])
+
     def test_failures_skips_and_missing_are_never_qualified_pass(self):
         guard = self.case(self.evaluate(), "CT-008")["obligations"][0]["observationIds"][0]
         stage = next(entry["stage"] for entry in self.inputs["inventory"]["observations"] if entry["id"] == guard)

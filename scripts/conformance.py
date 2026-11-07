@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PYTHON_MODULES = {
     "evidence-tooling": ["scripts.test_evidence_collectors", "scripts.test_requirement_evidence", "scripts.test_conformance"],
     "upstream-integrity": ["integrations.upstream.test_probes"],
-    "offline-artifacts": ["integrations.offline_lab.tests.test_lab"],
+    "offline-artifacts": ["integrations.offline_lab.tests.test_lab", "integrations.ap2_vectors.test_verifier"],
     "http": ["scripts.test_http"],
     "langgraph": ["workflows.test_payment_workflow", "workflows.test_live"],
 }
@@ -114,7 +114,8 @@ def run(output: Path, require_certification=False) -> int:
                            "--output", str(producer_path)]
             elif name == "java-postgresql":
                 command = [maven, "-B", "-ntp", "clean", "verify", "dependency:build-classpath",
-                           "-Dmdep.outputFile=target/classpath.txt", f"-Dpayment.evidenceDirectory={stage_dir / 'surefire'}"]
+                           "-Dmdep.outputFile=target/classpath.txt", f"-Dpayment.evidenceDirectory={stage_dir / 'surefire'}",
+                           f"-Dap2.vectors={stage_dir / 'ap2-vectors' / 'vectors.json'}"]
             elif name in {"adapter-tck", "recorded-replay"}:
                 classpath = str(ROOT / "target/classes") + os.pathsep + (ROOT / "target/classpath.txt").read_text().strip()
                 main_class = ("io.agenticpayments.infrastructure.tck.TckMain" if name == "adapter-tck"
@@ -123,11 +124,19 @@ def run(output: Path, require_certification=False) -> int:
             else:
                 command = {
                     "contracts": [sys.executable, "scripts/validate_contracts.py"],
-                    "upstream-structural": [sys.executable, "integrations/upstream/probe_contracts.py", "--include-offline-lab"],
+                    "upstream-structural": [sys.executable, "integrations/upstream/probe_contracts.py", "--include-offline-lab", "--include-ap2-vectors"],
                     "offline-artifact-demo": [sys.executable, "-m", "integrations.offline_lab"],
                 }[name]
             with (stage_dir / "diagnostic.log").open("w", encoding="utf-8") as stream:
-                process = subprocess.run(command, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT, timeout=300)
+                commands = [command]
+                if name == "java-postgresql":
+                    commands = [[sys.executable, "-m", "integrations.ap2_vectors", "--generate", str(stage_dir / "ap2-vectors")],
+                                command, [sys.executable, "-m", "integrations.ap2_vectors", "--verify-java",
+                                          str(ROOT / "target/ap2-vectors/java-output.json")]]
+                for invocation in commands:
+                    process = subprocess.run(invocation, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT, timeout=300)
+                    if process.returncode != 0:
+                        break
             code = process.returncode
         except subprocess.TimeoutExpired:
             code = 124
@@ -150,7 +159,8 @@ def run(output: Path, require_certification=False) -> int:
         print(f"{name}: {stage['outcome']}", flush=True)
     if java_passed:
         for identity, filename in (("reference-jar", "reference-platform-0.1.0-SNAPSHOT.jar"),
-                                   ("adapter-sdk", "reference-platform-0.1.0-SNAPSHOT-adapter-sdk.jar")):
+                                   ("adapter-sdk", "reference-platform-0.1.0-SNAPSHOT-adapter-sdk.jar"),
+                                   ("ap2-engine", "reference-platform-0.1.0-SNAPSHOT-ap2-engine.jar")):
             receipt["buildArtifacts"].append({"id": identity, "sha256": evidence.sha((ROOT / "target" / filename).read_bytes())})
     receipt["sourceAfter"] = source_identity()
     report = evidence.evaluate(receipt, inputs, producers)

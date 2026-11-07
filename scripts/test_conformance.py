@@ -45,6 +45,7 @@ class ConformanceRunnerTests(unittest.TestCase):
         files = set(lock["files"])
         files.add((evidence.EVIDENCE / "input-lock.json").as_posix())
         files.update(entry["source"] for entry in inventory["observations"])
+        files.update(evidence.source_identity(PROJECT_ROOT)["files"])
         for relative in files:
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -205,6 +206,79 @@ class ConformanceRunnerTests(unittest.TestCase):
             self.assertEqual(1, conformance.main())
         self.assertEqual("EVIDENCE_RUN_FAILED\n", self.stdout.getvalue())
         self.assertEqual("", self.stderr.getvalue())
+
+    def test_ap2_vector_generation_failure_prevents_maven_and_java_pass(self):
+        """Mocked child failures must stop the Java stage before the build runs."""
+        environment = {"PAYMENTS_DB_URL": "jdbc:synthetic-review-only", "PAYMENTS_DB_USER": "synthetic",
+                       "PAYMENTS_DB_PASSWORD": CANARY, "JAVA_HOME": "synthetic-toolchain"}
+        invocations = []
+
+        def failed_generation(command, **kwargs):
+            invocations.append(command)
+            kwargs["stdout"].write(CANARY + "\n")
+            return subprocess.CompletedProcess(command, 1, stdout=CANARY, stderr=CANARY)
+
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(conformance.shutil, "which", side_effect=lambda tool: tool), \
+                patch.object(conformance, "tool_versions", return_value={
+                    "java": "21.0.13", "maven": "3.9.16", "node": "24.16.0", "python": "3.12.10"}), \
+                patch.object(conformance.subprocess, "run", side_effect=failed_generation):
+            self.assertNotEqual(0, self.invoke())
+        self.assertEqual(1, sum("--generate" in command for command in invocations))
+        self.assertFalse(any(Path(command[0]).name in {"mvn", "mvn.cmd"} for command in invocations))
+        self.assertFalse(any("--verify-java" in command for command in invocations))
+        report = evidence.validate_bundle(self.root, self.bundle)
+        stages = {stage["name"]: stage for stage in report["checks"]}
+        self.assertEqual("FAIL", stages["java-postgresql"]["outcome"])
+        self.assertNotIn("java-postgresql: PASS", self.stdout.getvalue())
+        self.assertTrue(all(item["qualifiedStatus"] != "PASS" for item in report["observations"]
+                            if item["stage"] == "java-postgresql"))
+        for name in ("adapter-tck", "recorded-replay", "http", "langgraph"):
+            self.assertEqual("INCOMPLETE", stages[name]["outcome"], name)
+        self.assert_safe_publication()
+
+    def test_failed_independent_ap2_verification_disqualifies_successful_maven_observations(self):
+        """A zero build exit cannot qualify PASS when the independent verifier fails."""
+        environment = {"PAYMENTS_DB_URL": "jdbc:synthetic-review-only", "PAYMENTS_DB_USER": "synthetic",
+                       "PAYMENTS_DB_PASSWORD": CANARY, "JAVA_HOME": "synthetic-toolchain"}
+        invocations = []
+
+        def child(command, **kwargs):
+            invocations.append(command)
+            kwargs["stdout"].write(CANARY + "\n")
+            success = "--generate" in command or Path(command[0]).name in {"mvn", "mvn.cmd"}
+            return subprocess.CompletedProcess(command, 0 if success else 1, stdout=CANARY, stderr=CANARY)
+
+        def observed_java_passes(_directory, context):
+            return conformance.project(context, "java-surefire",
+                                       [(entry["selector"], "PASS") for entry in context["observations"]])
+
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(conformance.shutil, "which", side_effect=lambda tool: tool), \
+                patch.object(conformance, "tool_versions", return_value={
+                    "java": "21.0.13", "maven": "3.9.16", "node": "24.16.0", "python": "3.12.10"}), \
+                patch.object(conformance.subprocess, "run", side_effect=child), \
+                patch.object(conformance, "collect_java", side_effect=observed_java_passes) as collect:
+            self.assertNotEqual(0, self.invoke())
+        collect.assert_called_once()
+        java_commands = [command for command in invocations if "--generate" in command
+                         or "--verify-java" in command or Path(command[0]).name in {"mvn", "mvn.cmd"}]
+        self.assertEqual(3, len(java_commands))
+        self.assertIn("--generate", java_commands[0])
+        self.assertIn(Path(java_commands[1][0]).name, {"mvn", "mvn.cmd"})
+        self.assertIn("--verify-java", java_commands[2])
+        report = evidence.validate_bundle(self.root, self.bundle)
+        stages = {stage["name"]: stage for stage in report["checks"]}
+        self.assertEqual("FAIL", stages["java-postgresql"]["outcome"])
+        self.assertNotIn("java-postgresql: PASS", self.stdout.getvalue())
+        observed = [item for item in report["observations"] if item["stage"] == "java-postgresql"]
+        self.assertTrue(observed)
+        self.assertTrue(all(item["observedStatus"] == "PASS" for item in observed))
+        self.assertTrue(all(item["qualifiedStatus"] == "INCOMPLETE"
+                            and item["reason"] == "STAGE_NOT_PASSED" for item in observed))
+        for name in ("adapter-tck", "recorded-replay", "http", "langgraph"):
+            self.assertEqual("INCOMPLETE", stages[name]["outcome"], name)
+        self.assert_safe_publication()
 
 
 if __name__ == "__main__":

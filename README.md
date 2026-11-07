@@ -2,7 +2,7 @@
 
 An extensible purchasing platform designed to embed OpenAI ACP checkout inside an AP2-based platform payment-intent workflow, including provider authentication.
 
-**Runnable milestone: local synthetic reference implementation.** Java/PostgreSQL owns payment state; Python LangGraph coordinates work; a TypeScript UI handles trusted approval and synthetic challenges. Real AP2/ACP bridges and external providers are not connected yet.
+**Runnable milestone: local synthetic reference implementation and independent AP2 direct engine.** Java/PostgreSQL owns payment state; Python LangGraph coordinates work; a TypeScript UI handles trusted approval and synthetic challenges. The separately implemented native AP2 profile verifies and exchanges signed artifacts with synthetic identities. Its financial-core bridge and external providers are not connected yet.
 
 ## Implemented
 
@@ -12,6 +12,7 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Durable simulator journal, trusted challenges, revocation, unknown-outcome recovery and conflicting-evidence handling.
 - Recorded multi-intent replay with seeded choices, crash/recovery tests and normalized evidence digests.
 - Isolated offline lab for exact signed checkout bytes, pinned schema checks and durable synthetic sidecar bindings.
+- Independently authored Java AP2 direct Trusted Agent Provider engine, native mandates/receipts, role verification, replay guards and cross-language vectors; no Google SDK dependency.
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
 - Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
@@ -26,7 +27,7 @@ Requirements: PowerShell 7, Python 3.12, Node.js 24/npm and Git. Bootstrap insta
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r workflows/requirements-lock.txt
 .venv/Scripts/python.exe -m pip install -r integrations/offline_lab/requirements-crypto.lock.txt
-.venv/Scripts/python.exe integrations/upstream/probe_contracts.py --fetch --include-offline-lab
+.venv/Scripts/python.exe integrations/upstream/probe_contracts.py --fetch --include-offline-lab --include-ap2-vectors
 ./scripts/Start-Platform.ps1
 ```
 
@@ -67,6 +68,7 @@ The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/pri
 ## Documentation
 
 - [Status and remaining work](docs/status.md), [roadmap](docs/roadmap.md), [backlog](docs/backlog.md)
+- [Independent AP2 engine](docs/ap2-engine.md), [native requirements](docs/ap2-requirements.md), [independent vectors](integrations/ap2_vectors/README.md)
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
 - [Generic extensions and adapter TCK](docs/extensions-and-tck.md), [pinned upstream bridge design](docs/ap2-acp-bridge-design.md)

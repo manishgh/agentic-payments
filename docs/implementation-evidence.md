@@ -90,3 +90,28 @@ The owner separately ran `python -m scripts.requirement_evidence --bundle target
 The first exploratory run `2ab79817ec1d4d11925f530ff18b26bc` had passing stage exits but source changed during review. It correctly failed evidence acceptance and is retained privately as a failing run; its results are not substituted for the final run. Review 0015 records the nested-XML injection, failure-precedence, CI upload gating, current-source identity and extra-file publication defects corrected before acceptance.
 
 The event/privacy tests add selected durable-journal, conflict and isolated-process canary coverage only. Concurrent event delivery, complete telemetry sinks, full crash/revocation matrices, conflict normalization, certification policy, real native AP2/ACP integration and provider/managed operation remain open. See the [evidence usage guide](requirement-evidence.md) and [backlog](backlog.md).
+
+## Independent AP2 engine checkpoint
+
+Date: 2026-11-07. Following accepted ADR 0005, requirements and independent Astra reviews 0016/0017, the owner ran `python scripts/conformance.py` against a new isolated PostgreSQL database. Run `90b8afaf1c3140f792a9b628d16c35de` passed all twelve stages with identical before/after 257-file source SHA-256 `406fb4e96eb6fad8dec4f4488af5480ad8e082ba3dee434d51c242c6cfd47ea5`. No dependency or migration was added. Parallel Sol authors implemented claims/exchange and independent Python vectors; the owner integrated cryptographic verification, replay guards and packaging; Astra independently reviewed design and source.
+
+| Suite | Actual passing test methods |
+| --- | --- |
+| Java/PostgreSQL, including 37 AP2 methods | 144 |
+| Evidence collectors, evaluator and runner | 45 |
+| HTTP | 9 |
+| Trusted UI | 3 |
+| LangGraph | 12 |
+| Offline lab and independent AP2 verifier | 30 |
+| Upstream integrity | 6 |
+| Total | 249 |
+
+There were zero failures, errors, skips, expected failures, unexpected successes or duplicate observations. Supplementary checks passed: draft contracts, twelve upstream structural probes using twelve cached schema dependencies, offline demo, adapter TCK and recorded replay CLI. The Java protocol tests consume 74 freshly generated Python vectors (seven accepted, 67 rejected); independent Python verification checks five Java signatures and two exact receipt references from actual Merchant/CP/processor decisions. These vectors are checks inside test methods, not 74 additional methods or evidence of Google interoperability.
+
+The new `ap2-engine` classifier contains 33 classes, all in `io/agenticpayments/ap2/`. Its local JAR SHA-256 is `c0fe54206ce79f1e3b29d4fb4d86f172c20bfe61b2cae900c2ea249c33fa3150`; the receipt separately records this and the reference/SDK artifacts. This is a build artifact, not a published package release. Its runtime uses JDK JCA and the already pinned Jackson libraries; no Google implementation is imported or wrapped.
+
+Independent `python -m scripts.requirement_evidence --bundle target/conformance` validation passed against the current checkout. Report SHA-256: `53b61024ac6fd05115104d24c9b4509b0ee652e7a2e606f1b1a9b0748ab0e8c2`. All 48 existing selected observations qualify PASS. New AP2 tests contribute counts but are not silently mapped to full CT-007: eleven CT rows remain INCOMPLETE, guarded CT-008 remains NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**.
+
+The preceding run `302b066567034f7e926f7b1f6775714d` passed its twelve stage commands but failed final evidence evaluation: receipt/report schemas still limited build artifacts to two. It produced no accepted current report. AS-006 in [source review 0017](reviews/0017-independent-ap2-source-review.md) records the correction to three, the new full-bundle regression that failed before the fix and passed afterward, independent re-review and refreshed 27-file source identity. Its raw diagnostics are retained privately; this checkpoint uses only the later complete run.
+
+The accepted profile is `ap2-v0.2-direct-tap-synthetic-0.1`: independently authored native direct mandates, role-bound trust, signed success/error exchange and process-local replay protection. Durable financial admission, negotiated ACP merchant transport, real consent/trust enrollment, delegated/User Credential profiles, real providers and external peer interoperability remain open. See [engine usage and composition](ap2-engine.md).

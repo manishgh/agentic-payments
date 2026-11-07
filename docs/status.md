@@ -6,7 +6,7 @@ Updated: 2026-11-07, Europe/Berlin.
 
 The local synthetic reference implementation is runnable: versioned contracts, extensible Java adapter SDK and reusable TCK, Java payment core, normalized PostgreSQL migrations and durable simulator, loopback HTTP API, trusted TypeScript UI, LangGraph/SQLite workflow and repeatable evidence runner. Implementation branch: `codex/reference-platform` in [manishgh/agentic-payments](https://github.com/manishgh/agentic-payments).
 
-The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. This milestone uses explicit synthetic fixtures; no real AP2 signature verifier, ACP wire checkout or external payment provider is implemented.
+The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 engine now implements the bounded native direct Trusted Agent Provider artifact/role exchange using synthetic identities. Native SD-JWT mandates and signed receipts are verified; its durable financial-core admission bridge, ACP merchant transport and external payment providers remain unconnected. See [AP2 engine](ap2-engine.md).
 
 ## Validation and review
 
@@ -18,7 +18,9 @@ The integrated replay/lab checkpoint passed all 11 stages against a fresh databa
 
 The requirement-evidence follow-on passed a fresh twelve-stage aggregate with 204 test methods, zero failures/errors/skips and unchanged source. All 48 selected named observations qualify PASS. Reviews 0013..0015 accept the bounded design, event/privacy tests and evidence pipeline after corrections. The report recomputes coverage from pinned definitions and current-run artifacts; eleven CT rows still retain explicit incomplete gaps, and CT-008's optional exclusion requires its baseline refusal evidence. See [requirement evidence](requirement-evidence.md) for verification and publication rules.
 
-The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Exhaustive adversarial/privacy evidence, broader conflict-normalization replay and certification policy are unfinished. The offline lab verifies merchant signatures/content only; native AP2 authority and dispatch remain disabled.
+The independent AP2 milestone passed a fresh twelve-stage aggregate with 249 test methods, including 37 new AP2 Java methods and four independent Python verifier methods. The Java tests evaluate 74 Python-generated vectors; Python independently verifies five Java signatures and two receipt references. Reviews 0016/0017 are accepted, all six source findings are resolved, source stayed unchanged and separate bundle verification passed. The AP2 JAR is separately packaged and hashed. Exact run/source identities and the corrected earlier report-generation failure are in [implementation evidence](implementation-evidence.md).
+
+The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Exhaustive adversarial/privacy evidence, broader conflict-normalization replay and certification policy are unfinished. The earlier offline lab verifies merchant signatures/content only. The new independent AP2 engine separately verifies native direct authority artifacts; it does not grant financial dispatch or prove real human consent.
 
 ## Publication
 
@@ -28,6 +30,8 @@ Reference milestone `314bd2f` and SDK/TCK checkpoint `0f60d93` are published on 
 
 Replay/artifact checkpoint `9fd7dbbc5cef135007b7f2253aba24c825386954` is also published. Its [Linux reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571643) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571661) passed. The requirement-evidence follow-on has its own source review and local aggregate record above; earlier hosted runs do not validate later source. It does not enable providers or grant certification.
 
+Requirement-evidence checkpoint `95b5ac8276601f41c5f9d8e0380eb57c9892e9c7` is published. Its [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42333495260) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42333495344) passed and the safe bundle was preserved. The independent AP2 milestone has separate design/source review and fresh validation.
+
 Repository-local Git author remains `Agentic Payments Automation <automation@agentic-payments.invalid>` because no author was configured initially. Global settings were not changed. Binaries, database data, credentials, checkpoints, screenshots and generated reports remain ignored.
 
 ## Remaining work
@@ -35,7 +39,7 @@ Repository-local Git author remains `Agentic Payments Automation <automation@age
 1. Complete conflict-normalization replay and the remaining adversarial/privacy and process-crash matrix, then review the certification policy.
 2. Extract finer application/domain transaction coordination from the JDBC implementation; current claim fences are not a full timed lease scheduler.
 3. Extend the generic metadata/TCK with reviewed executable profiles and broader third-party adapter evidence. Split the SDK publication POM from reference dependencies before package release.
-4. Resolve native AP2 authority/delegation and ACP continuation mappings against the pinned sources and real peers. The offline merchant-signature/content lab cannot authorize execution or establish wire interoperability.
+4. Bind the new direct AP2 engine and negotiated ACP checkout revision to durable financial admission. Extend native authority to delegated/User Credential profiles only after their own design and adversarial evidence. Establish wire interoperability with real peers separately from independent Python vectors.
 5. Implement provider-specific sandbox connectors with authorized accounts and verified idempotency/event/recovery behavior.
 6. Add separately designed split tender, refunds/compensation and managed identity, visibility, operations and support.
 

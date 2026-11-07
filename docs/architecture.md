@@ -1,6 +1,6 @@
 # Architecture concept
 
-Status: draft design brief; 2026-11-06. This captures the requested composition. The detailed design gate in the [roadmap](roadmap.md) is not yet passed.
+Status: platform composition brief, updated 2026-11-07. Bounded reference and independent AP2 designs have separate accepted [gate records](reviews/gates.md). The broader real-provider and managed-platform design gates in the [roadmap](roadmap.md) remain open.
 
 ## Composition
 
@@ -36,6 +36,8 @@ flowchart TD
 | LangGraph | Task sequencing and human-intervention coordination | Authority to override transaction rules |
 
 Use a modular core with domain/application/ports/infrastructure boundaries. Provider SDKs, HTTP and SQL are infrastructure concerns. A separate LangGraph process calls authenticated commands. Split into additional services only for a documented operational reason.
+
+The independently authored [Java AP2 engine](ap2-engine.md) now supplies a bounded synthetic direct TAP mandate/receipt verifier and role exchange. Its process-local authorization state is isolated from the durable payment coordinator. The next bridge must atomically bind verified authority, negotiated ACP checkout revision and financial admission; the existing LangGraph workflow does not acquire signing keys or native authority artifacts.
 
 ## Execution flow
 

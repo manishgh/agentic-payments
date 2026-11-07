@@ -41,7 +41,8 @@ def source_identity(root: Path):
             name = file.relative_to(root).as_posix()
             entries[name] = sha(safe_path(root, name).read_bytes())
     for name in ("pom.xml", "docs/simulator-and-conformance.md", "docs/adr/0004-requirement-evidence.md",
-                 "docs/reviews/0013-evidence-design-review.md"):
+                 "docs/reviews/0013-evidence-design-review.md", "docs/adr/0005-independent-ap2-engine.md",
+                 "docs/ap2-requirements.md", "docs/reviews/0016-independent-ap2-design-review.md"):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())
     return {"sha256": sha(json.dumps(ordered, separators=(",", ":")).encode()), "files": dict(ordered)}

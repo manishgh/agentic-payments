@@ -139,7 +139,8 @@
           "id": {
             "enum": [
               "reference-jar",
-              "adapter-sdk"
+              "adapter-sdk",
+              "ap2-engine"
             ]
           },
           "sha256": {
@@ -156,7 +157,7 @@
         "additionalProperties": false
       },
       "minItems": 0,
-      "maxItems": 2,
+      "maxItems": 3,
       "uniqueItems": true
     },
     "stages": {

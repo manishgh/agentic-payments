@@ -1,0 +1,81 @@
+{
+  "format": "ap2-standards-reference-lock-0.1",
+  "observedAtUTC": "2026-11-07",
+  "profile": "ap2-v0.2-direct-tap-synthetic-0.1",
+  "rawCache": ".tools/ap2-standards",
+  "rawDocumentsVendored": false,
+  "googleImplementationUsed": false,
+  "notes": [
+    "These hashes identify retrieved primary document bytes, not conformance.",
+    "Draft15 is an explicit historical work-in-progress selection, not a claim of latest status.",
+    "AP2 normative Delegate URL is mutable; examining draft00 does not assert AP2 pinned that revision.",
+    "OpenID final artifact uses official openid-4-verifiable-presentations URL; AP2-linked abbreviated URL did not resolve.",
+    "No runtime discovery or fetching is authorized by this metadata."
+  ],
+  "artifacts": [
+    {
+      "id": "rfc7515",
+      "url": "https://www.rfc-editor.org/rfc/rfc7515.txt",
+      "byteLength": 131110,
+      "sha256": "ecbf84674118e62526511c1237e1deaa86aada86d25b247623a2a7e04ae62e40",
+      "use": "profile-reference",
+      "status": "published-final"
+    },
+    {
+      "id": "rfc7518",
+      "url": "https://www.rfc-editor.org/rfc/rfc7518.txt",
+      "byteLength": 155905,
+      "sha256": "9a9ae524b09ea700ad3f189bac115df95ba69af84b26ffdbe3cdfb8d2152b1fc",
+      "use": "profile-reference",
+      "status": "published-final"
+    },
+    {
+      "id": "rfc7519",
+      "url": "https://www.rfc-editor.org/rfc/rfc7519.txt",
+      "byteLength": 63039,
+      "sha256": "fecd930e9ccf2276b95c0017c6c4ff5d09352e4bc3c7629946447894e0f97248",
+      "use": "profile-reference",
+      "status": "published-final"
+    },
+    {
+      "id": "rfc8725",
+      "url": "https://www.rfc-editor.org/rfc/rfc8725.txt",
+      "byteLength": 30793,
+      "sha256": "737b7013a2495dcfd5481cf4c57c87e2455d537c4cec1140c9096a71fcef0812",
+      "use": "profile-reference",
+      "status": "published-final"
+    },
+    {
+      "id": "rfc9901",
+      "url": "https://www.rfc-editor.org/rfc/rfc9901.txt",
+      "byteLength": 177316,
+      "sha256": "fd4cb79184162fa7ef95f4f63abab8ee6d03c9a04c19b8f83758946464b284eb",
+      "use": "profile-reference",
+      "status": "published-final"
+    },
+    {
+      "id": "draft-ietf-oauth-sd-jwt-vc-15",
+      "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-sd-jwt-vc-15.txt",
+      "byteLength": 132491,
+      "sha256": "35be8355b6298f78361a276ba703b33423986b07b3da359e1d371fbefaefea91",
+      "use": "profile-reference",
+      "status": "work-in-progress-versioned-draft"
+    },
+    {
+      "id": "draft-ietf-oauth-delegate-sd-jwt-00",
+      "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-delegate-sd-jwt-00.txt",
+      "byteLength": 32076,
+      "sha256": "96fb55909dea7bd01e223ce94a33a96ffa368fe00637864cbc9a292efd21f3cd",
+      "use": "examined-not-implemented",
+      "status": "work-in-progress-versioned-draft"
+    },
+    {
+      "id": "openid-4-verifiable-presentations-1_0-final",
+      "url": "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html",
+      "byteLength": 515401,
+      "sha256": "08e635ea3563b192309c627382c281c81de176e94cdb5ffb11b13ac624f7e12e",
+      "use": "examined-not-implemented",
+      "status": "published-final"
+    }
+  ]
+}

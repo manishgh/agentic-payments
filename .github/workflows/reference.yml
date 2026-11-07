@@ -53,7 +53,7 @@ jobs:
           python -m pip install -r integrations/offline_lab/requirements-crypto.lock.txt
           npm ci --ignore-scripts --prefix ui
       - name: Hydrate immutable upstream schema probes
-        run: python integrations/upstream/probe_contracts.py --fetch --include-offline-lab
+        run: python integrations/upstream/probe_contracts.py --fetch --include-offline-lab --include-ap2-vectors
       - name: Run version-bound reference evidence suite
         run: python scripts/conformance.py
       - name: Show evidence summary

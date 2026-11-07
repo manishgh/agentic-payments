@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("--source-dir", type=Path, default=repo / ".tools" / "upstream-research")
     parser.add_argument("--fetch", action="store_true", help="Explicitly hydrate only required immutable public schema artifacts")
     parser.add_argument("--include-offline-lab", action="store_true", help="Also verify the artifact lab's pinned schema dependencies")
+    parser.add_argument("--include-ap2-vectors", action="store_true", help="Also verify independent AP2 vector schema dependencies")
     args = parser.parse_args()
     lock = json.loads((here / "source-lock.json").read_text(encoding="utf-8"))
     lock_schema = json.loads((here / "source-lock.schema.json").read_text(encoding="utf-8"))
@@ -46,6 +47,9 @@ def main() -> None:
     if args.include_offline_lab:
         lab_manifest = json.loads((repo / "integrations/offline_lab/required-source-artifacts.json").read_text(encoding="utf-8"))
         needed.update(lab_dependencies(lab_manifest, artifacts))
+    if args.include_ap2_vectors:
+        ap2_manifest = json.loads((repo / "integrations/ap2_vectors/required-source-artifacts.json").read_text(encoding="utf-8"))
+        needed.update(ap2_dependencies(ap2_manifest, artifacts))
     schemas = {}
     for artifact_id in sorted(needed):
         artifact = artifacts[artifact_id]
@@ -110,7 +114,27 @@ def main() -> None:
 
 
 def lab_dependencies(manifest: dict, locked: dict) -> set[str]:
-    if manifest["profile"] != "offline-ap2-acp-artifact-lab-0.1" or manifest["networkRetrievalAllowed"] is not False:
+    required = {
+        "acp-checkout-schema", "ap2-checkout-mandate-schema", "ap2-payment-mandate-schema",
+        "ap2-payment-receipt-schema", "ap2-code-sdk-schemas-ap2-types-receipt-status-json",
+        "ap2-code-sdk-schemas-ap2-types-amount-json", "ap2-code-sdk-schemas-ap2-types-merchant-json",
+        "ap2-code-sdk-schemas-ap2-types-payment-instrument-json", "ap2-code-sdk-schemas-ap2-types-pisp-json",
+    }
+    return schema_dependencies(manifest, locked, "offline-ap2-acp-artifact-lab-0.1", required)
+
+
+def ap2_dependencies(manifest: dict, locked: dict) -> set[str]:
+    required = {
+        "ap2-checkout-receipt-schema", "ap2-checkout-mandate-schema", "ap2-payment-mandate-schema",
+        "ap2-payment-receipt-schema", "ap2-code-sdk-schemas-ap2-types-receipt-status-json",
+        "ap2-code-sdk-schemas-ap2-types-amount-json", "ap2-code-sdk-schemas-ap2-types-merchant-json",
+        "ap2-code-sdk-schemas-ap2-types-payment-instrument-json", "ap2-code-sdk-schemas-ap2-types-pisp-json",
+    }
+    return schema_dependencies(manifest, locked, "ap2-v0.2-direct-tap-synthetic-0.1", required)
+
+
+def schema_dependencies(manifest: dict, locked: dict, profile: str, required: set[str]) -> set[str]:
+    if manifest["profile"] != profile or manifest["networkRetrievalAllowed"] is not False:
         raise ValueError("Unexpected artifact-lab dependency profile")
     identities = set()
     for requested in manifest["artifacts"]:
@@ -120,12 +144,6 @@ def lab_dependencies(manifest: dict, locked: dict) -> set[str]:
         if any(requested[field] != artifact[field] for field in ("sourceId", "path", "commit", "sha256", "byteLength")):
             raise ValueError("Artifact-lab dependency differs from immutable source lock")
         identities.add(requested["id"])
-    required = {
-        "acp-checkout-schema", "ap2-checkout-mandate-schema", "ap2-payment-mandate-schema",
-        "ap2-payment-receipt-schema", "ap2-code-sdk-schemas-ap2-types-receipt-status-json",
-        "ap2-code-sdk-schemas-ap2-types-amount-json", "ap2-code-sdk-schemas-ap2-types-merchant-json",
-        "ap2-code-sdk-schemas-ap2-types-payment-instrument-json", "ap2-code-sdk-schemas-ap2-types-pisp-json",
-    }
     if identities != required:
         raise ValueError("Artifact-lab schema dependency set is incomplete or unexpected")
     return identities
