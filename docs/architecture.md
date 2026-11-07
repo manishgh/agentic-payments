@@ -39,6 +39,8 @@ Use a modular core with domain/application/ports/infrastructure boundaries. Prov
 
 The independently authored [Java AP2 engine](ap2-engine.md) supplies a bounded synthetic direct TAP mandate/receipt verifier and role exchange. The explicit [native composition](durable-composition.md) binds its verified authority and exact embedded ACP checkout to durable admission, with atomic replay consumption and reservation. LangGraph does not acquire signing keys or native authority artifacts. It runs bounded decisions through a replaceable [durable runtime](durable-runtime.md); PostgreSQL remains the reference authority for payment state.
 
+For native composition, `NativeApplicationCoordinator` centralizes exact artifact handling and verification policy using the existing ports. `JdbcPaymentStore` retains transaction ownership and the explicit provisioning, trust-snapshot and financial-admission ordering. This is a bounded application-layer extraction; overall financial-use-case coordination still needs further separation. See [ADR 0008](adr/0008-native-application-coordination.md).
+
 ## Execution flow
 
 1. An authenticated principal requests a platform intent. Parse suggestions from the agent but validate all binding data deterministically.

@@ -1,8 +1,8 @@
 # Local core implementation
 
 Status: bounded local reference implementation; not a production payment system or a certified profile.
-The implementation follows [ADR 0002](adr/0002-simulator-execution.md) for synthetic execution only.
-There are no live/sandbox provider connectors, AP2 signature verification or ACP wire adapters.
+The synthetic execution model follows [ADR 0002](adr/0002-simulator-execution.md). This guide describes the shared local core; the separately selectable [native composition](durable-composition.md) adds independently implemented AP2 signature verification and an embedded ACP checkout.
+There are no live/sandbox provider connectors or external ACP merchant HTTP adapters.
 
 ## Composition and methods
 

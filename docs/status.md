@@ -4,11 +4,15 @@ Updated: 2026-11-07, Europe/Berlin.
 
 ## Current milestone
 
+IMP-010's native application-coordination slice is implemented and independently accepted. It moves protocol/artifact policy behind the existing composition ports while retaining PostgreSQL transaction ownership, stored JSON compatibility and trust-snapshot ordering. Broader financial-use-case extraction remains outstanding.
+
 The local synthetic reference implementation is runnable: versioned contracts, extensible Java adapter SDK and reusable TCK, Java payment core, normalized PostgreSQL migrations and durable simulator, loopback HTTP API, trusted TypeScript UI, LangGraph/SQLite workflow and repeatable evidence runner. Implementation branch: `codex/reference-platform` in [manishgh/agentic-payments](https://github.com/manishgh/agentic-payments).
 
 The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 direct TAP engine now binds native synthetic authority and an exact embedded ACP checkout to durable financial admission. Checkout, authority, crypto, key and artifact implementations are injectable. LangGraph decisions run through a shared local SQLite/Temporal runtime contract. ACP merchant HTTP transport, external providers, Cadence/Azure adapters and broader AP2 profiles remain outstanding. See [durable composition](durable-composition.md) and [runtime guide](durable-runtime.md).
 
 ## Validation and review
+
+The coordination slice passed fresh-database run `ee1b4a75992f4ee788ed2cab4376516f`: twelve stages and 326 methods, zero failures/errors/skips, unchanged 299-file source identity, and separate semantic bundle verification. Astra reviews 0023/0024 accept the design/source. Nine new methods exercise database-independent application policy, fresh enrollment snapshots, historical persisted JSON and rollback after provisional writes; the existing crypto-outage tests now also check the dispatch fence. All 48 selected observations qualify PASS; eleven CT rows remain incomplete and the verdict remains `NOT_CERTIFIED`. See [implementation evidence](implementation-evidence.md).
 
 The durable AP2/ACP and runtime slice passed fresh run `ac79d0a17b14434e8f6e23995ce00cf9`: twelve stages and 317 methods, zero failures/errors/skips, unchanged 294-file source identity, and separate semantic bundle verification. Independent Astra reviews 0019 and 0021 accept the bounded source after ten findings were resolved. Evidence covers native financial admission/recovery, populated-schema migration, replacement adapters, actual Temporal worker/server restarts, history replay, bounded history and decoded-payload privacy checks. All 48 selected requirement observations pass; certification remains incomplete. See [implementation evidence](implementation-evidence.md) for exact identities and limits.
 
@@ -35,6 +39,8 @@ Replay/artifact checkpoint `9fd7dbbc5cef135007b7f2253aba24c825386954` is also pu
 Requirement-evidence checkpoint `95b5ac8276601f41c5f9d8e0380eb57c9892e9c7` is published. Its [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42333495260) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42333495344) passed and the safe bundle was preserved. The independent AP2 milestone has separate design/source review and fresh validation.
 
 Repository-local Git author remains `Agentic Payments Automation <automation@agentic-payments.invalid>` because no author was configured initially. Global settings were not changed. Binaries, database data, credentials, checkpoints, screenshots and generated reports remain ignored.
+
+Durable composition/runtime checkpoint `5e9d6329b0d8d67d92937c00034b888934e12b07` is published. Its [Linux reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42369138669) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42369138732) passed, with the safe evidence artifact preserved. These results cover that commit, not subsequent implementation changes.
 
 ## Remaining work
 

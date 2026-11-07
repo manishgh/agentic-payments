@@ -146,3 +146,26 @@ Earlier run `ac40da97d91241c098685d41030096a7` passed 309 methods with stable so
 All 48 selected named observations qualify PASS. New native/runtime tests contribute evidence counts without silently closing the full CT matrix: eleven rows remain INCOMPLETE, CT-008 remains guarded NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. Real providers and 3DS, merchant transport interoperability, broader AP2 authority, Cadence/Azure adapters, distributed registration and managed operation remain future work. No merge, package release, deployment or live payment is authorized by this checkpoint.
 
 The earlier 317-method run `b3da0d3a6c12498199e4570431171e26` also passed before publication formatting. Staging then identified extra terminal line breaks in ADR 0006. Independent [review 0022](reviews/0022-design-format-review.md) proved the correction changes no design text and leaves all 53 implementation review entries unchanged. Because the document participates in source identity, the owner ran the complete suite again against another fresh database; the run at the top of this checkpoint validates the exact normalized publication bytes. No whitespace or evidence check was disabled.
+
+## Native application coordination checkpoint
+
+Date: 2026-11-07. Sol 6.1 High agents authored the bounded coordinator and independent PostgreSQL regression tests; a separate Sol plan review and Astra design/source reviews 0023/0024 preceded acceptance. [ADR 0008](adr/0008-native-application-coordination.md) preserves existing contracts and transaction ordering. The owner reproduced the twelve-file reviewed manifest `a78b9de6a8b0f9ab344edd483b6a44f2291eeeebb5050e115a85549081e433b8` and matched all staged source bytes before the aggregate.
+
+The owner ran `python scripts/conformance.py` against the fresh isolated PostgreSQL database `agentic_coordination_20261107_final`. Run `ee1b4a75992f4ee788ed2cab4376516f` passed all twelve stages with unchanged 299-file source SHA-256 `ae26d0b6006b40e783d4d8fed1200de1034772e5b2ca43fac5e1238e97a10a9b`. Separate `python -m scripts.requirement_evidence --bundle target/conformance --verify-only` passed. Report SHA-256: `c968596678ea466f531f5649b05eb986761f30a42c9d58cfdd6b8ef1c2cb7910`.
+
+| Suite | Passing test methods |
+| --- | --- |
+| Java/PostgreSQL | 194 |
+| Evidence tooling and Temporal bootstrap | 50 |
+| HTTP | 11 |
+| Trusted UI | 3 |
+| LangGraph and durable runtime | 32 |
+| Offline lab and independent AP2 verification | 30 |
+| Upstream integrity | 6 |
+| Total | 326 |
+
+There were zero failures, errors, skips, expected failures, unexpected successes or duplicate observations. The nine added methods cover decorated protocol/artifact ports, exact retained bytes and strict UTF-8, complete verified-role policy, independent legacy digest framing, pre-/post-provision trust snapshots, historical JSON shapes across service restart, and staged-read failure after real provisional authority/challenge inserts. The existing crypto-outage scenarios also assert unchanged dispatch fences. Earlier focused validation passed 50 distinct Java/PostgreSQL methods; the six application methods were rerun after the final digest-oracle correction. Fifty focused evidence-tooling methods passed separately. These preliminary runs are not substituted for the final aggregate.
+
+Contract/schema checks, independent Java ACP/AP2 verification, adapter TCK, replay and real Temporal recovery stages all passed. No schema, dependency, HTTP API or extension port changed. Local build artifact SHA-256 values are reference `16fc94107639f5c2b00ed51bf6eea6c4d7a13df2f997949705a64a88a294af1e`, adapter SDK `ac0afa521a3e619586c5d72bed85f6fa03e73d22de8d1464af4226164789984b` and AP2 engine `4503e36a88eaafd4f45324ac171fa7b0de53e4bee19ecbbfc6a31fefdae3ecc7`.
+
+All 48 selected observations qualify PASS; the new methods add evidence without changing the requirement mapping. Eleven CT rows remain INCOMPLETE, CT-008 remains guarded NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. This is partial IMP-010 progress. JDBC still owns broader financial-use-case coordination; external ACP/providers, additional admission backends and production operation remain separate work. No merge, package release or deployment is part of this checkpoint.

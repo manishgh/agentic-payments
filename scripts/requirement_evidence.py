@@ -44,7 +44,8 @@ def source_identity(root: Path):
                  "docs/reviews/0013-evidence-design-review.md", "docs/adr/0005-independent-ap2-engine.md",
                  "docs/ap2-requirements.md", "docs/reviews/0016-independent-ap2-design-review.md",
                  "docs/adr/0006-durable-ap2-admission.md", "docs/reviews/0018-durable-ap2-design-review.md",
-                 "docs/adr/0007-durable-workflow-runtime.md", "docs/reviews/0020-durable-runtime-design-review.md"):
+                 "docs/adr/0007-durable-workflow-runtime.md", "docs/reviews/0020-durable-runtime-design-review.md",
+                 "docs/adr/0008-native-application-coordination.md", "docs/reviews/0023-native-coordination-design-review.md"):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())
     return {"sha256": sha(json.dumps(ordered, separators=(",", ":")).encode()), "files": dict(ordered)}

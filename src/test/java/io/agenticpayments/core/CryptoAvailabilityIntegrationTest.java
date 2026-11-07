@@ -52,6 +52,7 @@ class CryptoAvailabilityIntegrationTest {
     }
     private static void retryableOutage(String artifactType) throws Exception {
         Fixture f=ready();long artifacts=count(f,"native_artifacts"),authorities=count(f,"native_authorities"),replay=count(f,"native_replay_identities");
+        Map<String,Object> dispatchBefore=row(f.ds(),"SELECT fence,done FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind='DISPATCH'",f.session().tenantId(),f.session().runId(),f.operation());
         f.provider().unavailableType.set(artifactType);
         PaymentException failure=assertThrows(PaymentException.class,()->f.service().runNext(f.session()));
         assertEquals(503,failure.status());assertEquals("TEMPORARILY_UNAVAILABLE",failure.code());assertEquals("SAME_COMMAND",failure.retry());assertNull(failure.getCause());
@@ -61,6 +62,7 @@ class CryptoAvailabilityIntegrationTest {
         assertEquals(1250,scalar(f.ds(),"SELECT held FROM budgets WHERE tenant_id=? AND run_id=? AND budget_id='budget-eur'",f.session().tenantId(),f.session().runId()));
         assertEquals(0,count(f,"simulator_operation_journal"));assertEquals(1,count(f,"financial_operations"));assertEquals(1,count(f,"payment_attempts"));
         assertEquals(artifacts,count(f,"native_artifacts"));assertEquals(authorities,count(f,"native_authorities"));assertEquals(replay,count(f,"native_replay_identities"));
+        assertEquals(dispatchBefore,row(f.ds(),"SELECT fence,done FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind='DISPATCH'",f.session().tenantId(),f.session().runId(),f.operation()));
         f.provider().unavailableType.set(null);f.service().runNext(f.session());
         Result recovered=f.service().status(f.session(),f.intent());
         assertEquals("SUCCEEDED",recovered.body().get("state"));assertEquals("CONSUMED",recovered.body().get("exposureState"));assertEquals(f.operation(),recovered.body().get("operationId"));

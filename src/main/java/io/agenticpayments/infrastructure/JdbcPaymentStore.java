@@ -3,6 +3,8 @@ package io.agenticpayments.infrastructure;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import io.agenticpayments.application.PaymentException;
+import io.agenticpayments.application.NativeApplicationCoordinator;
+import io.agenticpayments.application.NativeApplicationCoordinator.*;
 import io.agenticpayments.application.PaymentStore;
 import io.agenticpayments.application.WorkerReceipt;
 import io.agenticpayments.application.PaymentService.*;
@@ -12,7 +14,6 @@ import io.agenticpayments.sdk.*;
 import io.agenticpayments.composition.Composition.*;
 import javax.sql.DataSource;
 import java.sql.*;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import static io.agenticpayments.infrastructure.Sql.*;
@@ -24,20 +25,18 @@ public final class JdbcPaymentStore implements PaymentStore {
     private final PaymentAdapter adapter;
     private final UUID replayOwner;
     private final Ports composition;
+    private final NativeApplicationCoordinator nativeCoordinator;
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
     private record Dispatch(ChargeOperation operation,String kind,long fence) {}
-    private record StoredCheckout(String sessionId,ArtifactReference acpPayload,ArtifactReference checkoutJwt,
-                                  String checkoutHash,String checkoutDigest,String payloadDigest,String merchantIssuer,
-                                  String handlerId,String protocolVersion) {}
-    private record StoredAuthority(ArtifactReference checkoutMandate,ArtifactReference paymentMandate,String issuer,
-                                   String checkoutAudience,String paymentAudience,String checkoutNonce,String paymentNonce,
-                                   String issuedAt,String expiresAt) {}
     @Override public Set<String> admissionCapabilities() { return Set.of("atomic-replay-grant-reservation-0.1"); }
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter) { this(ds,adapter,(UUID)null); }
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner) { this(ds,adapter,replayOwner,null); }
-    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition) { this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition; }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition) {
+        this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
+        this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
+    }
 
     public void seedRun(Session s,Instant clock,long budget) {
         role(s,"runner:write"); if(clock==null||budget<1250) fail(400,"INVALID_REQUEST");
@@ -84,9 +83,9 @@ public final class JdbcPaymentStore implements PaymentStore {
                 nativeCapabilities();
                 CheckoutFacts facts=new CheckoutFacts(scope(tx),id,text(i,"merchant_id"),revision,currency,1250L,t.credentialReference(),expiry);
                 var provision=provision(tx);
-                var frozen=composition.checkout().freeze(new CheckoutRequest(facts,provision.merchantSigner()));
-                composition.checkout().validate(facts,frozen,keyResolver(tx),tx.now);
-                nativeCheckout=retainCheckout(tx,frozen);
+                var frozen=nativeCoordinator.freezeCheckout(new CheckoutRequest(facts,provision.merchantSigner()));
+                nativeCoordinator.validateCheckout(facts,frozen,keyResolver(tx),tx.now);
+                nativeCheckout=nativeCoordinator.retainCheckout(scope(tx),frozen);
                 digest=frozen.checkoutDigest(); bytes="native-artifact:"+nativeCheckout.checkoutJwt().id();
             }
             update(tx.c,"INSERT INTO checkout_snapshots(tenant_id,run_id,intent_id,revision,digest,canonical_bytes,currency,minor_units,credential_reference,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)",s.tenantId(),s.runId(),id,revision,digest,bytes,currency,1250L,t.credentialReference(),expiry);
@@ -468,59 +467,31 @@ public final class JdbcPaymentStore implements PaymentStore {
     private CheckoutFacts checkoutFacts(Tx tx,Map<String,Object> i,Map<String,Object> q) {
         return new CheckoutFacts(scope(tx),(UUID)i.get("intent_id"),text(i,"merchant_id"),(int)number(q,"revision"),text(q,"currency"),number(q,"minor_units"),text(q,"credential_reference"),instant(q,"expires_at"));
     }
-    private ArtifactReference retain(Tx tx,String value,String mediaType) {
-        // This is independent immutable staging; a rollback may leave harmless unreferenced bytes.
-        return composition.artifacts().put(scope(tx),new Artifact(value.getBytes(StandardCharsets.UTF_8),mediaType,NATIVE_PROFILE));
-    }
-    private String artifact(Tx tx,ArtifactReference reference) {
-        if(!NATIVE_PROFILE.equals(reference.profile())) fail(422,"AUTHORITY_BINDING_INVALID");
-        var artifact=composition.artifacts().get(scope(tx),reference);
-        byte[] bytes=io.agenticpayments.composition.ArtifactIntegrity.verify(artifact,reference).bytes();
-        try {
-            return StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
-                .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
-        } catch(java.nio.charset.CharacterCodingException invalidEncoding) {
-            throw new PaymentException(422,"AUTHORITY_BINDING_INVALID");
-        }
-    }
-    private StoredCheckout retainCheckout(Tx tx,FrozenCheckout checkout) {
-        return new StoredCheckout(checkout.sessionId(),retain(tx,checkout.acpPayload(),"application/json"),retain(tx,checkout.checkoutJwt(),"application/jwt"),checkout.checkoutHash(),checkout.checkoutDigest(),checkout.payloadDigest(),checkout.merchantIssuer(),checkout.handlerId(),checkout.protocolVersion());
-    }
     private FrozenCheckout nativeCheckout(Tx tx,Map<String,Object> i,Map<String,Object> q) throws Exception {
         var row=one(tx.c,"SELECT checkout_json FROM native_checkouts WHERE tenant_id=? AND run_id=? AND intent_id=? AND revision=?",tx.s.tenantId(),tx.s.runId(),i.get("intent_id"),q.get("revision"));
         if(row==null) fail(422,"AUTHORITY_BINDING_INVALID");
         var stored=json.readValue(text(row,"checkout_json"),StoredCheckout.class);
-        if(!Objects.equals(stored.checkoutDigest(),q.get("digest"))) fail(422,"AUTHORITY_BINDING_INVALID");
-        return new FrozenCheckout(stored.sessionId(),artifact(tx,stored.acpPayload()),artifact(tx,stored.checkoutJwt()),stored.checkoutHash(),stored.checkoutDigest(),stored.payloadDigest(),stored.merchantIssuer(),stored.handlerId(),stored.protocolVersion());
+        return nativeCoordinator.reloadCheckout(scope(tx),stored,text(q,"digest"));
     }
     private void approveNative(Tx tx,Map<String,Object> i,Map<String,Object> q,Map<String,Object> g,UUID attempt) throws Exception {
         nativeCapabilities();
         var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
-        composition.checkout().validate(facts,checkout,keyResolver(tx),tx.now);
+        nativeCoordinator.validateCheckout(facts,checkout,keyResolver(tx),tx.now);
         var provision=provision(tx);
         Instant deadline=Collections.min(List.of(tx.now.plusSeconds(300),instant(g,"expires_at"),facts.expiresAt()));
         var context=new AuthorityContext(facts,checkout,tx.s.principalId(),text(g,"grant_id"),number(g,"version"),provision.tapSigner().issuer(),"merchant-demo","processor-demo",UUID.randomUUID().toString(),UUID.randomUUID().toString(),tx.now,deadline);
-        var issued=composition.issuer().issue(new IssuanceRequest(context,provision.tapSigner()));
-        var stored=new StoredAuthority(retain(tx,issued.checkoutMandate(),"application/jwt"),retain(tx,issued.paymentMandate(),"application/jwt"),context.issuer(),context.checkoutAudience(),context.paymentAudience(),context.checkoutNonce(),context.paymentNonce(),context.issuedAt().toString(),context.expiresAt().toString());
-        String digest=PaymentRules.sha256(stored.checkoutMandate().digest()+"\n"+stored.paymentMandate().digest());
+        var stored=nativeCoordinator.issueAndRetainAuthority(new IssuanceRequest(context,provision.tapSigner()));
+        String digest=nativeCoordinator.authorityDigest(stored);
         update(tx.c,"INSERT INTO native_authorities VALUES(?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),attempt,i.get("intent_id"),q.get("revision"),tx.s.principalId(),g.get("grant_id"),g.get("version"),encode(stored),digest,deadline);
         for(String role:List.of("MERCHANT","CREDENTIAL_PROVIDER","PAYMENT_PROCESSOR")) {
             boolean merchant=role.equals("MERCHANT");
             update(tx.c,"INSERT INTO native_challenges VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),role,merchant?context.checkoutNonce():context.paymentNonce(),i.get("intent_id"),q.get("revision"),tx.s.principalId(),g.get("grant_id"),g.get("version"),context.issuer(),merchant?context.checkoutAudience():context.paymentAudience(),q.get("digest"),deadline,attempt);
         }
         // Reload exact staged bytes. Signing/issuer success never substitutes for independent verification.
-        var reloaded=new IssuedAuthority(artifact(tx,stored.checkoutMandate()),artifact(tx,stored.paymentMandate()));
-        var verified=composition.verifier().verify(new AuthorityRequest(context,reloaded),keyResolver(tx),tx.now);
-        validateRoles(verified,context);
+        var reloaded=nativeCoordinator.reloadAuthority(scope(tx),stored);
+        var verified=nativeCoordinator.verifyAuthority(context,reloaded,keyResolver(tx),tx.now);
         for(var role:verified.authorizations()) update(tx.c,"INSERT INTO native_replay_identities VALUES(?,?,?,?,?,?)",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId(),tx.s.runId(),attempt);
         update(tx.c,"UPDATE native_authorities SET expires_at=? WHERE tenant_id=? AND run_id=? AND attempt_id=?",verified.expiresAt(),tx.s.tenantId(),tx.s.runId(),attempt);
-    }
-    private void validateRoles(VerifiedAuthority verified,AuthorityContext context) {
-        var roles=new HashSet<String>();
-        for(var role:verified.authorizations()) if(!roles.add(role.role())||!role.issuer().equals(context.issuer())||!context.issuedAt().isBefore(role.expiresAt())||role.expiresAt().isAfter(context.expiresAt())) fail(422,"AUTHORITY_BINDING_INVALID");
-        if(!roles.equals(Set.of("MERCHANT","CREDENTIAL_PROVIDER","PAYMENT_PROCESSOR"))||!verified.checkoutHash().equals(context.checkout().checkoutHash())||verified.expiresAt().isAfter(context.expiresAt())||!context.issuedAt().isBefore(verified.expiresAt())) fail(422,"AUTHORITY_BINDING_INVALID");
     }
     private void verifyNative(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
         nativeCapabilities();
@@ -532,11 +503,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(!tx.now.isBefore(instant(row,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
         var stored=json.readValue(text(row,"authority_json"),StoredAuthority.class);
         var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
-        composition.checkout().validate(facts,checkout,keyResolver(tx),tx.now);
+        nativeCoordinator.validateCheckout(facts,checkout,keyResolver(tx),tx.now);
         var context=new AuthorityContext(facts,checkout,text(a,"subject_id"),text(a,"grant_id"),number(a,"grant_version"),stored.issuer(),stored.checkoutAudience(),stored.paymentAudience(),stored.checkoutNonce(),stored.paymentNonce(),Instant.parse(stored.issuedAt()),Instant.parse(stored.expiresAt()));
-        var issued=new IssuedAuthority(artifact(tx,stored.checkoutMandate()),artifact(tx,stored.paymentMandate()));
-        if(!PaymentRules.sha256(stored.checkoutMandate().digest()+"\n"+stored.paymentMandate().digest()).equals(row.get("authority_digest"))) fail(422,"AUTHORITY_BINDING_INVALID");
-        var verified=composition.verifier().verify(new AuthorityRequest(context,issued),keyResolver(tx),tx.now); validateRoles(verified,context);
+        var issued=nativeCoordinator.reloadAuthority(scope(tx),stored);
+        nativeCoordinator.validateAuthorityDigest(stored,text(row,"authority_digest"));
+        var verified=nativeCoordinator.verifyAuthority(context,issued,keyResolver(tx),tx.now);
         if(!verified.expiresAt().equals(instant(row,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
         for(var role:verified.authorizations()) {
             var used=one(tx.c,"SELECT * FROM native_replay_identities WHERE tenant_id=? AND role=? AND issuer=? AND jti=?",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId());

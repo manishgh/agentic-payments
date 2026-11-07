@@ -41,6 +41,14 @@ Artifact references are content addressed: `ArtifactReference.id` is the canonic
 
 Azure Storage, DynamoDB or an existing grant service can implement the same artifact-storage responsibility without introducing new vendor-specific interfaces. A service used for authoritative grant consumption must separately satisfy the admission contract's atomic replay, grant and reservation guarantees. A generic CRUD store does not qualify. No cloud backend adapter is included yet.
 
+## Application coordination and transaction ownership
+
+`NativeApplicationCoordinator` owns the native artifact and verification policy through the existing composition ports. It stages and reloads exact checkout/mandate bytes, checks artifact identity and strict UTF-8, compares stored digests and validates the verifier's role/expiry output. It has no JDBC, JSON codec, HTTP or workflow dependency. Replacing or decorating a protocol or artifact implementation still uses `Composition.Ports`; this extraction adds no backend-specific interface.
+
+`JdbcPaymentStore` calls those application phases while retaining the transaction and run lock. It owns trusted enrollment, current resolver snapshots, command replay, challenge/replay uniqueness and atomic grant/reservation/admission records. Approval first verifies the existing checkout, then provisions enrollment, stages authority and inserts provisional records. Only afterward does it reload the mandates and bind a fresh resolver for independent verification. A failed verification rolls back financial mutations; independently staged, unreferenced bytes cannot authorize a payment.
+
+The stored checkout/authority JSON shapes and public API remain unchanged. Accepted retries reuse their command result; execution reloads retained authority without signing again. Already admitted UNKNOWN recovery still reconciles the original operation. [ADR 0008](adr/0008-native-application-coordination.md) records the exact phase order and compatibility requirements. Broader financial-use-case extraction remains outstanding: this component is not a replacement transaction backend or an external ACP transport.
+
 ## Run the native reference
 
 Start the platform and load the private graph session as described in the [README](../README.md). Select the native profile explicitly when starting a new workflow:

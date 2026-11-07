@@ -44,6 +44,8 @@ Real 3DS/wallet/bank integrations, scheduled or conditional purchasing policy, m
 
 Replaceability applies to every component boundary. Intended compositions include our AP2 implementation with an external ACP implementation, or our AP2 and ACP implementations with the ACP layer wrapping/delegating to a third-party checkout implementation such as Stripe's. These examples describe extension paths, not existing vendor integrations.
 
+The native application coordinator applies artifact and verification policy through those same ports, independently of JDBC. Transactional admission remains owned by the payment store. See [application coordination and adapter boundaries](docs/durable-composition.md#application-coordination-and-transaction-ownership) when integrating an implementation.
+
 Each responsibility has one stable, versioned interface. For example, PostgreSQL, Azure Storage, DynamoDB or an adapter to an existing payment-grant service can implement the same signed-artifact storage contract. Another backend adds an implementation and registration, not a new vendor-specific interface. The same principle applies to protocol engines, signing/key services, admission, providers, authentication, events and durable workflow runtimes. Implementations must satisfy the contract's behavioral and security guarantees; supported algorithms and capabilities are explicitly selected, with no silent fallback. See [architecture](docs/architecture.md) and [backlog](docs/backlog.md) for implementation scope.
 
 ## Run locally on Windows
