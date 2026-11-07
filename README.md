@@ -18,6 +18,32 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 
 Execution currently accepts only the synthetic profile. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
 
+## Use cases
+
+This project is for teams building purchasing agents, merchant checkout integrations and enterprise payment platforms. It is especially useful when a purchase spans human decisions, external authentication, delayed outcomes or service restarts.
+
+| Use case | Example | How the platform helps |
+| --- | --- | --- |
+| Business procurement | An agent prepares a purchase and waits for a manager's approval. | Bind approval to the exact checkout and spending authority; recheck price, expiry and budget before execution. |
+| Customer authentication | A customer must complete 3DS, wallet approval or a bank redirect. | Pause the workflow for a trusted interaction, then resume from a verified result without exposing credentials or OTPs to the agent. |
+| Uncertain payment outcomes | The provider accepts a payment, but the response is lost or a worker crashes. | Preserve the original operation and idempotency identity, retain unresolved exposure and reconcile before considering any further action. |
+| Scheduled purchasing | Purchase an item at an agreed time or when an authorised condition is met. | Use durable timers and recheck current availability, checkout terms and valid authority; an expired grant requires fresh authority. |
+| Long-running bank payments | A payment remains pending for hours or days. | Track the original payment across restarts and handle delayed or duplicate events without treating a pending status as settlement. |
+| Multi-step purchases | Coordinate a booking, payment and fulfillment. | Keep step ownership and outcomes explicit, with separately defined recovery or compensation for partial completion. |
+| Enterprise integration | A business already uses its own checkout, signing, storage, grant service or workflow runtime. | Adapt those implementations to stable component interfaces rather than rewrite the payment protocols or business workflow. |
+
+### Reference journey
+
+The target integration journey is: **agent creates checkout → customer approves → authentication pauses the workflow → service restarts → workflow resumes → the original payment is reconciled**. The current local-fake reference already exercises trusted approval, a synthetic challenge, workflow restart and payment recovery. Connecting the independently implemented AP2 engine to that durable financial admission path is the next implementation slice; it is not yet a completed native AP2/ACP journey.
+
+Real 3DS/wallet/bank integrations, scheduled or conditional authority, multi-step compensation and fulfillment are target use cases, not currently enabled features. The existing LangGraph/SQLite workflow supports checkpoint restart and manual resume. Temporal, Cadence and Azure Durable Task are intended implementations of a shared durable-runtime contract; their adapters are not yet shipped.
+
+### Bring your own implementation
+
+Replaceability applies to every component boundary. Intended compositions include our AP2 implementation with an external ACP implementation, or our AP2 and ACP implementations with the ACP layer wrapping/delegating to a third-party checkout implementation such as Stripe's. These examples describe extension paths, not existing vendor integrations.
+
+Each responsibility has one stable, versioned interface. For example, PostgreSQL, Azure Storage, DynamoDB or an adapter to an existing payment-grant service can implement the same signed-artifact storage contract. Another backend adds an implementation and registration, not a new vendor-specific interface. The same principle applies to protocol engines, signing/key services, admission, providers, authentication, events and durable workflow runtimes. Implementations must satisfy the contract's behavioral and security guarantees; supported algorithms and capabilities are explicitly selected, with no silent fallback. See [architecture](docs/architecture.md) and [backlog](docs/backlog.md) for implementation scope.
+
 ## Run locally on Windows
 
 Requirements: PowerShell 7, Python 3.12, Node.js 24/npm and Git. Bootstrap installs verified Java 21, Maven and PostgreSQL inside ignored `.tools/`, without a global service installation.

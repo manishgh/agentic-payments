@@ -52,6 +52,12 @@ The independently authored [Java AP2 engine](ap2-engine.md) now supplies a bound
 
 ## Extensibility
 
+Replaceability and composition apply to every component interface, not only payment-provider adapters. Protocol engines, checkout integrations, authority verification, signing and key services, artifact storage, grant/admission coordination, authentication, events, identity and orchestration need explicit behavioral contracts. A caller depends on the contract; implementations may be native, external adapters, decorators or delegated compositions. Reference implementations demonstrate the contracts without making their backend mandatory.
+
+Define each interface once around its responsibility, not around a vendor. For example, an immutable signed-artifact store may have Azure Storage, DynamoDB, PostgreSQL or payment-grant-service adapters, all implementing the same contract. A future backend adds a concrete implementation and configuration/registration; it does not require a new interface or workflow/domain changes. The same rule governs every other component boundary.
+
+In particular, this platform must support its AP2 implementation paired with an external ACP implementation, or its AP2 and ACP implementations with the ACP layer adapting/delegating to an external implementation. The same boundary applies to cryptographic implementations and storage. Actual algorithm support remains constrained by negotiated protocol profiles and trusted policy. Signed-artifact storage, such as an immutable object store, is separate from the service that atomically consumes a grant and admits a payment. Replacement tests must establish the guarantees callers rely on, including failures and recovery.
+
 Provider, method, credential format, customer action and checkout allocation are separate extension axes. Capabilities are intersected with the merchant account, currency, country, channel, authorization profile and provider support. Mandatory unknown capabilities reject; no silent downgrade.
 
 The ACP boundary remains pinned to the selected external contract. Current documentation has restricted provider/method/status enums. Broader internal capabilities need a separately negotiated extension/hosted continuation contract; do not invent accepted ACP fields or collapse pending into success. See [sources](references.md) and [review](reviews/0001-protocol-boundaries.md).
