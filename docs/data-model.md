@@ -1,10 +1,12 @@
 # Simulator transaction and persistence design
 
 Status: reviewed logical design; normalized PostgreSQL migrations and the bounded runtime now exist. Physical storage combines the inbox/evidence facts with a separate conflict table; the run lock serializes mutation eligibility. The preview uses claim-fence counters rather than timed leases. Full seeded schedule replay remains incomplete. See the current status and code review for implementation evidence and limits.
-Profile: `local-fake-single-tender-0.1`; contracts: [internal API](api-contracts.md); scope: [ADR 0001](adr/0001-simulator-preview.md).
+Profiles: `local-fake-single-tender-0.1` and `local-ap2-acp-single-tender-0.1`; contracts: [internal API](api-contracts.md); scope: [ADR 0001](adr/0001-simulator-preview.md) and [durable admission](adr/0006-durable-ap2-admission.md).
 PostgreSQL is the recommended authoritative transaction store; graph checkpoints are separate, nonauthoritative orchestration storage.
 
 ## Storage ownership and values
+
+Migration `V007` adds the explicit intent profile, native checkout bindings, public trust enrollments, challenges, accepted authority and consumed replay identities. Existing intents backfill to the legacy profile without replacing their attempts, operations or reservations. Exact signed artifacts live behind a separate immutable artifact-store port; references are validated again at admission. Staged artifacts may outlive a rolled-back financial transaction without granting authority. Replay consumption, grant binding, reservation and accepted command result share the authoritative transaction. See [durable composition](durable-composition.md) for replacement requirements and migration evidence.
 
 Only Java core repositories write payment tables. Workers call application services; Python/UI never write transaction tables directly.
 Every scenario row carries `tenant_id,run_id`; every reference uses `(tenant_id,run_id,id)` foreign keys. UUIDs alone are not authorization.

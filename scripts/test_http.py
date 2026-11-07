@@ -114,9 +114,9 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual("CANCELLED", payment["state"])
         self.assertEqual("RELEASED", payment["exposureState"])
 
-    def create(self, scenario="success", key=None):
+    def create(self, scenario="success", key=None, *, profile="local-fake-single-tender-0.1"):
         request = dict(merchantId="merchant-demo", scenarioId=scenario,
-                       profile="local-fake-single-tender-0.1", requiredCapabilities=["single-tender", "exact-money"])
+                       profile=profile, requiredCapabilities=["single-tender", "exact-money"])
         status, body, _ = self.request("/intents", request, key=key)
         self.assertEqual(201, status, body)
         return body["intentId"]
@@ -159,6 +159,64 @@ class HttpContractTests(unittest.TestCase):
         final = self.wait_for(intent, {"SUCCEEDED"})
         self.assertEqual("CONSUMED", final["exposureState"])
         self.assertEqual(operation["operationId"], final["operationId"])
+
+    def test_native_authority_uses_trusted_approval_and_separate_customer_action(self):
+        profile = "local-ap2-acp-single-tender-0.1"
+        intent = self.create("challenge-then-success", profile=profile)
+        quote = self.quote(intent)
+        _, observed, _ = self.request(f"/intents/{intent}")
+        self.assertEqual(profile, observed["profile"])
+        status, reviewed, _ = self.request(f"/intents/{intent}/checkout", trusted=True)
+        self.assertEqual(200, status)
+        self.assertEqual(quote["checkoutDigest"], reviewed["checkoutDigest"])
+        command = dict(expectedVersion=reviewed["version"], checkoutRevision=reviewed["checkoutRevision"],
+                       checkoutDigest=reviewed["checkoutDigest"], authorityReference="fixture-grant-1")
+        route = f"/intents/{intent}/approve"
+        self.assertEqual(403, self.request(route, command)[0])
+        status, rejected, _ = self.request(route, dict(command, checkoutMandate="NATIVE_ARTIFACT_CANARY"), trusted=True)
+        self.assertEqual(400, status)
+        self.assertNotIn("NATIVE_ARTIFACT_CANARY", json.dumps(rejected))
+        key = str(uuid4())
+        status, approval, _ = self.request(route, command, trusted=True, key=key)
+        self.assertEqual(200, status)
+        self.assertEqual("ap2-v0.2-direct-tap-synthetic-0.1", approval["authorityProfile"])
+        status, replayed, headers = self.request(route, command, trusted=True, key=key)
+        self.assertEqual(200, status)
+        self.assertEqual(approval, replayed)
+        self.assertEqual("true", {name.lower(): value for name, value in headers.items()}.get("idempotency-replayed"))
+        status, operation, _ = self.request(f"/intents/{intent}/execute", {
+            "expectedVersion": approval["version"], "attemptId": approval["attemptId"]})
+        self.assertEqual(202, status)
+        waiting = self.wait_for(intent, {"WAITING_ACTION"})
+        self.assertEqual("HELD", waiting["exposureState"])
+        path = f"/actions/{waiting['actionId']}"
+        self.assertEqual(403, self.request(path + "/complete", {"expectedVersion": 1, "decision": "approve"})[0])
+        _, action, _ = self.request(path, trusted=True)
+        self.assertEqual(200, self.request(path + "/complete", {
+            "expectedVersion": action["version"], "decision": "approve"}, trusted=True)[0])
+        final = self.wait_for(intent, {"SUCCEEDED"})
+        self.assertEqual(profile, final["profile"])
+        self.assertEqual(operation["operationId"], final["operationId"])
+        self.assertEqual("CONSUMED", final["exposureState"])
+        visible = json.dumps([reviewed, approval, waiting, final]).lower()
+        for prohibited in ("checkoutjwt", "checkoutmandate", "paymentmandate", "privatekey", "credentialreference"):
+            self.assertNotIn(prohibited, visible)
+
+    def test_native_requote_rejects_stale_approval_without_reservation(self):
+        intent = self.create(profile="local-ap2-acp-single-tender-0.1")
+        stale = self.quote(intent)
+        status, current, _ = self.request(f"/intents/{intent}/quote", {
+            "expectedVersion": stale["version"], "cartFixtureId": "cart-1250-eur",
+            "tenders": [{"provider": "simulator", "method": "synthetic-card", "credentialReference": "fixture-credential-1"}]})
+        self.assertEqual(200, status)
+        self.assertNotEqual(stale["checkoutDigest"], current["checkoutDigest"])
+        self.assertEqual(409, self.request(f"/intents/{intent}/approve", {
+            "expectedVersion": stale["version"], "checkoutRevision": stale["checkoutRevision"],
+            "checkoutDigest": stale["checkoutDigest"], "authorityReference": "fixture-grant-1"}, trusted=True)[0])
+        _, state, _ = self.request(f"/intents/{intent}")
+        self.assertEqual("QUOTED", state["state"])
+        self.assertEqual("NONE", state["exposureState"])
+        self.assertIsNone(state["attemptId"])
 
     def test_challenge_cannot_be_completed_by_graph(self):
         intent, approval = self.approved("challenge-then-success")

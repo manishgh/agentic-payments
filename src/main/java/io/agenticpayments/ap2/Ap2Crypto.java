@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.agenticpayments.crypto.SignatureProvider;
+import io.agenticpayments.crypto.JcaSignatureProvider;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -163,6 +165,31 @@ public final class Ap2Crypto {
     }
 
     public static ObjectNode verify(String compact, PublicKey trustedKey, String expectedKid, String expectedTyp) {
+        return verify(compact,trustedKey,expectedKid,expectedTyp,new JcaSignatureProvider());
+    }
+
+    /** Profile policy precedes provider dispatch. A provider cannot negotiate another JWT algorithm. */
+    public static void requireProvider(SignatureProvider provider) {
+        if(provider==null||!SignatureProvider.CONTRACT_VERSION.equals(provider.contractVersion())
+                ||!provider.supportedSuites().contains(SignatureProvider.ES256))
+            throw new Ap2Exception(UNSUPPORTED_PROFILE);
+    }
+
+    public static String sign(byte[] payload, SignatureProvider provider, String keyHandle, String kid, String typ) {
+        requireProvider(provider); boundedHeaderValue(kid); boundedHeaderValue(typ); parseJson(payload);
+        String input=encode(jsonBytes(object().put("alg","ES256").put("kid",kid).put("typ",typ)))+"."+encode(payload);
+        try {
+            byte[] signature=provider.sign(SignatureProvider.ES256,keyHandle,ascii(input));
+            if(signature==null||signature.length!=64) throw new Ap2Exception(INVALID_SIGNATURE);
+            return input+"."+encode(signature);
+        } catch(SignatureProvider.UnavailableException e) { throw new SignatureProvider.UnavailableException(); }
+        catch(Ap2Exception e) { throw e; }
+        catch(RuntimeException e) { throw new Ap2Exception(INVALID_SIGNATURE); }
+    }
+
+    public static ObjectNode verify(String compact, PublicKey trustedKey, String expectedKid, String expectedTyp,
+                                    SignatureProvider provider) {
+        requireProvider(provider);
         requireP256(trustedKey);
         String[] parts = segments(compact);
         ObjectNode header = protectedHeader(compact);
@@ -172,11 +199,11 @@ public final class Ap2Crypto {
         byte[] signature = decode(parts[2]);
         if (payload.length > 65536 || signature.length != 64) throw new Ap2Exception(INVALID_ENCODING);
         try {
-            Signature verifier = Signature.getInstance("SHA256withECDSAinP1363Format");
-            verifier.initVerify(trustedKey);
-            verifier.update(ascii(parts[0] + "." + parts[1]));
-            if (!verifier.verify(signature)) throw new Ap2Exception(INVALID_SIGNATURE);
-        } catch (GeneralSecurityException e) { throw new Ap2Exception(INVALID_SIGNATURE); }
+            if (!provider.verify(SignatureProvider.ES256,trustedKey.getEncoded(),ascii(parts[0]+"."+parts[1]),signature))
+                throw new Ap2Exception(INVALID_SIGNATURE);
+        } catch (SignatureProvider.UnavailableException e) { throw new SignatureProvider.UnavailableException(); }
+        catch (Ap2Exception e) { throw e; }
+        catch (RuntimeException e) { throw new Ap2Exception(INVALID_SIGNATURE); }
         return parseJson(payload);
     }
 }

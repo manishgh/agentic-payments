@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.security.PublicKey;
 import java.security.MessageDigest;
 import java.util.*;
+import io.agenticpayments.crypto.SignatureProvider;
+import io.agenticpayments.crypto.JcaSignatureProvider;
 import static io.agenticpayments.ap2.Ap2Exception.Code.*;
 import static io.agenticpayments.ap2.Ap2Claims.*;
 
@@ -69,12 +71,19 @@ public final class Ap2Engine {
     private record Challenge(String issuer, String audience, String checkoutHash, long expiresAt) {}
     private record Verified(Envelope envelope, Proof proof) {}
     private final Map<KeyId, TrustKey> keys;
+    private final SignatureProvider signatures;
     private final Object bindingOwner = new Object();
     private final Map<ChallengeId, Challenge> challenges = new HashMap<>();
     private final Set<ChallengeId> consumed = new HashSet<>();
     private final Set<AuthorizationId> authorizations = new HashSet<>();
 
     public Ap2Engine(List<TrustKey> trustedKeys) {
+        this(trustedKeys,new JcaSignatureProvider());
+    }
+
+    public Ap2Engine(List<TrustKey> trustedKeys, SignatureProvider signatures) {
+        Ap2Crypto.requireProvider(signatures);
+        this.signatures=signatures;
         if (trustedKeys == null || trustedKeys.isEmpty()) throw new Ap2Exception(INVALID_KEY);
         Map<KeyId, TrustKey> registered = new HashMap<>();
         for (TrustKey key : trustedKeys) {
@@ -142,7 +151,7 @@ public final class Ap2Engine {
     private Envelope envelope(String mandate, Purpose purpose, Context context) {
         String compact = Ap2Crypto.issuerJwt(mandate);
         TrustKey key = key(purpose, context.issuer(), compact, context.now());
-        JsonNode payload = Ap2Crypto.verify(compact, key.publicKey(), key.kid(), Ap2Crypto.MANDATE_TYPE);
+        JsonNode payload = Ap2Crypto.verify(compact, key.publicKey(), key.kid(), Ap2Crypto.MANDATE_TYPE,signatures);
         Envelope envelope;
         try { envelope = Ap2Claims.envelope(payload); }
         catch (IllegalArgumentException e) { throw new Ap2Exception(INVALID_CLAIMS); }
@@ -154,7 +163,7 @@ public final class Ap2Engine {
 
     private void merchantCheckout(String compact, String merchantIssuer, long now) {
         TrustKey key = key(Purpose.MERCHANT_CHECKOUT, merchantIssuer, compact, now);
-        Ap2Crypto.verify(compact, key.publicKey(), key.kid(), Ap2Crypto.CHECKOUT_TYPE);
+        Ap2Crypto.verify(compact, key.publicKey(), key.kid(), Ap2Crypto.CHECKOUT_TYPE,signatures);
     }
 
     private Verified checkout(String mandate, String expectedCheckoutJwt, String merchantIssuer, Context context) {
@@ -218,7 +227,7 @@ public final class Ap2Engine {
 
     private JsonNode receiptPayload(String compact, Purpose purpose, String typ, Context context) {
         TrustKey key = key(purpose, context.issuer(), compact, context.now());
-        return Ap2Crypto.verify(compact, key.publicKey(), key.kid(), typ);
+        return Ap2Crypto.verify(compact, key.publicKey(), key.kid(), typ,signatures);
     }
 
     private void checkReceipt(Receipt receipt, String compact, String mandate, Purpose purpose, Context context) {

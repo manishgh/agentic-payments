@@ -1,0 +1,113 @@
+{
+  "verifiedOn": "2026-11-07",
+  "scope": "Base Temporal SDK only; publisher metadata verified before installation. Existing workflow pins remain unchanged. These are third-party terms, not a project license.",
+  "packages": [
+    {
+      "name": "temporalio",
+      "version": "1.35.0",
+      "metadataUrl": "https://pypi.org/pypi/temporalio/1.35.0/json",
+      "declaredLicense": "MIT",
+      "requiresPython": ">=3.10",
+      "requiresDist": [
+        "nexus-rpc==1.4.0",
+        "protobuf<8.0.0,>=3.20",
+        "python-dateutil<3,>=2.8.2; python_full_version < \"3.11\"",
+        "types-protobuf<8.0.0,>=3.20",
+        "typing-extensions<5,>=4.2.0",
+        "aioboto3>=10.4.0; extra == \"aioboto3\"",
+        "types-aioboto3[s3]>=10.4.0; extra == \"aioboto3\"",
+        "opentelemetry-api<2,>=1.26; extra == \"cloud-run-worker-otel\"",
+        "opentelemetry-sdk<2,>=1.26; extra == \"cloud-run-worker-otel\"",
+        "opentelemetry-exporter-otlp-proto-grpc<2,>=1.11.1; extra == \"cloud-run-worker-otel\"",
+        "protobuf<7; extra == \"cloud-run-worker-otel\"",
+        "temporalio-deepagents>=0.0.1; python_full_version >= \"3.11\" and extra == \"deepagents\"",
+        "gcloud-aio-storage<10,>=9.6.4; extra == \"gcloud-aio-storage\"",
+        "temporalio-google-adk[mcp]>=0.0.1; extra == \"google-adk\"",
+        "temporalio-google-genai[mcp]>=0.1.0; extra == \"google-genai\"",
+        "grpcio<2,>=1.48.2; extra == \"grpc\"",
+        "opentelemetry-api<2,>=1.26; extra == \"lambda-worker-otel\"",
+        "opentelemetry-sdk<2,>=1.26; extra == \"lambda-worker-otel\"",
+        "opentelemetry-exporter-otlp-proto-grpc<2,>=1.11.1; extra == \"lambda-worker-otel\"",
+        "opentelemetry-semantic-conventions<1,>=0.40b0; extra == \"lambda-worker-otel\"",
+        "opentelemetry-sdk-extension-aws<3,>=2.0.0; extra == \"lambda-worker-otel\"",
+        "temporalio-langgraph>=0.1.0; extra == \"langgraph\"",
+        "temporalio-langsmith>=0.1.0; extra == \"langsmith\"",
+        "temporalio-openai-agents>=1.0.0; extra == \"openai-agents\"",
+        "opentelemetry-api<2,>=1.26; extra == \"opentelemetry\"",
+        "opentelemetry-sdk<2,>=1.26; extra == \"opentelemetry\"",
+        "pydantic<3,>=2.0.0; extra == \"pydantic\"",
+        "temporalio-strands-agents>=0.1.0; extra == \"strands-agents\""
+      ],
+      "verifiedWindowsWheel": {
+        "url": "https://files.pythonhosted.org/packages/db/33/30942b2d568df2c50089e381ee63b2d141f2ebfb7b4787bac3540f5cf617/temporalio-1.35.0-cp310-abi3-win_amd64.whl",
+        "sha256": "6f434c0d3b6d049f4473f9f5d3e80b5e80c986440fd0490f2ee70cc631cbcddd"
+      },
+      "sourceDistributions": [
+        {
+          "filename": "temporalio-1.35.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/69/38/03641a02eb18e2b16f58c1c136deafdffeb30828dcd83ebd8ac41eb39fd7/temporalio-1.35.0.tar.gz",
+          "sha256": "c7a14f29909f8d847f78de49305af89c0ec5aea39272cd4050124386ac3ca295"
+        }
+      ]
+    },
+    {
+      "name": "nexus-rpc",
+      "version": "1.4.0",
+      "metadataUrl": "https://pypi.org/pypi/nexus-rpc/1.4.0/json",
+      "declaredLicense": "MIT",
+      "requiresPython": ">=3.10",
+      "requiresDist": [
+        "typing-extensions>=4.12.2"
+      ],
+      "verifiedWindowsWheel": {
+        "url": "https://files.pythonhosted.org/packages/11/52/6327a5f4fda01207205038a106a99848a41c83e933cd23ea2cab3d2ebc6c/nexus_rpc-1.4.0-py3-none-any.whl",
+        "sha256": "14c953d3519113f8ccec533a9efdb6b10c28afef75d11cdd6d422640c40b3a49"
+      },
+      "sourceDistributions": [
+        {
+          "filename": "nexus_rpc-1.4.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/35/d5/cd1ffb202b76ebc1b33c1332a3416e55a39929006982adc2b1eb069aaa9b/nexus_rpc-1.4.0.tar.gz",
+          "sha256": "3b8b373d4865671789cc43623e3dc0bcbf192562e40e13727e17f1c149050fba"
+        }
+      ]
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "metadataUrl": "https://pypi.org/pypi/protobuf/7.36.2/json",
+      "declaredLicense": "3-Clause BSD License",
+      "requiresPython": ">=3.10",
+      "requiresDist": [],
+      "verifiedWindowsWheel": {
+        "url": "https://files.pythonhosted.org/packages/8a/55/b77bda4e5e5f5971fb51b07663694690e9afdb9402136c16a522bd621cad/protobuf-7.36.2-cp310-abi3-win_amd64.whl",
+        "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353"
+      },
+      "sourceDistributions": [
+        {
+          "filename": "protobuf-7.36.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/d9/89/5b8517baa72f84a67b8a307ba953c91057af618bf40bf676f3c03551f8f0/protobuf-7.36.2.tar.gz",
+          "sha256": "497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb"
+        }
+      ]
+    },
+    {
+      "name": "types-protobuf",
+      "version": "7.35.1.20260906",
+      "metadataUrl": "https://pypi.org/pypi/types-protobuf/7.35.1.20260906/json",
+      "declaredLicense": "Apache-2.0",
+      "requiresPython": ">=3.10",
+      "requiresDist": [],
+      "verifiedWindowsWheel": {
+        "url": "https://files.pythonhosted.org/packages/44/4e/f63e826c68f77ef875506d72f225918800346545ee99847bc28f3394f18d/types_protobuf-7.35.1.20260906-py3-none-any.whl",
+        "sha256": "5155e48569e0dabff303fdf578db96cd31ea9a4a63b18018a4ceac6b0ae17462"
+      },
+      "sourceDistributions": [
+        {
+          "filename": "types_protobuf-7.35.1.20260906.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/e1/6c/e3e5b3e10bc328126a39637c138f9ebfd734bf14342b9f3540039b4ab995/types_protobuf-7.35.1.20260906.tar.gz",
+          "sha256": "efd1a3862d4c967dad5512ef8d56b1530ac84f182c41735b94004756518c4998"
+        }
+      ]
+    }
+  ]
+}

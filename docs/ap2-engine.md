@@ -4,6 +4,8 @@ The Java package `io.agenticpayments.ap2` implements the bounded `ap2-v0.2-direc
 
 ## Implemented components
 
+The standalone engine's process-local exchange remains available. The separately reviewed [durable composition](durable-composition.md) now binds its read-only verification to persistent financial admission and embedded ACP checkout. The engine accepts an injected `SignatureProvider`; JCA is the reference implementation, and the current protocol profile continues to require ES256. Native composition never uses the standalone exchange's process-local replay guard as durable financial authority.
+
 | Component | Responsibility |
 | --- | --- |
 | `Ap2Claims` | Immutable native closed Checkout/Payment Mandate contents, direct credential envelopes and typed receipts; strict parsing, exact versions and redacted string representations. |

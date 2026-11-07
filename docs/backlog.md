@@ -5,6 +5,8 @@ This register distinguishes implemented/tested source, accepted milestones, bran
 Stable IDs are retained across replanning; add findings as new rows rather than renumbering existing work.
 The integration owner updates status only when the stated evidence exists.
 
+Current follow-on: native AP2/ACP durable admission and shared SQLite/Temporal orchestration are implemented, independently reviewed and verified in a fresh 317-test aggregate. See [composition](durable-composition.md), [runtime](durable-runtime.md) and [status](status.md). These are bounded synthetic profiles; broader AP2 authority, external ACP/provider adapters, Cadence/Azure runtimes and production operation remain separately scoped work.
+
 ## Status and ownership
 
 - **In progress**: authorized work being assembled or independently reviewed now.

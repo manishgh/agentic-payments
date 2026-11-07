@@ -6,9 +6,11 @@ Updated: 2026-11-07, Europe/Berlin.
 
 The local synthetic reference implementation is runnable: versioned contracts, extensible Java adapter SDK and reusable TCK, Java payment core, normalized PostgreSQL migrations and durable simulator, loopback HTTP API, trusted TypeScript UI, LangGraph/SQLite workflow and repeatable evidence runner. Implementation branch: `codex/reference-platform` in [manishgh/agentic-payments](https://github.com/manishgh/agentic-payments).
 
-The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 engine now implements the bounded native direct Trusted Agent Provider artifact/role exchange using synthetic identities. Native SD-JWT mandates and signed receipts are verified; its durable financial-core admission bridge, ACP merchant transport and external payment providers remain unconnected. See [AP2 engine](ap2-engine.md).
+The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 direct TAP engine now binds native synthetic authority and an exact embedded ACP checkout to durable financial admission. Checkout, authority, crypto, key and artifact implementations are injectable. LangGraph decisions run through a shared local SQLite/Temporal runtime contract. ACP merchant HTTP transport, external providers, Cadence/Azure adapters and broader AP2 profiles remain outstanding. See [durable composition](durable-composition.md) and [runtime guide](durable-runtime.md).
 
 ## Validation and review
+
+The durable AP2/ACP and runtime slice passed fresh run `ac79d0a17b14434e8f6e23995ce00cf9`: twelve stages and 317 methods, zero failures/errors/skips, unchanged 294-file source identity, and separate semantic bundle verification. Independent Astra reviews 0019 and 0021 accept the bounded source after ten findings were resolved. Evidence covers native financial admission/recovery, populated-schema migration, replacement adapters, actual Temporal worker/server restarts, history replay, bounded history and decoded-payload privacy checks. All 48 selected requirement observations pass; certification remains incomplete. See [implementation evidence](implementation-evidence.md) for exact identities and limits.
 
 The published SDK/TCK checkpoint `0f60d93` passed an isolated unchanged-source aggregate: 67 Java tests, eight HTTP tests, three UI regressions, 12 LangGraph tests, four upstream integrity tests and 12 structural probes. Schema validation covered 21 schemas, 17 positive fixtures, 27 schema-negative fixtures, six binding-negative fixtures and one raw-parser negative. SDK bytecode inspection found only `java.base`. Desktop/mobile UI rendering and the trusted approval flow were inspected in headless Edge.
 
@@ -20,7 +22,7 @@ The requirement-evidence follow-on passed a fresh twelve-stage aggregate with 20
 
 The independent AP2 milestone passed a fresh twelve-stage aggregate with 249 test methods, including 37 new AP2 Java methods and four independent Python verifier methods. The Java tests evaluate 74 Python-generated vectors; Python independently verifies five Java signatures and two receipt references. Reviews 0016/0017 are accepted, all six source findings are resolved, source stayed unchanged and separate bundle verification passed. The AP2 JAR is separately packaged and hashed. Exact run/source identities and the corrected earlier report-generation failure are in [implementation evidence](implementation-evidence.md).
 
-The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Exhaustive adversarial/privacy evidence, broader conflict-normalization replay and certification policy are unfinished. The earlier offline lab verifies merchant signatures/content only. The new independent AP2 engine separately verifies native direct authority artifacts; it does not grant financial dispatch or prove real human consent.
+The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Exhaustive adversarial/privacy evidence, broader conflict-normalization replay and certification policy are unfinished. The earlier offline lab verifies merchant signatures/content only. Native composition separately gates financial admission through durable authority/replay checks; synthetic identities and UI fixtures do not prove real-world human consent.
 
 ## Publication
 
@@ -39,7 +41,7 @@ Repository-local Git author remains `Agentic Payments Automation <automation@age
 1. Complete conflict-normalization replay and the remaining adversarial/privacy and process-crash matrix, then review the certification policy.
 2. Extract finer application/domain transaction coordination from the JDBC implementation; current claim fences are not a full timed lease scheduler.
 3. Extend the generic metadata/TCK with reviewed executable profiles and broader third-party adapter evidence. Split the SDK publication POM from reference dependencies before package release.
-4. Bind the new direct AP2 engine and negotiated ACP checkout revision to durable financial admission. Extend native authority to delegated/User Credential profiles only after their own design and adversarial evidence. Establish wire interoperability with real peers separately from independent Python vectors.
+4. Extend native authority to delegated/User Credential profiles only after their own design and adversarial evidence. Establish wire interoperability with real peers separately from independent Python vectors. Add separately reviewed Cadence/Azure runtime adapters and distributed registration/production identity.
 5. Implement provider-specific sandbox connectors with authorized accounts and verified idempotency/event/recovery behavior.
 6. Add separately designed split tender, refunds/compensation and managed identity, visibility, operations and support.
 

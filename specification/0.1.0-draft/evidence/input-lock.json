@@ -5,7 +5,8 @@
     "docs/reviews/0013-evidence-design-review.md": "2a63397b75039f7c5c6f8a2bd9a4489a2e98f238e2aff4067add83440f7546ac",
     "docs/simulator-and-conformance.md": "18b5719968c39f652052af6065453bea2ca2c458a7070bc1291a37107ec3ffd6",
     "integrations/offline_lab/requirements-crypto.lock.txt": "16b2e11a0b9b963c7238f3199bf9d2fc570954b245740c60ad1634738dabf292",
-    "pom.xml": "f3a876b6a7b9ef3ddca452b03c7d3c0be259a8db788a18dd5439d95d939f1581",
+    "pom.xml": "d7215ce68ad53cd5103435eb51f8c38a7b03cd85e90fa5a02230a3f87da97b5a",
+    "scripts/temporal-toolchain-lock.json": "84e717fc61992f916debc06e6cc78e5c329570bf8074ab7ffda51a76a862ef59",
     "specification/0.1.0-draft/README.md": "154051b23dafeb87955ff1f803bb908b25dd106cf4770cea76ef8734c4d9a135",
     "specification/0.1.0-draft/evidence/inventory.json": "c7f584fba060a8b927f88e3b198bcf853ed573f22aea21bb1f0bb86dca995122",
     "specification/0.1.0-draft/evidence/inventory.schema.json": "7b89d729761c34f33350ecf16cd8b24ce81200175e4db79321b78bce4371f048",
@@ -16,6 +17,7 @@
     "specification/0.1.0-draft/evidence/report.schema.json": "0a077348e5dd2fdb7ad0ed1e47b51be2a39dd67903ddec45e9edd7b54c25819f",
     "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java": "18eba4bad2bd56398a67bc6a540175826bb9e9b0fb6f72077518cce5f1678447",
     "ui/package-lock.json": "2d32e553a8894512d841012132d7d0b402e673d9dd8fdcdec5057c2e937a0eaf",
-    "workflows/requirements-lock.txt": "3792819416fbfaf3df4e01fdbdf1529be86f6e1f9fc49043f486f50b7a7b1b49"
+    "workflows/requirements-lock.txt": "4efccb8443f173e07b14a6b5d429fee9413716138a8ec50056d7625ba9231bd7",
+    "workflows/temporal-dependency-inventory.json": "204f7a4b5ff3a9247b02aa57471ffff0fed4784427161e26c8a7ba598afd1d57"
   }
 }

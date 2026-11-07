@@ -9,3 +9,5 @@ if (-not (Test-Path (Join-Path $env:JAVA_HOME 'bin/java.exe'))) {
 $env:PATH = "$(Join-Path $env:JAVA_HOME 'bin');$mavenBin;$postgresBin;$env:PATH"
 # Keep downloaded dependencies local to this repository too.
 $env:MAVEN_OPTS = "$env:MAVEN_OPTS -Dmaven.repo.local=$repositoryRoot/.tools/m2".Trim()
+$temporalCli = Join-Path $repositoryRoot '.tools/temporal-1.10.0/temporal.exe'
+if (Test-Path -LiteralPath $temporalCli) { $env:PAYMENTS_TEMPORAL_CLI = $temporalCli }

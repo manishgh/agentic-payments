@@ -2,10 +2,13 @@ package io.agenticpayments.application;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.Set;
 import io.agenticpayments.application.PaymentService.*;
 
 /** Transactional use-case port. The adapter supplies durable, atomic implementations. */
 public interface PaymentStore {
+    /** An implementation must explicitly advertise the indivisible financial admission guarantee. */
+    default Set<String> admissionCapabilities() { return Set.of(); }
     Result create(Session session,String key,CreateCommand command);
     Result quote(Session session,UUID id,String key,QuoteCommand command);
     Result approve(Session session,UUID id,String key,ApproveCommand command);

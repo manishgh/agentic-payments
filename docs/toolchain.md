@@ -49,6 +49,10 @@ Verified stable build-plugin releases from official Central metadata: compiler `
 
 ## Commands and local database
 
+The durable-runtime slice adds Temporal Python SDK `1.35.0` and its resolved dependencies to the existing [environment lock](../workflows/requirements-lock.txt). The [additional dependency inventory](../workflows/temporal-dependency-inventory.json) records official metadata, license declarations, exact wheel/sdist identities and hashes. `pip check` validates the installed dependency relationships. This inventory is traceability for the inspected distributions, not an assertion that every platform wheel is hash locked.
+
+For local runtime tests, `python scripts/bootstrap_temporal.py` installs Temporal CLI `1.10.0` under ignored `.tools/temporal-1.10.0`. The [distribution lock](../scripts/temporal-toolchain-lock.json) pins Windows/Linux x64 archives and the publisher checksum manifest. Bootstrap verifies both before extracting only regular executable/license/notice members into the fixed tool directory. It never starts the service. The verified Windows CLI reports embedded server `1.32.2` and UI `2.56.1`. Keep the server loopback-only; this development setup provides no production authentication, high availability or managed service.
+
 Run from the repository root in PowerShell 7:
 
 ```powershell

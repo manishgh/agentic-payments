@@ -5,6 +5,12 @@
   "syntheticData": true,
   "schemaFixtures": [
     {
+      "file": "valid/authority-replay-error.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": true,
+      "reason": "Native authority replay refusal uses the shared safe error envelope and NEVER retry advice."
+    },
+    {
       "file": "valid/create-request.json",
       "schema": "../schemas/create-request.schema.json",
       "valid": true,

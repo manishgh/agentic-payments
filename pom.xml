@@ -32,7 +32,7 @@
           </execution>
           <execution>
             <id>independent-ap2-engine</id><phase>package</phase><goals><goal>jar</goal></goals>
-            <configuration><classifier>ap2-engine</classifier><includes><include>io/agenticpayments/ap2/**</include></includes></configuration>
+            <configuration><classifier>ap2-engine</classifier><includes><include>io/agenticpayments/ap2/**</include><include>io/agenticpayments/crypto/**</include></includes></configuration>
           </execution>
         </executions>
       </plugin>

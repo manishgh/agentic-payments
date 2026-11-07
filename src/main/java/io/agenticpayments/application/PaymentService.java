@@ -18,7 +18,10 @@ public final class PaymentService {
     public record Result(int status,Map<String,Object> body,boolean replayed) { public Result { body=Collections.unmodifiableMap(new LinkedHashMap<>(body)); } }
     private final PaymentStore store;
     public PaymentService(PaymentStore store) { this.store=Objects.requireNonNull(store); }
-    public Result create(Session s,String k,CreateCommand c) { return store.create(s,k,c); }
+    public Result create(Session s,String k,CreateCommand c) {
+        if(c!=null&&"local-ap2-acp-single-tender-0.1".equals(c.profile())&&!store.admissionCapabilities().contains("atomic-replay-grant-reservation-0.1")) throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
+        return store.create(s,k,c);
+    }
     public Result quote(Session s,UUID id,String k,QuoteCommand c) { return store.quote(s,id,k,c); }
     public Result approve(Session s,UUID id,String k,ApproveCommand c) { return store.approve(s,id,k,c); }
     public Result execute(Session s,UUID id,String k,ExecuteCommand c) { return store.execute(s,id,k,c); }

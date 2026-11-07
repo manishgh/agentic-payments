@@ -37,7 +37,7 @@ flowchart TD
 
 Use a modular core with domain/application/ports/infrastructure boundaries. Provider SDKs, HTTP and SQL are infrastructure concerns. A separate LangGraph process calls authenticated commands. Split into additional services only for a documented operational reason.
 
-The independently authored [Java AP2 engine](ap2-engine.md) now supplies a bounded synthetic direct TAP mandate/receipt verifier and role exchange. Its process-local authorization state is isolated from the durable payment coordinator. The next bridge must atomically bind verified authority, negotiated ACP checkout revision and financial admission; the existing LangGraph workflow does not acquire signing keys or native authority artifacts.
+The independently authored [Java AP2 engine](ap2-engine.md) supplies a bounded synthetic direct TAP mandate/receipt verifier and role exchange. The explicit [native composition](durable-composition.md) binds its verified authority and exact embedded ACP checkout to durable admission, with atomic replay consumption and reservation. LangGraph does not acquire signing keys or native authority artifacts. It runs bounded decisions through a replaceable [durable runtime](durable-runtime.md); PostgreSQL remains the reference authority for payment state.
 
 ## Execution flow
 

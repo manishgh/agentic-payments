@@ -18,11 +18,11 @@ from scripts.evidence_collectors import collect_java, project
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON_MODULES = {
-    "evidence-tooling": ["scripts.test_evidence_collectors", "scripts.test_requirement_evidence", "scripts.test_conformance"],
+    "evidence-tooling": ["scripts.test_evidence_collectors", "scripts.test_requirement_evidence", "scripts.test_conformance", "scripts.test_bootstrap_temporal"],
     "upstream-integrity": ["integrations.upstream.test_probes"],
     "offline-artifacts": ["integrations.offline_lab.tests.test_lab", "integrations.ap2_vectors.test_verifier"],
     "http": ["scripts.test_http"],
-    "langgraph": ["workflows.test_payment_workflow", "workflows.test_live"],
+    "langgraph": ["workflows.test_payment_workflow", "workflows.test_live", "workflows.test_runtime", "workflows.test_temporal_runtime"],
 }
 DB_ENV = ("PAYMENTS_DB_URL", "PAYMENTS_DB_USER", "PAYMENTS_DB_PASSWORD")
 
@@ -132,9 +132,11 @@ def run(output: Path, require_certification=False) -> int:
                 if name == "java-postgresql":
                     commands = [[sys.executable, "-m", "integrations.ap2_vectors", "--generate", str(stage_dir / "ap2-vectors")],
                                 command, [sys.executable, "-m", "integrations.ap2_vectors", "--verify-java",
-                                          str(ROOT / "target/ap2-vectors/java-output.json")]]
+                                          str(ROOT / "target/ap2-vectors/java-output.json")],
+                                [sys.executable, "-m", "integrations.verify_native_checkout"]]
                 for invocation in commands:
-                    process = subprocess.run(invocation, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT, timeout=300)
+                    process = subprocess.run(invocation, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT,
+                                             timeout=600 if name in {"java-postgresql", "langgraph"} else 300)
                     if process.returncode != 0:
                         break
             code = process.returncode

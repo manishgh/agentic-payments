@@ -52,6 +52,10 @@ jobs:
           python -m pip install -r workflows/requirements-lock.txt
           python -m pip install -r integrations/offline_lab/requirements-crypto.lock.txt
           npm ci --ignore-scripts --prefix ui
+      - name: Install verified local Temporal runtime
+        run: |
+          python scripts/bootstrap_temporal.py
+          echo "PAYMENTS_TEMPORAL_CLI=$PWD/.tools/temporal-1.10.0/temporal" >> "$GITHUB_ENV"
       - name: Hydrate immutable upstream schema probes
         run: python integrations/upstream/probe_contracts.py --fetch --include-offline-lab --include-ap2-vectors
       - name: Run version-bound reference evidence suite

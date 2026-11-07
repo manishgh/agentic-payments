@@ -9,23 +9,35 @@ import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.domain.PaymentRules;
 import io.agenticpayments.domain.OperationBinding;
 import io.agenticpayments.sdk.*;
+import io.agenticpayments.composition.Composition.*;
 import javax.sql.DataSource;
 import java.sql.*;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import static io.agenticpayments.infrastructure.Sql.*;
 
 /** Run-serialized normalized transaction repository and local application unit of work. */
 public final class JdbcPaymentStore implements PaymentStore {
+    public static final String NATIVE_PROFILE="local-ap2-acp-single-tender-0.1";
     private final DataSource ds;
     private final PaymentAdapter adapter;
     private final UUID replayOwner;
+    private final Ports composition;
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
     private record Dispatch(ChargeOperation operation,String kind,long fence) {}
-    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter) { this(ds,adapter,null); }
-    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner) { this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; }
+    private record StoredCheckout(String sessionId,ArtifactReference acpPayload,ArtifactReference checkoutJwt,
+                                  String checkoutHash,String checkoutDigest,String payloadDigest,String merchantIssuer,
+                                  String handlerId,String protocolVersion) {}
+    private record StoredAuthority(ArtifactReference checkoutMandate,ArtifactReference paymentMandate,String issuer,
+                                   String checkoutAudience,String paymentAudience,String checkoutNonce,String paymentNonce,
+                                   String issuedAt,String expiresAt) {}
+    @Override public Set<String> admissionCapabilities() { return Set.of("atomic-replay-grant-reservation-0.1"); }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter) { this(ds,adapter,(UUID)null); }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner) { this(ds,adapter,replayOwner,null); }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition) { this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition; }
 
     public void seedRun(Session s,Instant clock,long budget) {
         role(s,"runner:write"); if(clock==null||budget<1250) fail(400,"INVALID_REQUEST");
@@ -44,13 +56,14 @@ public final class JdbcPaymentStore implements PaymentStore {
     public Result create(Session s,String key,CreateCommand cmd) {
         role(s,"intent:write");
         capabilities();
-        if(cmd==null||cmd.requiredCapabilities()==null||!PaymentRules.PROFILE.equals(cmd.profile())) fail(422,"UNSUPPORTED_PROFILE");
+        if(cmd==null||cmd.requiredCapabilities()==null||!Set.of(PaymentRules.PROFILE,NATIVE_PROFILE).contains(cmd.profile())) fail(422,"UNSUPPORTED_PROFILE");
+        if(NATIVE_PROFILE.equals(cmd.profile())) nativeCapabilities();
         merchant(s,cmd.merchantId());
         if(!PaymentRules.SCENARIOS.contains(cmd.scenarioId())) fail(400,"INVALID_REQUEST");
         if(cmd.requiredCapabilities().size()>16||new HashSet<>(cmd.requiredCapabilities()).size()!=cmd.requiredCapabilities().size()||!PaymentRules.CAPABILITIES.containsAll(cmd.requiredCapabilities())) fail(422,"UNSUPPORTED_CAPABILITY");
         return command(s,key,"POST /intents","new",cmd,tx->{
             var sequence=one(tx.c,"UPDATE simulation_runs SET next_intent_sequence=next_intent_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING next_intent_sequence",s.tenantId(),s.runId());
-            UUID id=UUID.randomUUID(); update(tx.c,"INSERT INTO payment_intents(tenant_id,run_id,intent_id,merchant_id,scenario_id,state,creation_sequence) VALUES(?,?,?,?,?,'DRAFT',?)",s.tenantId(),s.runId(),id,cmd.merchantId(),cmd.scenarioId(),sequence.get("next_intent_sequence"));
+            UUID id=UUID.randomUUID(); update(tx.c,"INSERT INTO payment_intents(tenant_id,run_id,intent_id,merchant_id,scenario_id,state,creation_sequence,profile) VALUES(?,?,?,?,?,'DRAFT',?,?)",s.tenantId(),s.runId(),id,cmd.merchantId(),cmd.scenarioId(),sequence.get("next_intent_sequence"),cmd.profile());
             audit(tx,id,"DRAFT"); return result(201,map("intentId",id,"state","DRAFT","version",1));
         });
     }
@@ -66,7 +79,18 @@ public final class JdbcPaymentStore implements PaymentStore {
             int revision=(int)number(i,"checkout_revision")+1; String currency=cmd.cartFixtureId().endsWith("usd")?"USD":"EUR";
             String bytes=PaymentRules.checkout(text(i,"merchant_id"),revision,cmd.cartFixtureId(),currency,t.credentialReference()), digest=PaymentRules.sha256(bytes);
             Instant expiry=tx.now.plusSeconds(900);
-            update(tx.c,"INSERT INTO checkout_snapshots VALUES(?,?,?,?,?,?,?,?,?,?)",s.tenantId(),s.runId(),id,revision,digest,bytes,currency,1250L,t.credentialReference(),expiry);
+            StoredCheckout nativeCheckout=null;
+            if(nativeProfile(i)) {
+                nativeCapabilities();
+                CheckoutFacts facts=new CheckoutFacts(scope(tx),id,text(i,"merchant_id"),revision,currency,1250L,t.credentialReference(),expiry);
+                var provision=provision(tx);
+                var frozen=composition.checkout().freeze(new CheckoutRequest(facts,provision.merchantSigner()));
+                composition.checkout().validate(facts,frozen,keyResolver(tx),tx.now);
+                nativeCheckout=retainCheckout(tx,frozen);
+                digest=frozen.checkoutDigest(); bytes="native-artifact:"+nativeCheckout.checkoutJwt().id();
+            }
+            update(tx.c,"INSERT INTO checkout_snapshots(tenant_id,run_id,intent_id,revision,digest,canonical_bytes,currency,minor_units,credential_reference,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)",s.tenantId(),s.runId(),id,revision,digest,bytes,currency,1250L,t.credentialReference(),expiry);
+            if(nativeCheckout!=null) update(tx.c,"INSERT INTO native_checkouts VALUES(?,?,?,?,?)",s.tenantId(),s.runId(),id,revision,encode(nativeCheckout));
             update(tx.c,"UPDATE payment_intents SET checkout_revision=? WHERE tenant_id=? AND run_id=? AND intent_id=?",revision,s.tenantId(),s.runId(),id);
             change(tx,id,"QUOTED"); return result(200,map("intentId",id,"state","QUOTED","version",cmd.expectedVersion()+1,"checkoutRevision",revision,"checkoutDigest",digest,"money",money(currency,1250),"quoteExpiresAt",expiry.toString()));
         });
@@ -84,10 +108,11 @@ public final class JdbcPaymentStore implements PaymentStore {
             if(Boolean.TRUE.equals(b.get("frozen"))||number(b,"held")+number(b,"consumed")+total>number(b,"limit_minor")) fail(409,"BUDGET_EXCEEDED");
             UUID attempt=UUID.randomUUID();
             update(tx.c,"INSERT INTO payment_attempts VALUES(?,?,?,?,?,?,?,?,'simulator-core')",s.tenantId(),s.runId(),attempt,id,cmd.checkoutRevision(),cmd.authorityReference(),number(g,"version"),s.principalId());
+            if(nativeProfile(i)) approveNative(tx,i,q,g,attempt);
             update(tx.c,"INSERT INTO reservations VALUES(?,?,?,?,?,'HELD')",s.tenantId(),s.runId(),attempt,g.get("budget_id"),total);
             update(tx.c,"UPDATE budgets SET held=held+? WHERE tenant_id=? AND run_id=? AND budget_id=?",total,s.tenantId(),s.runId(),g.get("budget_id"));
             change(tx,id,"APPROVED");
-            return result(200,map("intentId",id,"state","APPROVED","version",cmd.expectedVersion()+1,"attemptId",attempt,"executionOwner","simulator-core","authorityProfile","local-fake","authorityVersion",number(g,"version"),"reserved",money(text(q,"currency"),total)));
+            return result(200,map("intentId",id,"state","APPROVED","version",cmd.expectedVersion()+1,"attemptId",attempt,"executionOwner","simulator-core","authorityProfile",nativeProfile(i)?"ap2-v0.2-direct-tap-synthetic-0.1":"local-fake","authorityVersion",number(g,"version"),"reserved",money(text(q,"currency"),total)));
         });
     }
     public Result execute(Session s,UUID id,String key,ExecuteCommand cmd) {
@@ -96,6 +121,8 @@ public final class JdbcPaymentStore implements PaymentStore {
         return command(s,key,"POST /intents/{id}/execute",id.toString(),cmd,tx->{
             var i=intent(tx,id); version(i,cmd.expectedVersion()); state(i,"APPROVED"); var a=attempt(tx,id); var q=quote(tx,i); var g=grant(tx,text(a,"grant_id"));
             authority(tx,g,text(a,"subject_id"),text(i,"merchant_id"));
+            if(!eligible(tx,g,a,i)) fail(409,"AUTHORITY_REVOKED");
+            if(nativeProfile(i)) verifyNative(tx,i,a,g);
             if(!Objects.equals(cmd.attemptId(),a.get("attempt_id"))) fail(422,"AUTHORITY_BINDING_INVALID");
             UUID op=UUID.randomUUID();
             String digest=new OperationBinding(s.tenantId(),s.runId(),text(i,"merchant_id"),id,(UUID)a.get("attempt_id"),op,text(q,"digest"),text(q,"currency"),number(q,"minor_units"),text(a,"grant_id"),number(a,"grant_version"),text(a,"subject_id"),text(i,"scenario_id"),text(q,"credential_reference")).digest();
@@ -111,7 +138,7 @@ public final class JdbcPaymentStore implements PaymentStore {
             var r=a==null?null:reservation(tx,(UUID)a.get("attempt_id"));
             var ev=o==null?null:one(tx.c,"SELECT event_id FROM operation_evidence WHERE tenant_id=? AND run_id=? AND operation_id=? AND accepted AND (CAST(? AS text) IS NULL OR outcome=CAST(? AS text)) ORDER BY sequence DESC LIMIT 1",s.tenantId(),s.runId(),o.get("operation_id"),o.get("final_outcome"),o.get("final_outcome"));
             boolean frozen=r!=null&&Boolean.TRUE.equals(budget(tx,text(r,"budget_id")).get("frozen"));
-            return result(200,map("intentId",id,"state",i.get("state"),"version",number(i,"version"),"profile",PaymentRules.PROFILE,"runId",s.runId(),"attemptId",a==null?null:a.get("attempt_id"),"operationId",o==null?null:o.get("operation_id"),"money",q==null?null:money(text(q,"currency"),number(q,"minor_units")),"exposureState",r==null?"NONE":r.get("state"),"reconciliationRequired",frozen||Set.of("ADMITTED","PENDING","UNKNOWN").contains(i.get("state")),"actionId",ac==null?null:ac.get("action_id"),"outcomeEvidenceId",ev==null?null:ev.get("event_id")));
+            return result(200,map("intentId",id,"state",i.get("state"),"version",number(i,"version"),"profile",i.get("profile"),"runId",s.runId(),"attemptId",a==null?null:a.get("attempt_id"),"operationId",o==null?null:o.get("operation_id"),"money",q==null?null:money(text(q,"currency"),number(q,"minor_units")),"exposureState",r==null?"NONE":r.get("state"),"reconciliationRequired",frozen||Set.of("ADMITTED","PENDING","UNKNOWN").contains(i.get("state")),"actionId",ac==null?null:ac.get("action_id"),"outcomeEvidenceId",ev==null?null:ev.get("event_id")));
         });
     }
     public Result checkout(Session s,UUID id) {
@@ -182,11 +209,13 @@ public final class JdbcPaymentStore implements PaymentStore {
             long fence=number(pending,"fence")+1;
             selection[2]=fence;
             update(tx.c,"UPDATE outbox SET fence=? WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",fence,s.tenantId(),s.runId(),op,kind);
+            if(kind.equals("PREPARE")&&nativeProfile(i)&&!nativeGate(tx,i,a,grant(tx,text(a,"grant_id")))) return null;
             if(kind.equals("DISPATCH")) {
                 if(!text(i,"state").equals("READY")) { done(tx,op,kind); return null; }
                 var g=grant(tx,text(a,"grant_id")); var r=reservation(tx,(UUID)a.get("attempt_id")); var b=budget(tx,text(r,"budget_id"));
                 if(Boolean.TRUE.equals(b.get("frozen"))) { done(tx,op,kind); return null; }
                 if(!eligible(tx,g,a,i)) { terminate(tx,i,a,text(g,"state").equals("REVOKED")?"CANCELLED":"EXPIRED"); return null; }
+                if(nativeProfile(i)&&!nativeGate(tx,i,a,g)) return null;
                 var ac=one(tx.c,"SELECT * FROM customer_actions WHERE tenant_id=? AND run_id=? AND operation_id=?",s.tenantId(),s.runId(),op);
                 boolean needsAction=text(i,"scenario_id").equals("challenge-then-success");
                 var q=quote(tx,i);
@@ -206,6 +235,7 @@ public final class JdbcPaymentStore implements PaymentStore {
                 if(!text(i,"state").equals("PREPARING")||!fence(tx,id.operationId(),"PREPARE",d.fence)) return null;
                 var g=grant(tx,text(a,"grant_id"));
                 if(!eligible(tx,g,a,i)) { terminate(tx,i,a,text(g,"state").equals("REVOKED")?"CANCELLED":"EXPIRED"); return null; }
+                if(nativeProfile(i)&&!nativeGate(tx,i,a,g)) return null;
                 if((preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE)!=text(i,"scenario_id").equals("challenge-then-success")) { terminate(tx,i,a,"FAILED"); return null; }
                 if(preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE) {
                     var q=quote(tx,i);
@@ -280,12 +310,17 @@ public final class JdbcPaymentStore implements PaymentStore {
     private void markUnknown(Session s,OperationIdentity id) {
         transaction(s,tx->{ var i=intentUnchecked(tx,id.intentId()); if(!PaymentRules.TERMINAL.contains(text(i,"state"))&&!text(i,"state").equals("UNKNOWN")) change(tx,id.intentId(),"UNKNOWN"); work(tx,id.operationId(),"RECONCILE"); return null; });
     }
-    private void expire(Tx tx) throws SQLException {
+    private void expire(Tx tx) throws Exception {
         for(var i:rows(tx.c,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND state IN ('QUOTED','APPROVED','PREPARING','WAITING_ACTION','READY') ORDER BY creation_sequence",tx.s.tenantId(),tx.s.runId())) {
             var a=attempt(tx,(UUID)i.get("intent_id"));
             if(a==null) { if(!tx.now.isBefore(instant(quote(tx,i),"expires_at"))) change(tx,(UUID)i.get("intent_id"),"EXPIRED"); continue; }
             var g=grant(tx,text(a,"grant_id"));
             if(!eligible(tx,g,a,i)) { terminate(tx,i,a,text(g,"state").equals("REVOKED")?"CANCELLED":"EXPIRED"); continue; }
+            if(nativeProfile(i)) {
+                var nativeAuthority=one(tx.c,"SELECT expires_at FROM native_authorities WHERE tenant_id=? AND run_id=? AND attempt_id=?",tx.s.tenantId(),tx.s.runId(),a.get("attempt_id"));
+                if(nativeAuthority==null) { terminate(tx,i,a,"CANCELLED"); continue; }
+                if(!tx.now.isBefore(instant(nativeAuthority,"expires_at"))) { terminate(tx,i,a,"EXPIRED"); continue; }
+            }
             var o=operation(tx,(UUID)a.get("attempt_id"));
             var ac=o==null?null:one(tx.c,"SELECT * FROM customer_actions WHERE tenant_id=? AND run_id=? AND operation_id=?",tx.s.tenantId(),tx.s.runId(),o.get("operation_id"));
             if(ac!=null&&!tx.now.isBefore(instant(ac,"expires_at"))) terminate(tx,i,a,"FAILED");
@@ -348,7 +383,8 @@ public final class JdbcPaymentStore implements PaymentStore {
                     T result=work.run(new Tx(c,s,instant(run,"virtual_time"))); c.commit(); return result;
                 } catch(Exception e) { c.rollback(); throw e; }
             } catch(PaymentException e) { throw e; }
-            catch(SQLException e) { if(e.getSQLState()!=null&&e.getSQLState().startsWith("40")&&retry<2) continue; throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); }
+            catch(SQLException e) { if(e.getSQLState()!=null&&e.getSQLState().startsWith("40")&&retry<2) continue; if("23505".equals(e.getSQLState())) throw new PaymentException(409,"AUTHORITY_REPLAY"); throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); }
+            catch(CompositionException e) { throw compositionFailure(e); }
             catch(RuntimeException e) { throw e; }
             catch(Exception e) { throw new IllegalStateException("Synthetic transaction encoding failed",e); }
         }
@@ -359,7 +395,7 @@ public final class JdbcPaymentStore implements PaymentStore {
             c.setAutoCommit(false); c.setReadOnly(true); c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
             var run=one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=?",s.tenantId(),s.runId()); if(run==null) fail(404,"RESOURCE_NOT_FOUND");
             T result=work.run(new Tx(c,s,instant(run,"virtual_time"))); c.commit(); return result;
-        } catch(PaymentException e) { throw e; } catch(SQLException e) { throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); } catch(Exception e) { throw new IllegalStateException("Synthetic read failed",e); }
+        } catch(PaymentException e) { throw e; } catch(CompositionException e) { throw compositionFailure(e); } catch(SQLException e) { throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); } catch(Exception e) { throw new IllegalStateException("Synthetic read failed",e); }
     }
     private Map<String,Object> intent(Tx tx,UUID id) throws SQLException { var i=intentUnchecked(tx,id); merchant(tx.s,text(i,"merchant_id")); return i; }
     private Map<String,Object> intentUnchecked(Tx tx,UUID id) throws SQLException { return required(one(tx.c,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND intent_id=?",tx.s.tenantId(),tx.s.runId(),id)); }
@@ -380,6 +416,147 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(!Objects.equals(g.get("subject_id"),subject)||!Objects.equals(g.get("merchant_id"),merchant)) fail(422,"AUTHORITY_BINDING_INVALID");
         if(text(g,"state").equals("REVOKED")) fail(409,"AUTHORITY_REVOKED");
         if(tx.now.isBefore(instant(g,"valid_from"))||!tx.now.isBefore(instant(g,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
+    }
+    private static boolean nativeProfile(Map<String,Object> intent) { return NATIVE_PROFILE.equals(intent.get("profile")); }
+    private Scope scope(Tx tx) { return new Scope(tx.s.tenantId(),tx.s.runId()); }
+    private void nativeCapabilities() {
+        if(composition==null) fail(422,"UNSUPPORTED_CAPABILITY");
+        try { composition.requireSupported(); } catch(CompositionException e) { throw compositionFailure(e); }
+    }
+    private Provisioning provision(Tx tx) throws SQLException {
+        var provision=composition.provisioner().provision(scope(tx),tx.now);
+        for(var key:provision.enrollments()) {
+            if(!key.scope().equals(scope(tx))||key.revoked()) fail(422,"AUTHORITY_BINDING_INVALID");
+            var old=one(tx.c,"SELECT * FROM native_trust_keys WHERE tenant_id=? AND run_id=? AND issuer=? AND kid=? AND purpose=?",tx.s.tenantId(),tx.s.runId(),key.issuer(),key.kid(),key.purpose());
+            byte[] publicKey;
+            try { publicKey=Base64.getUrlDecoder().decode(key.publicKeySpki()); } catch(IllegalArgumentException e) { fail(422,"AUTHORITY_BINDING_INVALID"); return null; }
+            if(old!=null) {
+                if(!Arrays.equals(publicKey,(byte[])old.get("public_key"))||!key.validFrom().equals(instant(old,"valid_from"))||!key.validUntil().equals(instant(old,"expires_at"))||key.version()!=number(old,"version")||Boolean.TRUE.equals(old.get("revoked"))) fail(422,"AUTHORITY_BINDING_INVALID");
+            } else update(tx.c,"INSERT INTO native_trust_keys VALUES(?,?,?,?,?,?,?,?,?,false)",tx.s.tenantId(),tx.s.runId(),key.issuer(),key.kid(),key.purpose(),publicKey,key.validFrom(),key.validUntil(),key.version());
+        }
+        return provision;
+    }
+    private KeyResolver keyResolver(Tx tx) {
+        // Enrollment is payment authority data, read under the same run lock as revocation/admission.
+        var enrolled=new ArrayList<TrustKey>();
+        try {
+            for(var key:rows(tx.c,"SELECT * FROM native_trust_keys WHERE tenant_id=? AND run_id=?",tx.s.tenantId(),tx.s.runId()))
+                enrolled.add(new TrustKey(scope(tx),text(key,"issuer"),text(key,"kid"),text(key,"purpose"),
+                    Base64.getUrlEncoder().withoutPadding().encodeToString((byte[])key.get("public_key")),
+                    instant(key,"valid_from"),instant(key,"expires_at"),number(key,"version"),Boolean.TRUE.equals(key.get("revoked"))));
+        } catch(SQLException e) { unavailable(); }
+        var snapshot=new EnrollmentSnapshot(scope(tx),tx.now,enrolled);
+        KeyResolver selected=composition.keyResolvers().bind(snapshot);
+        if(selected==null) fail(422,"AUTHORITY_BINDING_INVALID");
+        return (requestedScope,issuer,kid,purpose,now)->{
+            if(!scope(tx).equals(requestedScope)||!tx.now.equals(now)) fail(422,"AUTHORITY_BINDING_INVALID");
+            TrustKey authoritative=snapshot.keys().stream().filter(k->k.issuer().equals(issuer)&&k.kid().equals(kid)&&k.purpose().equals(purpose)).findFirst().orElse(null);
+            if(authoritative==null) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(authoritative.revoked()) fail(409,"AUTHORITY_REVOKED");
+            if(now.isBefore(authoritative.validFrom())||!now.isBefore(authoritative.validUntil())) fail(410,"AUTHORITY_EXPIRED");
+            TrustKey resolved=selected.resolve(requestedScope,issuer,kid,purpose,now);
+            // A replaceable resolver cannot enroll keys or relax the owner's current revocation policy.
+            if(!authoritative.equals(resolved)) fail(422,"AUTHORITY_BINDING_INVALID");
+            return resolved;
+        };
+    }
+    /** Internal provisioning administration is ordered by exactly the admission run lock. */
+    public void revokeTrustKey(Session session,String issuer,String kid,String purpose) {
+        role(session,"runner:write");
+        transaction(session,tx->{update(tx.c,"UPDATE native_trust_keys SET revoked=true,version=version+1 WHERE tenant_id=? AND run_id=? AND issuer=? AND kid=? AND purpose=? AND NOT revoked",session.tenantId(),session.runId(),issuer,kid,purpose);return null;});
+    }
+    private CheckoutFacts checkoutFacts(Tx tx,Map<String,Object> i,Map<String,Object> q) {
+        return new CheckoutFacts(scope(tx),(UUID)i.get("intent_id"),text(i,"merchant_id"),(int)number(q,"revision"),text(q,"currency"),number(q,"minor_units"),text(q,"credential_reference"),instant(q,"expires_at"));
+    }
+    private ArtifactReference retain(Tx tx,String value,String mediaType) {
+        // This is independent immutable staging; a rollback may leave harmless unreferenced bytes.
+        return composition.artifacts().put(scope(tx),new Artifact(value.getBytes(StandardCharsets.UTF_8),mediaType,NATIVE_PROFILE));
+    }
+    private String artifact(Tx tx,ArtifactReference reference) {
+        if(!NATIVE_PROFILE.equals(reference.profile())) fail(422,"AUTHORITY_BINDING_INVALID");
+        var artifact=composition.artifacts().get(scope(tx),reference);
+        byte[] bytes=io.agenticpayments.composition.ArtifactIntegrity.verify(artifact,reference).bytes();
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+        } catch(java.nio.charset.CharacterCodingException invalidEncoding) {
+            throw new PaymentException(422,"AUTHORITY_BINDING_INVALID");
+        }
+    }
+    private StoredCheckout retainCheckout(Tx tx,FrozenCheckout checkout) {
+        return new StoredCheckout(checkout.sessionId(),retain(tx,checkout.acpPayload(),"application/json"),retain(tx,checkout.checkoutJwt(),"application/jwt"),checkout.checkoutHash(),checkout.checkoutDigest(),checkout.payloadDigest(),checkout.merchantIssuer(),checkout.handlerId(),checkout.protocolVersion());
+    }
+    private FrozenCheckout nativeCheckout(Tx tx,Map<String,Object> i,Map<String,Object> q) throws Exception {
+        var row=one(tx.c,"SELECT checkout_json FROM native_checkouts WHERE tenant_id=? AND run_id=? AND intent_id=? AND revision=?",tx.s.tenantId(),tx.s.runId(),i.get("intent_id"),q.get("revision"));
+        if(row==null) fail(422,"AUTHORITY_BINDING_INVALID");
+        var stored=json.readValue(text(row,"checkout_json"),StoredCheckout.class);
+        if(!Objects.equals(stored.checkoutDigest(),q.get("digest"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        return new FrozenCheckout(stored.sessionId(),artifact(tx,stored.acpPayload()),artifact(tx,stored.checkoutJwt()),stored.checkoutHash(),stored.checkoutDigest(),stored.payloadDigest(),stored.merchantIssuer(),stored.handlerId(),stored.protocolVersion());
+    }
+    private void approveNative(Tx tx,Map<String,Object> i,Map<String,Object> q,Map<String,Object> g,UUID attempt) throws Exception {
+        nativeCapabilities();
+        var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
+        composition.checkout().validate(facts,checkout,keyResolver(tx),tx.now);
+        var provision=provision(tx);
+        Instant deadline=Collections.min(List.of(tx.now.plusSeconds(300),instant(g,"expires_at"),facts.expiresAt()));
+        var context=new AuthorityContext(facts,checkout,tx.s.principalId(),text(g,"grant_id"),number(g,"version"),provision.tapSigner().issuer(),"merchant-demo","processor-demo",UUID.randomUUID().toString(),UUID.randomUUID().toString(),tx.now,deadline);
+        var issued=composition.issuer().issue(new IssuanceRequest(context,provision.tapSigner()));
+        var stored=new StoredAuthority(retain(tx,issued.checkoutMandate(),"application/jwt"),retain(tx,issued.paymentMandate(),"application/jwt"),context.issuer(),context.checkoutAudience(),context.paymentAudience(),context.checkoutNonce(),context.paymentNonce(),context.issuedAt().toString(),context.expiresAt().toString());
+        String digest=PaymentRules.sha256(stored.checkoutMandate().digest()+"\n"+stored.paymentMandate().digest());
+        update(tx.c,"INSERT INTO native_authorities VALUES(?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),attempt,i.get("intent_id"),q.get("revision"),tx.s.principalId(),g.get("grant_id"),g.get("version"),encode(stored),digest,deadline);
+        for(String role:List.of("MERCHANT","CREDENTIAL_PROVIDER","PAYMENT_PROCESSOR")) {
+            boolean merchant=role.equals("MERCHANT");
+            update(tx.c,"INSERT INTO native_challenges VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),role,merchant?context.checkoutNonce():context.paymentNonce(),i.get("intent_id"),q.get("revision"),tx.s.principalId(),g.get("grant_id"),g.get("version"),context.issuer(),merchant?context.checkoutAudience():context.paymentAudience(),q.get("digest"),deadline,attempt);
+        }
+        // Reload exact staged bytes. Signing/issuer success never substitutes for independent verification.
+        var reloaded=new IssuedAuthority(artifact(tx,stored.checkoutMandate()),artifact(tx,stored.paymentMandate()));
+        var verified=composition.verifier().verify(new AuthorityRequest(context,reloaded),keyResolver(tx),tx.now);
+        validateRoles(verified,context);
+        for(var role:verified.authorizations()) update(tx.c,"INSERT INTO native_replay_identities VALUES(?,?,?,?,?,?)",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId(),tx.s.runId(),attempt);
+        update(tx.c,"UPDATE native_authorities SET expires_at=? WHERE tenant_id=? AND run_id=? AND attempt_id=?",verified.expiresAt(),tx.s.tenantId(),tx.s.runId(),attempt);
+    }
+    private void validateRoles(VerifiedAuthority verified,AuthorityContext context) {
+        var roles=new HashSet<String>();
+        for(var role:verified.authorizations()) if(!roles.add(role.role())||!role.issuer().equals(context.issuer())||!context.issuedAt().isBefore(role.expiresAt())||role.expiresAt().isAfter(context.expiresAt())) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(!roles.equals(Set.of("MERCHANT","CREDENTIAL_PROVIDER","PAYMENT_PROCESSOR"))||!verified.checkoutHash().equals(context.checkout().checkoutHash())||verified.expiresAt().isAfter(context.expiresAt())||!context.issuedAt().isBefore(verified.expiresAt())) fail(422,"AUTHORITY_BINDING_INVALID");
+    }
+    private void verifyNative(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
+        nativeCapabilities();
+        if(!eligible(tx,g,a,i)) fail(409,"AUTHORITY_REVOKED");
+        var q=quote(tx,i);
+        if(number(a,"checkout_revision")!=number(q,"revision")) fail(422,"AUTHORITY_BINDING_INVALID");
+        var row=one(tx.c,"SELECT * FROM native_authorities WHERE tenant_id=? AND run_id=? AND attempt_id=?",tx.s.tenantId(),tx.s.runId(),a.get("attempt_id"));
+        if(row==null||!Objects.equals(row.get("intent_id"),i.get("intent_id"))||number(row,"revision")!=number(q,"revision")||!Objects.equals(row.get("subject_id"),a.get("subject_id"))||!Objects.equals(row.get("grant_id"),a.get("grant_id"))||number(row,"grant_version")!=number(a,"grant_version")) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(!tx.now.isBefore(instant(row,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
+        var stored=json.readValue(text(row,"authority_json"),StoredAuthority.class);
+        var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
+        composition.checkout().validate(facts,checkout,keyResolver(tx),tx.now);
+        var context=new AuthorityContext(facts,checkout,text(a,"subject_id"),text(a,"grant_id"),number(a,"grant_version"),stored.issuer(),stored.checkoutAudience(),stored.paymentAudience(),stored.checkoutNonce(),stored.paymentNonce(),Instant.parse(stored.issuedAt()),Instant.parse(stored.expiresAt()));
+        var issued=new IssuedAuthority(artifact(tx,stored.checkoutMandate()),artifact(tx,stored.paymentMandate()));
+        if(!PaymentRules.sha256(stored.checkoutMandate().digest()+"\n"+stored.paymentMandate().digest()).equals(row.get("authority_digest"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        var verified=composition.verifier().verify(new AuthorityRequest(context,issued),keyResolver(tx),tx.now); validateRoles(verified,context);
+        if(!verified.expiresAt().equals(instant(row,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        for(var role:verified.authorizations()) {
+            var used=one(tx.c,"SELECT * FROM native_replay_identities WHERE tenant_id=? AND role=? AND issuer=? AND jti=?",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId());
+            boolean merchant=role.role().equals("MERCHANT");
+            var challenge=one(tx.c,"SELECT * FROM native_challenges WHERE tenant_id=? AND run_id=? AND role=? AND nonce=?",tx.s.tenantId(),tx.s.runId(),role.role(),merchant?context.checkoutNonce():context.paymentNonce());
+            if(used==null||!Objects.equals(used.get("run_id"),tx.s.runId())||!Objects.equals(used.get("attempt_id"),a.get("attempt_id"))||challenge==null||!Objects.equals(challenge.get("attempt_id"),a.get("attempt_id"))||!Objects.equals(challenge.get("intent_id"),i.get("intent_id"))||number(challenge,"revision")!=number(q,"revision")||!Objects.equals(challenge.get("subject_id"),a.get("subject_id"))||!Objects.equals(challenge.get("grant_id"),a.get("grant_id"))||number(challenge,"grant_version")!=number(a,"grant_version")||!Objects.equals(challenge.get("issuer"),context.issuer())||!Objects.equals(challenge.get("audience"),merchant?context.checkoutAudience():context.paymentAudience())||!Objects.equals(challenge.get("checkout_digest"),q.get("digest"))||!tx.now.isBefore(instant(challenge,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        }
+    }
+    private boolean nativeGate(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
+        try { verifyNative(tx,i,a,g); return true; }
+        catch(CompositionException e) { var failure=compositionFailure(e); if(failure.status()>=500) throw failure; terminate(tx,i,a,failure.status()==410?"EXPIRED":"CANCELLED"); return false; }
+        catch(PaymentException e) { if(e.status()>=500) throw e; terminate(tx,i,a,e.status()==410?"EXPIRED":"CANCELLED"); return false; }
+    }
+    private static PaymentException compositionFailure(CompositionException error) {
+        return switch(error.failure()) {
+            case UNSUPPORTED_CAPABILITY -> new PaymentException(422,"UNSUPPORTED_CAPABILITY");
+            case EXPIRED_AUTHORITY -> new PaymentException(410,"AUTHORITY_EXPIRED");
+            case SIGNING_UNAVAILABLE, CRYPTO_UNAVAILABLE, ARTIFACT_UNAVAILABLE -> new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND");
+            default -> new PaymentException(422,"AUTHORITY_BINDING_INVALID");
+        };
     }
     private void change(Tx tx,UUID id,String next) throws SQLException { update(tx.c,"UPDATE payment_intents SET state=?,version=version+1 WHERE tenant_id=? AND run_id=? AND intent_id=?",next,tx.s.tenantId(),tx.s.runId(),id); audit(tx,id,next); }
     private void audit(Tx tx,UUID id,String state) throws SQLException {

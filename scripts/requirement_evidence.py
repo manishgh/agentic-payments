@@ -42,7 +42,9 @@ def source_identity(root: Path):
             entries[name] = sha(safe_path(root, name).read_bytes())
     for name in ("pom.xml", "docs/simulator-and-conformance.md", "docs/adr/0004-requirement-evidence.md",
                  "docs/reviews/0013-evidence-design-review.md", "docs/adr/0005-independent-ap2-engine.md",
-                 "docs/ap2-requirements.md", "docs/reviews/0016-independent-ap2-design-review.md"):
+                 "docs/ap2-requirements.md", "docs/reviews/0016-independent-ap2-design-review.md",
+                 "docs/adr/0006-durable-ap2-admission.md", "docs/reviews/0018-durable-ap2-design-review.md",
+                 "docs/adr/0007-durable-workflow-runtime.md", "docs/reviews/0020-durable-runtime-design-review.md"):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())
     return {"sha256": sha(json.dumps(ordered, separators=(",", ":")).encode()), "files": dict(ordered)}
@@ -128,7 +130,8 @@ def load_inputs(root: Path):
                      "docs/adr/0004-requirement-evidence.md", "docs/reviews/0013-evidence-design-review.md",
                      "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java", "pom.xml",
                      "workflows/requirements-lock.txt", "integrations/offline_lab/requirements-crypto.lock.txt",
-                     "ui/package-lock.json"})
+                     "ui/package-lock.json", "scripts/temporal-toolchain-lock.json",
+                     "workflows/temporal-dependency-inventory.json"})
     if set(lock["files"]) != required:
         raise EvidenceError("INCOMPLETE_INPUT_LOCK")
     for name, digest in lock["files"].items():

@@ -1,13 +1,13 @@
 # Internal simulator API design
 
-Status: implemented for the bounded local-fake reference; reviewed execution clarifications are in ADR 0002 and gate records. Revision: `simulator-api-0.1-draft`. Earlier review hashes identify the pre-implementation design; the trusted checkout endpoint below is an additive draft revision reviewed during implementation.
+Status: implemented for bounded synthetic profiles; reviewed execution clarifications are in ADR 0002, ADR 0006 and gate records. Revision: `simulator-api-0.1-draft`. Earlier review hashes identify their reviewed source; native profile selection is an additive draft revision.
 Targets [EXT-001..012](../specification/0.1.0-draft/README.md) and [CT cases](simulator-and-conformance.md).
-These are project-internal endpoints, not AP2/ACP wire schemas. Real bridges remain experimental and disabled.
+These are project-internal endpoints, not AP2/ACP wire schemas. The native profile embeds signed AP2/ACP artifacts internally; external merchant/provider transport remains disabled.
 
 ## Scope and transport
 
 - Base path `/internal/v0.1`; JSON UTF-8; reject duplicate JSON keys, unknown material fields, invalid enums and oversized bodies.
-- Profile is exactly `local-fake-single-tender-0.1`; protocol version exactly `0.1.0-draft`; no implicit downgrade (EXT-001/CT-001).
+- Profile is explicitly `local-fake-single-tender-0.1` or `local-ap2-acp-single-tender-0.1`; protocol version exactly `0.1.0-draft`; no implicit downgrade (EXT-001/CT-001). Native approval reports authority profile `ap2-v0.2-direct-tap-synthetic-0.1`; see [composition details](durable-composition.md).
 - Only provider `simulator`, method `synthetic-card`, credential type `synthetic-reference`; action `synthetic-challenge` or none.
 - One positive amount, one currency and exactly one tender allocation equal to the full quoted total. Split tender/vouchers reject (EXT-002/008).
 - Fixtures permit EUR and USD with exponent 2; amounts are decimal strings of integer minor units, `1..999999999999`.
@@ -47,7 +47,7 @@ Retain command and simulator-operation identities for the run lifetime; never re
 | --- | --- | --- |
 | `POST /intents` | intent:write | Create DRAFT; tenant merchant and synthetic scenario must be allowed. |
 | `POST /intents/{id}/quote` | intent:write | DRAFT/QUOTED only; resolve trusted fixture cart, create immutable checkout revision/digest. |
-| `POST /intents/{id}/approve` | approval:write | QUOTED only; bind local-fake authority, create sole attempt/owner, reserve full total atomically. |
+| `POST /intents/{id}/approve` | approval:write | QUOTED only; bind the explicitly selected authority profile, create sole attempt/owner, reserve full total atomically. Native authority additionally consumes verified replay identities in that transaction. |
 | `POST /intents/{id}/execute` | execution:write | APPROVED only; queue effect-free preparation; repeated accepted key returns original response. |
 | `GET /intents/{id}` | intent:read | Return authoritative state, selected money/profile, attempt/action references and safe evidence summary. |
 | `GET /intents/{id}/checkout` | approval:write | QUOTED/APPROVED only; trusted grant subject reads core-owned merchant, money, version and checkout binding for approval. |
@@ -209,7 +209,9 @@ Late matching success resolves UNKNOWN; late stale pending cannot overwrite succ
 ```
 400: `INVALID_REQUEST`, `INVALID_MONEY`, `UNKNOWN_FIELD`; 401: `UNAUTHENTICATED`; 403: `FORBIDDEN` for non-object role denial.
 404: `RESOURCE_NOT_FOUND`; 409: `VERSION_CONFLICT`, `IDEMPOTENCY_CONFLICT`, `INVALID_STATE`, `CHECKOUT_CHANGED`, `BUDGET_EXCEEDED`.
-409 also covers `AUTHORITY_REVOKED`, `ACTION_ALREADY_CONSUMED`, `OUTCOME_UNRESOLVED`; 410: `AUTHORITY_EXPIRED`, `ACTION_EXPIRED`.
+409 also covers `AUTHORITY_REVOKED`, `AUTHORITY_REPLAY`, `ACTION_ALREADY_CONSUMED`, `OUTCOME_UNRESOLVED`; 410: `AUTHORITY_EXPIRED`, `ACTION_EXPIRED`.
+
+`AUTHORITY_REPLAY` has retry advice `NEVER`: a consumed issuer/mandate identity cannot authorize a different admission, even in another run. Read the original payment's status; do not create a replacement payment to recover an uncertain result. An identical previously accepted command still returns its saved response through scoped idempotency.
 422: `UNSUPPORTED_PROFILE`, `UNSUPPORTED_CAPABILITY`, `UNSUPPORTED_TENDER`, `AUTHORITY_BINDING_INVALID`; 503: `TEMPORARILY_UNAVAILABLE`.
 `retry` is `NEVER`, `SAME_COMMAND`, or `READ_STATUS`; no error recommends a new attempt/provider when an operation might have executed.
 Error responses have exactly common top-level fields plus `error`, containing exactly `code,message,retry`; no resource version is present.

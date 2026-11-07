@@ -1,0 +1,69 @@
+# Durable AP2 authority and embedded ACP checkout
+
+The explicit `local-ap2-acp-single-tender-0.1` profile connects the independently authored AP2 direct TAP engine, an embedded ACP checkout, and durable financial admission. All identities, instruments and provider effects remain synthetic. The existing `local-fake-single-tender-0.1` profile remains available with its original semantics.
+
+The native authority profile is `ap2-v0.2-direct-tap-synthetic-0.1`; checkout uses the pinned ACP `2026-04-17` schema. This is a bounded in-process composition, not a complete ACP merchant HTTP server, real provider connector or broad AP2 compatibility claim. [ADR 0006](adr/0006-durable-ap2-admission.md) defines the reviewed admission design.
+
+## Purchase and recovery
+
+1. Create an intent with the native profile. Capability negotiation rejects incompatible implementations before financial work.
+2. Quote the server-owned synthetic cart. Freeze the exact ACP payload in a signed merchant checkout, and persist immutable artifact references. The public checkout digest identifies the exact signed checkout bytes.
+3. The trusted UI approves that digest/revision. The server issues synthetic mandates; independent verification checks the checkout, signatures, parties, challenges, grant version and deadlines.
+4. One PostgreSQL transaction consumes replay identities, binds verified authority to the attempt, reserves budget and saves the accepted command result. A failed transaction cannot consume authority without creating its corresponding admission records.
+5. Execution rechecks current authority and exact evidence before preparation and dispatch. A challenge is completed only through the trusted UI; a graph wake cannot approve or authenticate a purchase.
+6. After financial admission, uncertain outcomes retain their original operation and exposure. Expiry or revocation does not erase an admitted payment or permit a replacement charge. Reconciliation determines its outcome.
+
+Identical accepted command retries return their stored result without signing new authority. Verification after service restart uses persisted public enrollment and original artifacts; private signing keys are ephemeral in the reference adapter. A fresh quote/approval after restart can use newly provisioned identities. The synthetic virtual clock is separate from wall-clock workflow timers.
+
+## Replaceable responsibilities
+
+The [composition contracts](../src/main/java/io/agenticpayments/composition/Composition.java) are registered through `Composition.Ports` and injected into `PaymentServices.local(...)`. A component may implement the port directly, adapt an existing service, or decorate/delegate to another implementation.
+
+| Responsibility | Stable boundary | Reference implementation |
+| --- | --- | --- |
+| Frozen merchant checkout | `CheckoutProtocol` | Native ACP payload and signed merchant checkout |
+| Authority issuance | `AuthorityIssuer` | Synthetic direct TAP mandates |
+| Authority verification | `AuthorityVerifier` | Independently authored AP2 engine |
+| Signing and verification primitive | `SignatureProvider` | JCA ES256 implementation |
+| Key provisioning | `KeyProvisioner` | Synthetic ephemeral private keys and durable public enrollments |
+| Enrolled key resolution | `KeyResolverFactory` / `KeyResolver` | Resolver bound to the current immutable enrollment snapshot |
+| Immutable signed artifacts | `SignedArtifactStore` | PostgreSQL, with an in-memory contract-test implementation |
+| Financial admission | `PaymentStore` | PostgreSQL atomic grant/replay/reservation coordination |
+| Workflow scheduling | `WorkflowRuntime` | Local SQLite and Temporal adapters; see [runtime guide](durable-runtime.md) |
+
+Descriptors declare contract versions, implemented profiles, capabilities and responsibility owners. Registration does not confer support automatically: the core checks required capabilities and owner consistency. A different crypto implementation can replace JCA, but this profile explicitly requires ES256 and ephemeral private-key provisioning. A KMS or long-lived enrollment service needs a compatible ephemeral mode or a separately reviewed profile/capability change. Supporting another algorithm requires a reviewed profile and trusted policy; untrusted algorithm headers never select a fallback.
+
+Native authority lasts at most 300 seconds from trusted virtual approval time, shortened by grant and checkout expiry. Current key validity and revocation are checked separately. These restrictions belong to this bounded profile, not to generic storage or crypto interfaces.
+
+Key resolution is injectable without exposing JDBC through the public interface. The core supplies an immutable enrollment snapshot taken under the transaction's run lock and checks the returned key against it. A resolver cannot substitute another scope, key, version or revoked enrollment.
+
+Artifact references are content addressed: `ArtifactReference.id` is the canonical digest identity required by the port. Cloud object IDs or vendor record identifiers stay inside the adapter. Both adapter and admission boundary verify the original bytes and reference metadata; signed text must decode as strict UTF-8. Artifact staging uses a separate immutable write and can leave harmless unreferenced artifacts after failed admission. It is not a distributed financial transaction.
+
+Azure Storage, DynamoDB or an existing grant service can implement the same artifact-storage responsibility without introducing new vendor-specific interfaces. A service used for authoritative grant consumption must separately satisfy the admission contract's atomic replay, grant and reservation guarantees. A generic CRUD store does not qualify. No cloud backend adapter is included yet.
+
+## Run the native reference
+
+Start the platform and load the private graph session as described in the [README](../README.md). Select the native profile explicitly when starting a new workflow:
+
+```powershell
+.venv/Scripts/python.exe -m workflows.payment_workflow start --workflow-id $workflowId --scenario challenge-then-success --profile local-ap2-acp-single-tender-0.1
+```
+
+Retain the original run/workflow IDs. Approve the returned intent in the trusted UI and resume the same workflow with the same native profile. Complete any synthetic challenge in that UI, then resume again:
+
+```powershell
+.venv/Scripts/python.exe -m workflows.payment_workflow resume --workflow-id $workflowId --profile local-ap2-acp-single-tender-0.1
+.venv/Scripts/python.exe -m workflows.payment_workflow status --workflow-id $workflowId --profile local-ap2-acp-single-tender-0.1
+```
+
+For automatic durable timers and activity retries, follow the [Temporal runtime guide](durable-runtime.md).
+
+The graph sees validated status and artifact digests, not raw signed authority, private keys or authentication secrets. The public approval route accepts the expected digest/revision and never accepts caller-supplied mandates. Requoting before approval invalidates an earlier reviewed digest; approved attempts cannot be requoted. Replayed issuer/mandate identity fails with `409 AUTHORITY_REPLAY` and `NEVER` retry advice; ordinary command idempotency remains separate.
+
+## Storage and evidence
+
+Migration `V007` adds the explicit profile and native checkout, public trust, challenge, authority, replay and artifact records. Existing intents receive the legacy profile; earlier migrations and their checksums remain unchanged. A real PostgreSQL upgrade test preserves historical attempt, operation and reservation records across migration and repeated startup. Apply migrations through the existing checksum-verifying migrator; no destructive downgrade is supplied.
+
+Verification includes concurrent approval/replay races, exact expiry, key revocation/admission ordering, SQL rollback, process restart, malformed artifacts, replacement stores/resolvers and owner conflicts. Java-generated native checkout is independently validated against the pinned ACP schema during the aggregate run. Temporal tests separately cover authentication pause/restart and response-loss recovery; they do not claim those two scenarios were combined into one test.
+
+These checks do not close the full certification matrix. Real PSPs, externally hosted checkout interoperability, delegated/User Credential AP2 profiles, additional crypto profiles, real 3DS and refunds remain separately reviewed work.

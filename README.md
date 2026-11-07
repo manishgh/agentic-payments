@@ -2,7 +2,7 @@
 
 An extensible purchasing platform designed to embed OpenAI ACP checkout inside an AP2-based platform payment-intent workflow, including provider authentication.
 
-**Runnable milestone: local synthetic reference implementation and independent AP2 direct engine.** Java/PostgreSQL owns payment state; Python LangGraph coordinates work; a TypeScript UI handles trusted approval and synthetic challenges. The separately implemented native AP2 profile verifies and exchanges signed artifacts with synthetic identities. Its financial-core bridge and external providers are not connected yet.
+**Runnable milestone: durable synthetic AP2/ACP payment composition.** Java/PostgreSQL owns payment state; Python LangGraph coordinates work; a TypeScript UI handles trusted approval and synthetic challenges. The independently implemented AP2 direct profile binds signed authority to an embedded ACP checkout and financial admission. SQLite and Temporal implement the durable workflow boundary. External providers remain outstanding.
 
 ## Implemented
 
@@ -13,10 +13,12 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Recorded multi-intent replay with seeded choices, crash/recovery tests and normalized evidence digests.
 - Isolated offline lab for exact signed checkout bytes, pinned schema checks and durable synthetic sidecar bindings.
 - Independently authored Java AP2 direct Trusted Agent Provider engine, native mandates/receipts, role verification, replay guards and cross-language vectors; no Google SDK dependency.
+- Durable native AP2/ACP admission, immutable artifact storage, replaceable checkout/authority/crypto/key implementations and atomic replay/grant/reservation checks.
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
+- Shared durable-runtime contract with local SQLite and Temporal implementations, retained workflow identity, cooperative pause, and Temporal timers/activity retries.
 - Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
-Execution currently accepts only the synthetic profile. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
+Execution currently accepts only explicit synthetic profiles. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
 
 ## Use cases
 
@@ -34,9 +36,9 @@ This project is for teams building purchasing agents, merchant checkout integrat
 
 ### Reference journey
 
-The target integration journey is: **agent creates checkout → customer approves → authentication pauses the workflow → service restarts → workflow resumes → the original payment is reconciled**. The current local-fake reference already exercises trusted approval, a synthetic challenge, workflow restart and payment recovery. Connecting the independently implemented AP2 engine to that durable financial admission path is the next implementation slice; it is not yet a completed native AP2/ACP journey.
+The reference journey is: **agent creates checkout → customer approves → authentication pauses the workflow → service restarts → workflow resumes → the original payment completes**. The native synthetic AP2/ACP profile exercises this journey with trusted approval and a synthetic challenge. A separate response-loss scenario exercises UNKNOWN recovery and reconciliation while preserving the original operation. See [durable composition](docs/durable-composition.md) for the exact protocol profile and boundaries.
 
-Real 3DS/wallet/bank integrations, scheduled or conditional authority, multi-step compensation and fulfillment are target use cases, not currently enabled features. The existing LangGraph/SQLite workflow supports checkpoint restart and manual resume. Temporal, Cadence and Azure Durable Task are intended implementations of a shared durable-runtime contract; their adapters are not yet shipped.
+Real 3DS/wallet/bank integrations, scheduled or conditional purchasing policy, multi-step compensation and fulfillment are target use cases, not currently enabled features. LangGraph supplies bounded purchase decisions; a [durable runtime](docs/durable-runtime.md) supplies persistence and scheduling. SQLite supports local restart/manual resume; the Temporal adapter adds durable timers, activity retry and history replay. Cadence and Azure Durable Task remain future adapters to the same interface.
 
 ### Bring your own implementation
 
@@ -53,6 +55,7 @@ Requirements: PowerShell 7, Python 3.12, Node.js 24/npm and Git. Bootstrap insta
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r workflows/requirements-lock.txt
 .venv/Scripts/python.exe -m pip install -r integrations/offline_lab/requirements-crypto.lock.txt
+.venv/Scripts/python.exe scripts/bootstrap_temporal.py
 .venv/Scripts/python.exe integrations/upstream/probe_contracts.py --fetch --include-offline-lab --include-ap2-vectors
 ./scripts/Start-Platform.ps1
 ```
@@ -64,17 +67,17 @@ $session = Get-Content .tools/local-sessions.json -Raw | ConvertFrom-Json
 $env:PAYMENTS_RUN_ID = $session.runId
 $env:PAYMENTS_GRAPH_TOKEN = $session.graphToken
 $workflowId = [guid]::NewGuid().ToString()
-.venv/Scripts/python.exe -m workflows.payment_workflow start --workflow-id $workflowId --scenario challenge-then-success
+.venv/Scripts/python.exe -m workflows.payment_workflow start --workflow-id $workflowId --scenario challenge-then-success --profile local-ap2-acp-single-tender-0.1
 ```
 
 Enter the returned intent UUID in the UI and approve its checkout. Resume using the same workflow UUID, complete the synthetic challenge in the UI, then resume again:
 
 ```powershell
-.venv/Scripts/python.exe -m workflows.payment_workflow resume --workflow-id $workflowId
-.venv/Scripts/python.exe -m workflows.payment_workflow status --workflow-id $workflowId
+.venv/Scripts/python.exe -m workflows.payment_workflow resume --workflow-id $workflowId --profile local-ap2-acp-single-tender-0.1
+.venv/Scripts/python.exe -m workflows.payment_workflow status --workflow-id $workflowId --profile local-ap2-acp-single-tender-0.1
 ```
 
-The virtual clock is fixed unless the private runner advances it; wall-clock waiting does not expire this demo. Restart preserves budgets, operation identities and checkpoints. See [workflow details](docs/langgraph-workflow.md) and [toolchain configuration](docs/toolchain.md).
+The virtual clock is fixed unless the private runner advances it; wall-clock waiting does not expire this demo. Restart preserves budgets, operation identities and checkpoints. The legacy fixture profile remains available explicitly as `local-fake-single-tender-0.1`. See [workflow details](docs/langgraph-workflow.md), [Temporal setup](docs/durable-runtime.md) and [toolchain configuration](docs/toolchain.md).
 
 ## Build and verify
 
@@ -96,6 +99,7 @@ The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/pri
 - [Status and remaining work](docs/status.md), [roadmap](docs/roadmap.md), [backlog](docs/backlog.md)
 - [Independent AP2 engine](docs/ap2-engine.md), [native requirements](docs/ap2-requirements.md), [independent vectors](integrations/ap2_vectors/README.md)
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
+- [Durable AP2/ACP composition and replacement ports](docs/durable-composition.md), [durable runtime and Temporal setup](docs/durable-runtime.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
 - [Generic extensions and adapter TCK](docs/extensions-and-tck.md), [pinned upstream bridge design](docs/ap2-acp-bridge-design.md)
 - [Recorded simulator replay](docs/replay.md), [offline artifact lab](docs/offline-artifact-lab.md)

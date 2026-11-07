@@ -1,0 +1,9 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-fixture-replay",
+  "error": {
+    "code": "AUTHORITY_REPLAY",
+    "message": "authority replay",
+    "retry": "NEVER"
+  }
+}

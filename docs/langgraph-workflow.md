@@ -1,6 +1,8 @@
 # Durable local LangGraph reference workflow
 
-The Python reference calls the Java simulator through authenticated internal HTTP. It implements a real `StateGraph` with SQLite checkpoints and separate trusted approval/action handling. PostgreSQL remains the sole payment truth; SQLite stores orchestration progress only. The profile is visibly `local-fake-single-tender-0.1`; no LLM, provider network adapter, AP2 signature verification or ACP wire compatibility is claimed.
+The Python reference calls the Java simulator through authenticated internal HTTP. It implements a real `StateGraph` with SQLite checkpoints and separate trusted approval/action handling. PostgreSQL remains the sole payment truth; SQLite stores orchestration progress only. The default profile is `local-fake-single-tender-0.1`; `--profile local-ap2-acp-single-tender-0.1` selects the [native AP2/ACP composition](durable-composition.md). Protocol verification remains in the core, outside graph state. No LLM or external provider is used.
+
+The original checkpoint CLI below remains supported. A separate [runtime guide](durable-runtime.md) covers the shared runtime interface and Temporal adapter, where LangGraph decisions execute as bounded activities and the runtime owns timers, retries and history replay. The original dependency inventory remains historical; [Temporal dependencies](../workflows/temporal-dependency-inventory.json) record the four additions to the environment lock.
 
 ## Workflow and trust boundaries
 
@@ -18,7 +20,7 @@ The client accepts only `http://127.0.0.1:<explicit-port>` without user informat
 
 ## Reproduce and run
 
-The tested interpreter is CPython 3.12.14. [Direct requirements](../workflows/requirements.txt) pin LangGraph `1.2.20` and SQLite checkpoint integration `3.1.3`, both MIT. [Environment lock](../workflows/requirements-lock.txt) records the full 46-package installed dependency set, including the shared JSON Schema test tooling. It is a version lock from `pip freeze`, not a claim that all cross-platform wheel hashes are locked. Install from official PyPI into a local virtual environment:
+The tested interpreter is CPython 3.12.14. [Direct requirements](../workflows/requirements.txt) pin LangGraph `1.2.20` and SQLite checkpoint integration `3.1.3`, both MIT. [Environment lock](../workflows/requirements-lock.txt) records the full 50-package installed dependency set, including the shared JSON Schema test tooling. It is a version lock from `pip freeze`, not a claim that all cross-platform wheel hashes are locked. Install from official PyPI into a local virtual environment:
 
 ```powershell
 python -m venv .venv

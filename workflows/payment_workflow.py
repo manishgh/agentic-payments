@@ -24,6 +24,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 PROFILE = "local-fake-single-tender-0.1"
+NATIVE_PROFILE = "local-ap2-acp-single-tender-0.1"
+PROFILES = (PROFILE, NATIVE_PROFILE)
 CONTRACT = "simulator-api-0.1-draft"
 SCENARIOS = (
     "success", "challenge-then-success", "response-loss-after-acceptance",
@@ -38,6 +40,10 @@ TERMINAL = frozenset(("SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"))
 
 class WorkflowError(Exception):
     """Fixed safe error text; raw HTTP/exception messages are never propagated."""
+
+
+class WorkflowRejectedError(WorkflowError):
+    """A fixed core refusal; retrying transport cannot repair the request."""
 
 
 def canonical_uuid(value: Any) -> str:
@@ -68,9 +74,9 @@ def safe_money(value: Any) -> dict | None:
     return {"currency": value["currency"], "minorUnits": value["minorUnits"]}
 
 
-def safe_status(body: dict, run_id: str, intent_id: str) -> dict:
+def safe_status(body: dict, run_id: str, intent_id: str, profile: str = PROFILE) -> dict:
     """Copy only validated graph-safe fields, including when a test port is used."""
-    if (body.get("contractVersion") != CONTRACT or body.get("profile") != PROFILE
+    if (profile not in PROFILES or body.get("contractVersion") != CONTRACT or body.get("profile") != profile
             or body.get("runId") != run_id or body.get("intentId") != intent_id
             or body.get("state") not in STATES
             or body.get("exposureState") not in ("NONE", "HELD", "CONSUMED", "RELEASED")
@@ -78,7 +84,7 @@ def safe_status(body: dict, run_id: str, intent_id: str) -> dict:
         raise WorkflowError("Invalid authoritative status response.")
     result = {"intentId": canonical_uuid(intent_id), "runId": canonical_uuid(run_id),
               "state": body["state"], "version": positive_version(body.get("version")),
-              "profile": PROFILE, "money": safe_money(body.get("money")),
+              "profile": profile, "money": safe_money(body.get("money")),
               "exposureState": body["exposureState"],
               "reconciliationRequired": body["reconciliationRequired"]}
     for field in ("attemptId", "operationId", "actionId", "outcomeEvidenceId"):
@@ -102,7 +108,7 @@ class NoRedirect(HTTPRedirectHandler):
 class LocalPaymentClient:
     """Only the graph role's four commands; no approve/action/revoke methods."""
 
-    def __init__(self, base_url: str, token: str, run_id: str):
+    def __init__(self, base_url: str, token: str, run_id: str, profile: str = PROFILE):
         try:
             parts = urlsplit(base_url)
             valid = (parts.scheme == "http" and parts.hostname == "127.0.0.1"
@@ -118,6 +124,13 @@ class LocalPaymentClient:
         self._url = base_url.rstrip("/") + "/internal/v0.1"
         self._token = token
         self.run_id = canonical_uuid(run_id)
+        if profile not in PROFILES:
+            raise WorkflowError("Unsupported payment profile.")
+        self.profile = profile
+        # Trusted local configuration matches Main's fixed synthetic identity;
+        # bearer claims are never accepted from workflow arguments.
+        self.principal_id = "agent-demo"
+        self.scope_ref = "tenant-local"
         # Ignore ambient proxies and never forward a bearer token on redirects.
         self._opener = build_opener(ProxyHandler({}), NoRedirect())
 
@@ -143,14 +156,16 @@ class LocalPaymentClient:
             code = error.code
             error.close()
             if code in (401, 403, 404):
-                raise WorkflowError("The local session cannot access this workflow resource.") from None
+                raise WorkflowRejectedError("The local session cannot access this workflow resource.") from None
+            if 400 <= code < 500:
+                raise WorkflowRejectedError("The core refused this workflow command.") from None
             raise WorkflowError("Command was not confirmed. Resume this workflow identity to recheck status.") from None
         except (URLError, OSError, ValueError):
             raise WorkflowError("Local API unavailable. Resume this workflow identity; do not start another payment.") from None
 
     def create(self, key: str, scenario: str) -> dict:
         return self._request("POST", "/intents", key, {
-            "merchantId": "merchant-demo", "scenarioId": scenario, "profile": PROFILE,
+            "merchantId": "merchant-demo", "scenarioId": scenario, "profile": self.profile,
             "requiredCapabilities": ["single-tender", "exact-money", "idempotent-execution", "reconciliation"],
         })
 
@@ -164,7 +179,7 @@ class LocalPaymentClient:
     def status(self, intent_id: str) -> dict:
         identity = canonical_uuid(intent_id)
         body = self._request("GET", f"/intents/{identity}")
-        return {"contractVersion": CONTRACT, **safe_status(body, self.run_id, identity)}
+        return {"contractVersion": CONTRACT, **safe_status(body, self.run_id, identity, self.profile)}
 
     def execute(self, intent_id: str, key: str, version: int, attempt_id: str) -> dict:
         return self._request("POST", f"/intents/{canonical_uuid(intent_id)}/execute", key, {
@@ -288,7 +303,7 @@ class PaymentWorkflow:
         return self._validated_status(state)
 
     def _validated_status(self, state: GraphState) -> dict:
-        latest = safe_status(self.client.status(state["intentId"]), self.run_id, state["intentId"])
+        latest = safe_status(self.client.status(state["intentId"]), self.run_id, state["intentId"], getattr(self.client, "profile", PROFILE))
         for field in ("attemptId", "operationId"):
             if state.get(field) is not None and latest[field] != state[field]:
                 raise WorkflowError("Existing payment execution identity changed. Reconciliation is required.")
@@ -298,13 +313,9 @@ class PaymentWorkflow:
 
     @staticmethod
     def _route(state: GraphState) -> str:
-        if state["state"] in TERMINAL:
-            return "done"
-        if state["state"] == "APPROVED":
-            return "execute"
-        if state["state"] == "DRAFT":
-            raise WorkflowError("Quoted workflow returned an invalid draft state.")
-        return "wait"
+        from workflows.runtime_logic import decide
+        decision = decide({key: state[key] for key in ("intentId", "checkoutDigest", "state")})
+        return {"finish": "done", "execute_existing_attempt": "execute", "wait": "wait"}[decision]
 
     def _execute(self, state: GraphState) -> dict:
         latest = self._validated_status(state)
@@ -332,10 +343,11 @@ def main() -> int:
     parser.add_argument("--workflow-id", required=True, help="Stable UUID retained across restart/resume.")
     parser.add_argument("--run-id", default=os.getenv("PAYMENTS_RUN_ID"), help="Explicit simulator run UUID.")
     parser.add_argument("--scenario", choices=SCENARIOS, default="success")
+    parser.add_argument("--profile", choices=PROFILES, default=PROFILE)
     parser.add_argument("--api-url", default="http://127.0.0.1:8080")
     args = parser.parse_args()
     try:
-        client = LocalPaymentClient(args.api_url, os.getenv("PAYMENTS_GRAPH_TOKEN", ""), args.run_id)
+        client = LocalPaymentClient(args.api_url, os.getenv("PAYMENTS_GRAPH_TOKEN", ""), args.run_id, args.profile)
         checkpoint = Path(__file__).resolve().parents[1] / ".tools" / "workflow-checkpoints.sqlite"
         checkpoint.parent.mkdir(parents=True, exist_ok=True)
         with PaymentWorkflow(client, checkpoint, args.run_id, args.workflow_id) as workflow:

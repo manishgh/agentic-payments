@@ -115,3 +115,34 @@ Independent `python -m scripts.requirement_evidence --bundle target/conformance`
 The preceding run `302b066567034f7e926f7b1f6775714d` passed its twelve stage commands but failed final evidence evaluation: receipt/report schemas still limited build artifacts to two. It produced no accepted current report. AS-006 in [source review 0017](reviews/0017-independent-ap2-source-review.md) records the correction to three, the new full-bundle regression that failed before the fix and passed afterward, independent re-review and refreshed 27-file source identity. Its raw diagnostics are retained privately; this checkpoint uses only the later complete run.
 
 The accepted profile is `ap2-v0.2-direct-tap-synthetic-0.1`: independently authored native direct mandates, role-bound trust, signed success/error exchange and process-local replay protection. Durable financial admission, negotiated ACP merchant transport, real consent/trust enrollment, delegated/User Credential profiles, real providers and external peer interoperability remain open. See [engine usage and composition](ap2-engine.md).
+
+## Durable native AP2/ACP and runtime checkpoint
+
+Date: 2026-11-07. Accepted ADRs 0006/0007 and independent Astra source reviews 0019/0021 cover the native financial composition and the runtime boundary. Sol 6.1 High agents authored bounded core/runtime work; Astra handled complex cryptographic composition and independent design/source reviews. The integration owner reproduced both final review manifests before publication.
+
+Fresh-database run `ac79d0a17b14434e8f6e23995ce00cf9` passed all twelve stages with unchanged 294-file source SHA-256 `9875cd5084a44ecd048a5429b95d71bc6fafb14becf4dae8adf6b66857912b68`. Separate semantic bundle validation passed. Report SHA-256: `c1b86cd232036bdc0038f430551689903adfd1604f96e3be66f9fea058fb7421`.
+
+| Suite | Passing test methods |
+| --- | --- |
+| Java/PostgreSQL | 185 |
+| Evidence tooling and Temporal bootstrap | 50 |
+| HTTP | 11 |
+| Trusted UI | 3 |
+| LangGraph and durable runtime | 32 |
+| Offline lab and independent AP2 verification | 30 |
+| Upstream integrity | 6 |
+| Total | 317 |
+
+There were zero failures, errors, skips, expected failures, unexpected successes or duplicate observations. Contract checks passed 21 schemas, 18 positive fixtures, 27 schema negatives, six binding negatives and one parser negative. Independent Python checks verified the fresh Java ACP checkout against the pinned schema and retained the existing AP2 cross-language signature/reference checks. Adapter TCK, recorded replay and structural probes also passed.
+
+New Java evidence covers transactional authority/replay/reservation binding, exact checkout bytes, restart without resigning accepted authority, concurrent cross-run replay, expiry/revocation ordering, malformed or unavailable artifacts, injected resolver/owner behavior and populated V006-to-V007 migration. Retryable crypto verification outages retain the same operation and HELD reservation; definitive signature rejection still prevents dispatch.
+
+Actual Temporal tests use the pinned local CLI and Python SDK with persistent server storage and fresh worker processes. They cover accepted HTTP create/quote/execute crash boundaries, replay, cooperative pause, unpolled termination recovery, activity output rejection and the declared history-limit boundary. Two complementary native payment cases cover authentication pause/restart and response-loss UNKNOWN reconciliation with the original operation and one journal effect. Privacy checks inspect decoded protobuf payloads, JSON-escaped values, metadata, recovery rows and process diagnostics; a planted encoded-payload regression verifies the scanner detects those values.
+
+The separately packaged AP2 engine now includes the injectable crypto boundary: 37 classes in the AP2/crypto packages. Local artifact SHA-256 values are reference `c7b5a1e08b91339fcaf1f53d139b9accfde5e4a2ad9bf9115fdf04e8fc8a8dde`, adapter SDK `b9b3e308a58fd87724ef02fdc91e2e813d1b4aadc086f2455208feee3ad01efd` and AP2 engine `a455316d9809e640cc7dc0206ccfcbfefd596884561747210725a8697534d703`. These identify local build artifacts, not package releases or cross-platform reproducibility guarantees.
+
+Earlier run `ac40da97d91241c098685d41030096a7` passed 309 methods with stable source `95fa8d90dc5853d77f55ed76889f8defa30333fec6df19ebd25055a4f060688b`, before the final runtime review corrections. It is retained as preliminary evidence; the later 317-method run is the publication prerequisite. The accepted 30-file admission manifest is `923819cf2d6f356873b21d1dd61d221146f94691ffbaab5c6557ca91872bfa69`; the accepted 23-file runtime/tooling manifest is `f3b6720ab385f895afb3c458ce5663f775fa534adb267600e2ac206264f566f8`.
+
+All 48 selected named observations qualify PASS. New native/runtime tests contribute evidence counts without silently closing the full CT matrix: eleven rows remain INCOMPLETE, CT-008 remains guarded NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. Real providers and 3DS, merchant transport interoperability, broader AP2 authority, Cadence/Azure adapters, distributed registration and managed operation remain future work. No merge, package release, deployment or live payment is authorized by this checkpoint.
+
+The earlier 317-method run `b3da0d3a6c12498199e4570431171e26` also passed before publication formatting. Staging then identified extra terminal line breaks in ADR 0006. Independent [review 0022](reviews/0022-design-format-review.md) proved the correction changes no design text and leaves all 53 implementation review entries unchanged. Because the document participates in source identity, the owner ran the complete suite again against another fresh database; the run at the top of this checkpoint validates the exact normalized publication bytes. No whitespace or evidence check was disabled.

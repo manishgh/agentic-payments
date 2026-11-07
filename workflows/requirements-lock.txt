@@ -44,3 +44,7 @@ uuid_utils==0.19.0
 websockets==17.4
 xxhash==4.0.2
 zstandard==0.25.0
+temporalio==1.35.0
+nexus_rpc==1.4.0
+protobuf==7.36.2
+types_protobuf==7.35.1.20260906
