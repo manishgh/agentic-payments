@@ -225,3 +225,30 @@ Review corrected post-send runtime errors previously classified as NOT_SENT, mut
 The packaged adapter SDK passes `jdeps --multi-release 21 --print-module-deps` with `java.base` only. Local artifact SHA-256 values: reference `3b8ff21402ea876a64025b4923ecb88b67adca11d6757a466cf6b8b08cdd23d6`, adapter SDK `2a83d5f15a5363535b68ab418687921f80a0600f8fc197add2c7108a54dbcc99`, AP2 engine `c6fdc81564008ab87da62977ec3c8dab295f3b91d39f15b554fcbccd2c317a3e`. These identify local build artifacts; no package release is implied.
 
 All 48 selected observations remain PASS; eleven CT gaps remain INCOMPLETE and CT-008 remains guarded NOT_APPLICABLE. The verdict is **preview PASS, evidence VALID, NOT_CERTIFIED**. No requirement mappings, existing schema locks or dependencies changed. External checkout is a separate commerce aggregate with deliberate conservative recovery, not external AP2 authority/financial admission or completion. The provider contract remains adapter-only; durable provider journals, vendor implementations and financial wiring remain follow-on work. The new commerce workflow claims SQLite restart/manual resume, not a Temporal/Cadence/Azure commerce adapter. No merge, deployment or live payment is part of this checkpoint.
+
+The source is published as `fcb6feb46e7b8aeda037e41af6c9f77ce5f6dbc5`. Hosted [Linux reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42433040403) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42433040342) passed. The safe evidence artifact with that commit-qualified name was preserved (64,958 bytes when verified). Hosted results identify this checkpoint and do not validate subsequent provider-journal source changes.
+
+## Durable synthetic provider journal checkpoint
+
+Date: 2026-11-08. A Sol 6.1 High implementation author and an independent Sol test author implemented accepted ADR 0013 in parallel. Astra design review 0033 and source review 0034 accept the bounded scope. Root independently reproduced all twenty reviewed file hashes and manifest `9456965d09125d5b64a21024307474a7ec74ba624932205b2a7e99246edc537e`. Four reviewer findings and the owner's persisted-ownership consistency finding are resolved; see [the gate log](reviews/gates.md).
+
+Root ran `python scripts/conformance.py` against fresh isolated PostgreSQL database `agentic_provider_journal_20261108_final`. Run `25606c1bbe8045c096fb896060a1d5e0` passed all twelve stages with unchanged 384-file source SHA-256 `f3ba1f778d246a90249667a35df7624eb73b5d53f75390511a51527212328fb1`. Every source file matched its staged bytes. Separate `python -m scripts.requirement_evidence --bundle target/conformance --verify-only` passed. Report SHA-256: `9644c11a7959600d6993899e87240bdfd08d6615e16c828b13a374a2ed5cf460`.
+
+| Suite | Passing test methods |
+| --- | --- |
+| Java/PostgreSQL | 304 |
+| Evidence tooling and Temporal bootstrap | 51 |
+| HTTP | 16 |
+| Trusted UI | 3 |
+| LangGraph and durable runtime | 46 |
+| Offline lab and independent protocol verification | 36 |
+| Upstream integrity | 6 |
+| Total | 462 |
+
+There were zero failures, errors, skips, expected failures, unexpected successes or duplicate observations. The 38 new methods cover complete value round trips and strict parsing, immutable mapping/configuration, scoped identity aliases, one dispatch owner, preserved pending/terminal facts, committed conflict quarantine, provider-resource ownership and unsupported financial-state refusal. Actual child JVMs stop at binding, claim, peer acceptance/fence and terminal/conflict boundaries; fresh JVMs recover through new connections while parent SQL independently inspects both durable journals. The functional finite-cache fixture proves hits and misses; cache expiry and unavailable lookup cannot authorize replacement execution.
+
+Real PostgreSQL contention tests observe waiting locks, single ownership among eight claimants and unrelated-row progress. Scoped triggers prove rollback after provisional writes; connection proxies distinguish real commit acknowledgment loss. A delayed original sender may still invoke the peer after its genuine fence, but no successful financial event is accepted. Populated V008 migration preserves every historical table and exact V001..V008 checksums across repeated V009 application. Forty focused methods passed beforehand, with seven transaction tests rerun after a final test-cleanup amendment. All final methods ran again in this aggregate.
+
+The unchanged portable adapter SDK depends only on `java.base` under packaged `jdeps --multi-release 21 --print-module-deps`. Local artifact SHA-256 values: reference `575bc8716dfca68af08f812e65dcf47701dd35cdf6ed08db16f466f5e569ad4e`, adapter SDK `b78bb4f859127908496040096d98b333738c7e2f657e389ef81876af6b9b315e`, AP2 engine `a1f94e749a2f38db503091589948f95e4ffef65510d604762b5239d7959e4537`. These identify this build, not a package release or cross-platform reproducibility claim.
+
+All 48 selected observations remain PASS; eleven CT rows remain INCOMPLETE and CT-008 retains guarded NOT_APPLICABLE. The verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. Requirement mappings, SDK signatures, dependencies and financial wiring are unchanged. The PostgreSQL journal is one replaceable concrete implementation of the existing responsibility. Original reusable TCK memory fixtures still claim only in-process reconstruction. This separate synthetic process evidence does not establish vendor, database-server/power-loss, production or external financial-admission guarantees. Real provider adapters and broader transaction extraction remain outstanding. No live payment, merge, deployment, license change or package release is included.

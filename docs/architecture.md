@@ -47,6 +47,8 @@ The [external checkout client](external-checkout.md) implements create/retrieve/
 
 The additive [provider execution contract](../specification/provider-execution-1/README.md) separates nonfinancial preparation, financial submission, read-only reconciliation, event verification/normalization and optional true no-effect fencing. Its compatibility bridge injects an atomic binding journal; the old financial SDK and dispatch flow remain intact. Adapter-only synthetic TCK evidence does not establish production persistence or application admission/outbox guarantees. See the [provider roadmap](provider-adapter-evolution.md) for remaining external and composed integration work.
 
+The [durable provider journal](durable-provider-journal.md) now implements that existing binding responsibility in PostgreSQL, independently of financial tables. It publishes one initial dispatch owner, preserves the full legacy mapping and retains conflicting evidence before returning a quarantined result. Actual child-JVM tests cover its separate commit gaps with the durable synthetic peer. The application still needs its own spending authority/admission; neither a journal claim nor a constructed evidence value supplies it.
+
 ## Execution flow
 
 1. An authenticated principal requests a platform intent. Parse suggestions from the agent but validate all binding data deterministically.

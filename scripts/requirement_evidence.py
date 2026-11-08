@@ -49,7 +49,8 @@ def source_identity(root: Path):
                  "docs/adr/0009-external-checkout-adapters.md", "docs/reviews/0025-external-adapter-design-review.md",
                  "docs/adr/0010-payment-transaction-boundary.md", "docs/reviews/0026-transaction-boundary-design-review.md",
                  "docs/adr/0011-durable-external-checkout.md", "docs/reviews/0029-durable-external-checkout-design-review.md",
-                 "docs/adr/0012-provider-execution-contract.md", "docs/reviews/0030-provider-contract-design-review.md"):
+                 "docs/adr/0012-provider-execution-contract.md", "docs/reviews/0030-provider-contract-design-review.md",
+                 "docs/adr/0013-durable-provider-journal.md", "docs/reviews/0033-durable-provider-journal-design-review.md"):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())
     return {"sha256": sha(json.dumps(ordered, separators=(",", ":")).encode()), "files": dict(ordered)}

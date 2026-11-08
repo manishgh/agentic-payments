@@ -30,7 +30,7 @@ Stripe's ordinary payment APIs, Stripe's checkout products and a merchant's ACP 
 
 ## Delivery sequence
 
-1. The provider-neutral contract, local simulator compatibility adapter and shared behavioral TCK are implemented under [ADR 0012](adr/0012-provider-execution-contract.md). Supplied fixtures use retained memory for in-process reconstruction; a durable compatibility journal and financial integration remain separate obligations.
+1. The provider-neutral contract, local simulator compatibility adapter and shared behavioral TCK are implemented under [ADR 0012](adr/0012-provider-execution-contract.md). The [PostgreSQL compatibility journal](durable-provider-journal.md) adds separate actual process-recovery evidence under ADR 0013. Original TCK fixtures still claim retained-memory reconstruction; financial integration remains separate.
 2. Implement one provider adapter against a separately authored local HTTP contract peer using a pinned vendor API contract. Include accepted-response loss, restart, duplicate send, idempotency mismatch, account/region mismatch and unavailable lookup tests. This proves local behavior only.
 3. Connect an explicitly configured provider sandbox and record the real API/version/account/method evidence. Keep credential loading inside trusted infrastructure, with no credentials in the repository or model context. Actual access is verified at this step, not inferred from a public documentation page.
 4. Review the financial integration profile and wire the adapter to durable admission/outbox/reconciliation. Exercise the same fault matrix with real PostgreSQL before advertising that combination.

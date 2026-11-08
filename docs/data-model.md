@@ -146,6 +146,8 @@ Until that design exists, more than one tender or less than full-total funding r
 
 V008 adds a separate [durable checkout aggregate](durable-external-checkout.md#storage-and-validation-scope): immutable enrolled configurations/current pointers, purchase projections, exact lifecycle commands and protected correlated outcomes, scoped by tenant/run/principal. The mutation barrier persists independently of latest GET results. These rows are commerce history, not financial reservations, AP2 authority or signed artifacts; no external lifecycle status changes the payment ledger.
 
+V009 adds the standalone [provider compatibility journal](durable-provider-journal.md#storage-and-codec): immutable scoped binding/mapping, permanent dispatch ownership, complete evidence, retained conflict receipts and unique original resource ownership. Its SDK run key remains text, independently of mapped legacy UUIDs. It has no foreign key to core payment/admission rows. Any recorded evidence prevents a new initial owner; conflict state commits with its evidence and cannot be cleared by lookup or a new process.
+
 Use numbered SQL migrations owned by core; first migration creates tables/keys/checks/indexes, then fixtures are loaded explicitly.
 Index tenant+run-qualified status/read queries, authority/intent references, unique idempotency scopes, due outbox work and inbox event IDs.
 Reference keys use `(tenant_id,run_id,id)`; all unique financial/command/event scopes include run. Test cross-tenant and same-tenant cross-run refusal.
