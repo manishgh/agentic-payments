@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import io
+from contextlib import redirect_stdout
 import os
 from pathlib import Path
 import subprocess
@@ -15,7 +17,7 @@ import xml.etree.ElementTree as ET
 from scripts.evidence_collectors import (ROOT, ContextError, collect_java, collect_node,
                                          load_context, validate_context)
 from scripts.run_python_evidence import run_modules
-from scripts import run_node_evidence
+from scripts import run_node_evidence, run_python_evidence
 
 CANARY = "COLLECTOR_PRIVATE_PAYLOAD_CANARY_91"
 
@@ -359,6 +361,28 @@ class CollectorTests(unittest.TestCase):
         self.assertFalse(value["complete"])
         self.assertIn("INCOMPLETE_PRODUCER", value["issues"])
         self.assertEqual("MISSING", value["results"][0]["observedStatus"])
+
+    def test_python_fixed_stage_deadlines_preserve_incomplete_evidence_on_timeout(self):
+        for stage, timeout in (("langgraph", 540), ("http", 240), ("test", 240), ("langgraph-extra", 240)):
+            with self.subTest(stage=stage):
+                ctx = self.directory / (stage + "-context.json")
+                output = self.directory / (stage + "-observations.json")
+                ctx.write_text(json.dumps(context(["collector_fixture.Case.test_x"], stage)))
+                args = ["run_python_evidence", "--context", str(ctx), "--output", str(output), "collector_fixture"]
+                failure = subprocess.TimeoutExpired("worker", timeout, output=CANARY, stderr=CANARY)
+                with patch.object(sys, "argv", args), redirect_stdout(io.StringIO()) as printed, \
+                        patch.object(run_python_evidence.subprocess, "run", side_effect=failure) as execute:
+                    status = run_python_evidence.main()
+                self.assertEqual(timeout, execute.call_args.kwargs["timeout"])
+                self.assertEqual(1, status)
+                value = json.loads(output.read_text())
+                self.assertFalse(value["complete"])
+                self.assertIn("INCOMPLETE_PRODUCER", value["issues"])
+                self.assertEqual("MISSING", value["results"][0]["observedStatus"])
+                self.assertEqual(0, value["counts"]["tests"])
+                self.assertEqual(0, value["counts"]["passed"])
+                self.assertNotIn(CANARY, printed.getvalue())
+                self.safe(value)
 
     def test_node_stale_xml_and_timeouts_are_incomplete(self):
         ctx = context(["review"])

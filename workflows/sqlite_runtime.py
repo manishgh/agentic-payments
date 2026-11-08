@@ -8,6 +8,7 @@ from workflows.runtime_contract import (
     SQLITE_CAPABILITIES, RuntimeDescriptor, activity_envelope, fail, safe_state,
     start_from_data, validate_activity_result, validate_runtime_observation,
 )
+from workflows.runtime_trace import invoke_recorded, require_trace_writer
 
 
 class _SqliteDriver:
@@ -16,6 +17,7 @@ class _SqliteDriver:
         self.activities = activities
 
     def describe(self):
+        require_trace_writer(self.registration)
         return RuntimeDescriptor("sqlite", "1", SQLITE_CAPABILITIES, initial_poll_seconds=0, max_poll_seconds=0)
 
     def _access(self, ref):
@@ -105,8 +107,7 @@ class _SqliteDriver:
             if not self.registration.stage_activity(ref, progress, envelope):
                 return
             # The exact envelope and pause ordering commit BEFORE any side effect.
-            output = validate_activity_result(envelope, self.activities.run(envelope))
-            self.registration.record_activity(envelope, output)
+            output = invoke_recorded(self.activities, envelope)
             progress["pending"] = None
             progress["sequence"] += 1
             if envelope["kind"] == "decide":

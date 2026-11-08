@@ -173,23 +173,28 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.core.approve_as_trusted_subject()
         envelope = activity_envelope(self.start, 20, "read_status", state)
         approved = self.activities.run(envelope)
-        self.registry.record_activity(envelope, approved)
+        first_read = self.registry.begin_activity(envelope)
+        late_read = self.registry.begin_activity(envelope)
+        self.registry.record_activity(envelope, approved, first_read)
         self.core.state, self.core.version = "UNKNOWN", 8
         unknown = self.activities.run(envelope)
-        self.registry.record_activity(envelope, unknown)
-        self.registry.record_activity(envelope, approved)  # Late timed-out thread.
-        self.registry.record_activity(activity_envelope(self.start, 19, "read_status", state), approved)
+        self.registry.record_activity(envelope, unknown, self.registry.begin_activity(envelope))
+        self.registry.record_activity(envelope, approved, late_read)  # Late timed-out thread.
+        older = activity_envelope(self.start, 19, "read_status", state)
+        self.registry.record_activity(older, approved, self.registry.begin_activity(older))
         retained = self.registry.recovery(ref)
         self.assertEqual(8, retained["state"]["version"])
         self.assertEqual(self.core.operation_id, retained["state"]["operationId"])
         self.assertEqual(20, retained["sequence"])
-        self.registry.record_activity(activity_envelope(self.start, 21, "decide", {**state, **approved}), {"decision": "execute_existing_attempt"})
-        self.registry.record_activity(activity_envelope(self.start, 22, "execute_existing_attempt", {**state, **approved}), {})
+        decision = activity_envelope(self.start, 21, "decide", {**state, **approved})
+        execution = activity_envelope(self.start, 22, "execute_existing_attempt", {**state, **approved})
+        self.registry.record_activity(decision, {"decision": "execute_existing_attempt"}, self.registry.begin_activity(decision))
+        self.registry.record_activity(execution, {}, self.registry.begin_activity(execution))
         retained = self.registry.recovery(ref)
         self.assertEqual(22, retained["sequence"])
         self.assertEqual(8, retained["state"]["version"])
         with self.assertRaises(WorkflowError):
-            self.registry.record_activity(envelope, {**unknown, "operationId": str(uuid4())})
+            self.registry.record_activity(envelope, {**unknown, "operationId": str(uuid4())}, self.registry.begin_activity(envelope))
 
     async def test_history_limit_is_retained_and_resume_cannot_reset_budget(self):
         request = replace(self.start, activity_limit=8)

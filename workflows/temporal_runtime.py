@@ -15,25 +15,29 @@ from workflows.runtime_contract import (
     TEMPORAL_CAPABILITIES, RuntimeDescriptor, encoded, fail, safe_state, start_from_data, validate_activity_result, validate_runtime_observation,
 )
 from workflows.temporal_workflow import PaymentOrchestration
+from workflows.runtime_trace import invoke_recorded, require_trace_writer, TraceActivityError, classify_failure, safe_diagnostic
 
 
 def registered_activity(activities):
+    require_trace_writer(activities.registration)
     @activity.defn(name="payment-step-1")
     async def payment_step(envelope: dict) -> dict:
         # Threaded HTTP avoids blocking the worker's event loop. The envelope
         # and sanitized result are the only values sent through Temporal.
         import asyncio
         failure = None
+        diagnostic = None
         try:
-            output = validate_activity_result(envelope, await asyncio.to_thread(activities.run, envelope))
-            await asyncio.to_thread(activities.registration.record_activity, envelope, output)
-            return output
-        except WorkflowError as error:
-            failure = str(error)
-        except Exception:
-            failure = "PAYMENT_ACTIVITY_UNAVAILABLE"
-        retryable = failure == "PAYMENT_ACTIVITY_UNAVAILABLE"
+            return await asyncio.to_thread(invoke_recorded, activities, envelope)
+        except TraceActivityError as error:
+            diagnostic = safe_diagnostic(error)
+            failure = diagnostic["failure"]
+        except Exception as error:
+            failure = classify_failure(error, "JOURNAL")
+            diagnostic = {"failure": failure, "journalStatus": "UNCONFIRMED", "secondary": None}
+        retryable = failure["retryable"]
         raise ApplicationError("Payment activity is unavailable." if retryable else "Payment activity was rejected.",
+                               diagnostic,
                                type="PAYMENT_ACTIVITY_UNAVAILABLE" if retryable else "PAYMENT_ACTIVITY_REJECTED",
                                non_retryable=not retryable) from None
     return payment_step
@@ -51,6 +55,7 @@ class TemporalWorkflowRuntime:
                                                    client.namespace, task_queue]).encode("ascii")).hexdigest()
 
     def describe(self):
+        require_trace_writer(self.registration)
         return RuntimeDescriptor("temporal", "1.35.0", TEMPORAL_CAPABILITIES)
 
     def _access(self, ref):

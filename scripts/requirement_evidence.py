@@ -56,6 +56,8 @@ def source_identity(root: Path):
         "docs/adr/0013-durable-provider-journal.md",
         "docs/adr/0014-external-checkout-authority-binding.md",
         "docs/adr/0015-service-composition-observability-errors.md",
+        "docs/adr/0016-external-checkout-workflow-handoff.md",
+        "docs/adr/0017-workflow-debugging-replay.md",
     ):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())

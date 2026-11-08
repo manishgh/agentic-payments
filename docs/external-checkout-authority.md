@@ -56,7 +56,23 @@ With the graph-role token, create an intent with profile `local-external-ap2-acp
 
 Use the actual recorded purchase revision and response reference. The response contains the financial checkout revision/digest, amount and expiry. The trusted UI/customer can review `/intents/{intentId}/checkout` and approve that exact digest using the existing approval route. The graph role can then execute the approved attempt using the existing execute route. Customer-action and uncertain-outcome recovery continue through the existing payment paths. Retain the same keys and identities across retries and restarts.
 
-The generic payment LangGraph/SQLite/Temporal request template does not yet accept this external profile. The commerce graph can produce the observation; this milestone demonstrates the subsequent financial handoff over authenticated HTTP and the existing trusted UI. A durable graph handoff must first register the immutable external reference. Interface availability alone does not enable that runtime profile.
+## Durable workflow handoff
+
+The shared SQLite/Temporal runtime accepts this profile through the explicit `external-checkout-request-1` template. After commerce has recorded an eligible observation, retain its purchase UUID, actual revision and response UUID. Start the financial workflow once under a stable workflow UUID:
+
+```powershell
+.venv/Scripts/python.exe -m workflows.runtime_cli start --runtime sqlite --workflow-id $workflowId --run-id $env:PAYMENTS_RUN_ID --profile local-external-ap2-acp-single-tender-0.1 --purchase-id $purchaseId --purchase-revision $purchaseRevision --response-reference $responseReference --scenario challenge-then-success
+.venv/Scripts/python.exe -m workflows.runtime_cli inspect --runtime sqlite --workflow-id $workflowId --run-id $env:PAYMENTS_RUN_ID
+.venv/Scripts/python.exe -m workflows.runtime_cli resume --runtime sqlite --workflow-id $workflowId --run-id $env:PAYMENTS_RUN_ID
+```
+
+Load the graph token using the existing local session instructions. Review and approve the returned intent in the trusted UI; the graph cannot approve or complete a customer action. Source flags are accepted only by `start`. Controls recover the immutable source and profile from registration. A changed source under the same workflow UUID conflicts; an uncertain payment must never be recovered with a new workflow UUID.
+
+For Temporal, use the [server and worker setup](durable-runtime.md), select this external profile for the worker, and pass `--runtime temporal --queue payments-external-v1` on the worker and every start/control command, with the same server and registry. Keep this queue separate from native/fixture workers: a worker is bound to one profile and rejects another profile's activities. Existing default queue bindings are unchanged. Workers can process multiple registered purchase sources; no source is configured globally on a worker.
+
+Registration commits the closed source tuple before creating an intent. The injected request-template policy prepares exactly those selectors; it never refreshes a checkout before replaying an accepted quote. The core reloads protected bytes and owns freshness, configuration, sealing and admission. Separate workflow identities can leave competing DRAFT intents, but the core admits only one quote/financial owner for a purchase. Registration is not spending authority or a cross-runtime purchase lock.
+
+The older `workflows.payment_workflow` entry point remains limited to native/fixture profiles and rejects this external profile. Both old serialized start fingerprints and captured pre-change Temporal histories remain compatible. See [ADR 0016](adr/0016-external-checkout-workflow-handoff.md) for the exact boundary and [workflow debugging](workflow-debugging.md) for read-only failure inspection and replay.
 
 ## Persistence and limits
 

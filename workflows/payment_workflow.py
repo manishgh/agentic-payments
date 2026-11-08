@@ -25,7 +25,11 @@ from langgraph.types import Command, interrupt
 
 PROFILE = "local-fake-single-tender-0.1"
 NATIVE_PROFILE = "local-ap2-acp-single-tender-0.1"
+EXTERNAL_PROFILE = "local-external-ap2-acp-single-tender-0.1"
+# The standalone graph deliberately retains its original profiles. The shared
+# durable runtime owns external source registration and selects that template.
 PROFILES = (PROFILE, NATIVE_PROFILE)
+CLIENT_PROFILES = (*PROFILES, EXTERNAL_PROFILE)
 CONTRACT = "simulator-api-0.1-draft"
 SCENARIOS = (
     "success", "challenge-then-success", "response-loss-after-acceptance",
@@ -44,6 +48,14 @@ class WorkflowError(Exception):
 
 class WorkflowRejectedError(WorkflowError):
     """A fixed core refusal; retrying transport cannot repair the request."""
+
+    def __init__(self, message, *, access_denied=False):
+        super().__init__(message)
+        self._access_denied = access_denied is True
+
+    @property
+    def code(self):
+        return "PAYMENT_ACCESS_DENIED" if self._access_denied else "PAYMENT_COMMAND_REJECTED"
 
 
 def canonical_uuid(value: Any) -> str:
@@ -76,7 +88,7 @@ def safe_money(value: Any) -> dict | None:
 
 def safe_status(body: dict, run_id: str, intent_id: str, profile: str = PROFILE) -> dict:
     """Copy only validated graph-safe fields, including when a test port is used."""
-    if (profile not in PROFILES or body.get("contractVersion") != CONTRACT or body.get("profile") != profile
+    if (profile not in CLIENT_PROFILES or body.get("contractVersion") != CONTRACT or body.get("profile") != profile
             or body.get("runId") != run_id or body.get("intentId") != intent_id
             or body.get("state") not in STATES
             or body.get("exposureState") not in ("NONE", "HELD", "CONSUMED", "RELEASED")
@@ -96,6 +108,8 @@ def safe_status(body: dict, run_id: str, intent_id: str, profile: str = PROFILE)
 class PaymentPort(Protocol):
     def create(self, key: str, scenario: str) -> dict: ...
     def quote(self, intent_id: str, key: str, version: int) -> dict: ...
+    def quote_external(self, intent_id: str, key: str, version: int, purchase_id: str,
+                       expected_purchase_revision: int, response_reference: str) -> dict: ...
     def status(self, intent_id: str) -> dict: ...
     def execute(self, intent_id: str, key: str, version: int, attempt_id: str) -> dict: ...
 
@@ -106,7 +120,7 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 class LocalPaymentClient:
-    """Only the graph role's four commands; no approve/action/revoke methods."""
+    """Only graph-role commands; external quoting requires the source-bound runtime."""
 
     def __init__(self, base_url: str, token: str, run_id: str, profile: str = PROFILE):
         try:
@@ -124,7 +138,7 @@ class LocalPaymentClient:
         self._url = base_url.rstrip("/") + "/internal/v0.1"
         self._token = token
         self.run_id = canonical_uuid(run_id)
-        if profile not in PROFILES:
+        if profile not in CLIENT_PROFILES:
             raise WorkflowError("Unsupported payment profile.")
         self.profile = profile
         # Trusted local configuration matches Main's fixed synthetic identity;
@@ -156,7 +170,7 @@ class LocalPaymentClient:
             code = error.code
             error.close()
             if code in (401, 403, 404):
-                raise WorkflowRejectedError("The local session cannot access this workflow resource.") from None
+                raise WorkflowRejectedError("The local session cannot access this workflow resource.", access_denied=True) from None
             if 400 <= code < 500:
                 raise WorkflowRejectedError("The core refused this workflow command.") from None
             raise WorkflowError("Command was not confirmed. Resume this workflow identity to recheck status.") from None
@@ -170,8 +184,27 @@ class LocalPaymentClient:
         })
 
     def quote(self, intent_id: str, key: str, version: int) -> dict:
+        if self.profile not in PROFILES:
+            raise WorkflowRejectedError("Fixture quoting is unavailable for this payment profile.")
         return self._request("POST", f"/intents/{canonical_uuid(intent_id)}/quote", key, {
             "expectedVersion": positive_version(version), "cartFixtureId": "cart-1250-eur",
+            "tenders": [{"provider": "simulator", "method": "synthetic-card",
+                         "credentialReference": "fixture-credential-1"}],
+        })
+
+    def quote_external(self, intent_id: str, key: str, version: int, purchase_id: str,
+                       expected_purchase_revision: int, response_reference: str) -> dict:
+        if self.profile != EXTERNAL_PROFILE:
+            raise WorkflowRejectedError("External quoting requires its registered payment profile.")
+        # Validate the entire closed selection before constructing or sending a request.
+        intent = canonical_uuid(intent_id)
+        expected_version = positive_version(version)
+        purchase = canonical_uuid(purchase_id)
+        purchase_revision = positive_version(expected_purchase_revision)
+        response = canonical_uuid(response_reference)
+        return self._request("POST", f"/intents/{intent}/quote-external", key, {
+            "expectedVersion": expected_version, "purchaseId": purchase,
+            "expectedPurchaseRevision": purchase_revision, "responseReference": response,
             "tenders": [{"provider": "simulator", "method": "synthetic-card",
                          "credentialReference": "fixture-credential-1"}],
         })
@@ -216,9 +249,10 @@ class PaymentWorkflow:
     """Single local process/thread writer per SQLite store; not a payment ledger."""
 
     def __init__(self, client: PaymentPort, checkpoint_file: Path | str, run_id: str, workflow_id: str):
+        self.client = client
+        self._guard_profile()
         self.run_id = canonical_uuid(run_id)
         self.workflow_id = canonical_uuid(workflow_id)
-        self.client = client
         self._connection = sqlite3.connect(str(checkpoint_file), check_same_thread=False)
         saver = SqliteSaver(self._connection)
         builder = StateGraph(GraphState)
@@ -248,6 +282,7 @@ class PaymentWorkflow:
         self._connection.close()
 
     def start(self, scenario: str = "success") -> dict:
+        self._guard_profile()
         if scenario not in SCENARIOS:
             raise WorkflowError("Unsupported local synthetic scenario.")
         if self._graph.get_state(self._config).values:
@@ -257,6 +292,7 @@ class PaymentWorkflow:
         return self.snapshot()
 
     def resume(self, untrusted_input: Any = None) -> dict:
+        self._guard_profile()
         # Never pass external resume data into LangGraph: it becomes a persisted
         # resume value even if node code ignores it. The API is the authority.
         snapshot = self._graph.get_state(self._config)
@@ -271,6 +307,7 @@ class PaymentWorkflow:
         return self.snapshot()
 
     def status(self) -> dict:
+        self._guard_profile()
         snapshot = self.snapshot()
         if "intentId" not in snapshot:
             raise WorkflowError("Workflow has no confirmed intent yet. Resume the original identity.")
@@ -286,11 +323,13 @@ class PaymentWorkflow:
         return result
 
     def _create(self, state: GraphState) -> dict:
+        self._guard_profile()
         body = self.client.create(command_key(state, "create"), state["scenarioId"])
         return {"intentId": canonical_uuid(body.get("intentId")),
                 "createdVersion": positive_version(body.get("version"))}
 
     def _quote(self, state: GraphState) -> dict:
+        self._guard_profile()
         body = self.client.quote(state["intentId"], command_key(state, "quote"), state["createdVersion"])
         digest = body.get("checkoutDigest")
         if (body.get("intentId") != state["intentId"] or not isinstance(digest, str)
@@ -303,13 +342,22 @@ class PaymentWorkflow:
         return self._validated_status(state)
 
     def _validated_status(self, state: GraphState) -> dict:
-        latest = safe_status(self.client.status(state["intentId"]), self.run_id, state["intentId"], getattr(self.client, "profile", PROFILE))
+        profile = self._guard_profile()
+        latest = safe_status(self.client.status(state["intentId"]), self.run_id, state["intentId"], profile)
         for field in ("attemptId", "operationId"):
             if state.get(field) is not None and latest[field] != state[field]:
                 raise WorkflowError("Existing payment execution identity changed. Reconciliation is required.")
         if "version" in state and latest["version"] < state["version"]:
             raise WorkflowError("Authoritative payment version regressed.")
         return latest
+
+    def _guard_profile(self) -> str:
+        # Historical test ports omit profile metadata. External clients require
+        # the registered durable runtime and never inherit that compatibility path.
+        profile = getattr(self.client, "profile", PROFILE)
+        if profile not in PROFILES:
+            raise WorkflowRejectedError("This payment profile requires a registered durable workflow.")
+        return profile
 
     @staticmethod
     def _route(state: GraphState) -> str:
@@ -318,10 +366,12 @@ class PaymentWorkflow:
         return {"finish": "done", "execute_existing_attempt": "execute", "wait": "wait"}[decision]
 
     def _execute(self, state: GraphState) -> dict:
+        self._guard_profile()
         latest = self._validated_status(state)
         if latest["state"] == "APPROVED":
             if latest["attemptId"] is None:
                 raise WorkflowError("Approved state is missing its existing attempt.")
+            self._guard_profile()
             self.client.execute(state["intentId"], command_key(state, "execute"),
                                 latest["version"], latest["attemptId"])
         # Accepted command responses may be historic replays. Always GET again.

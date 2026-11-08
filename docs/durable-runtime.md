@@ -1,6 +1,6 @@
 # Durable workflow runtime reference
 
-The shared LangGraph decision graph runs through two concrete runtime adapters: local SQLite and Temporal. Both coordinate the Java payment core through narrow authenticated HTTP activities. PostgreSQL owns payment authority, reservations, attempts, operations and outcomes; runtime histories and checkpoints record orchestration progress only. [ADR 0007](adr/0007-durable-workflow-runtime.md) define the accepted design.
+The shared LangGraph decision graph runs through two concrete runtime adapters: local SQLite and Temporal. Both coordinate the Java payment core through narrow authenticated HTTP activities. PostgreSQL owns payment authority, reservations, attempts, operations and outcomes; runtime histories and checkpoints record orchestration progress only. [ADR 0007](adr/0007-durable-workflow-runtime.md) defines the runtime design; [ADR 0016](adr/0016-external-checkout-workflow-handoff.md) adds immutable external source selection and [ADR 0017](adr/0017-workflow-debugging-replay.md) defines bounded diagnostic replay.
 
 ## Responsibilities and replacement
 
@@ -18,6 +18,10 @@ New runtime adapters implement the same responsibility port and register a safe 
 At the activity budget, both adapters report `HISTORY_LIMIT` and retain the original references. Temporal schedules no more activities or timers and remains open for inspection. Stop, wake and resume cannot reset this limit. Inspect the core directly using the original intent UUID (`GET /internal/v0.1/intents/{id}` with its authorized local session); operator reconciliation is required. No automatic Continue-As-New, reset, replacement workflow or new payment identity bypasses the boundary.
 
 The registration-store port retains scope, original core principal, start fingerprint, decision/activity/template versions and runtime binding independently of scheduler history. The reference's SQLite store is atomically insert-if-absent and exposes no deletion/reuse operation. Temporal's actual endpoint, namespace, task queue and definition bind the registration; changing them conflicts. Registering another backend requires an implementation that preserves this contract, not a generic CRUD store that silently discards atomicity.
+
+The external synthetic profile also registers the immutable purchase/revision/response tuple before any payment command. Its request-template policy can be implemented, adapted or wrapped, but cannot substitute a source or fall back to a generated cart. See the [external handoff commands](external-checkout-authority.md#durable-workflow-handoff). The host must keep a registered workflow connected to the same logical payment ledger; a URL alone does not prove ledger identity.
+
+New registrations retain a bounded durable activity journal, independent of optional logs. The injected registration writer must declare and implement the trace contract before its runtime advertises `bounded-step-replay-1`. Headerless historical registrations retain their earlier behavior and report unavailable diagnostic coverage. [Debug and replay commands](workflow-debugging.md) read without connecting to core or scheduler services; live `resume` continues the original workflow with current financial checks.
 
 ## Prepare the local environment
 
@@ -103,4 +107,4 @@ The Temporal integration module requires the compiled Java service, classpath fi
 
 Tests also replay the actual Temporal history and scan protobuf payload bytes, recursively decoded activity/signal/failure payloads, metadata, registration/recovery rows and private process diagnostics for tokens, credential canaries and exact retained native artifacts. A planted encoded-payload regression proves the scanner detects values hidden by the history export's base64 framing and JSON string escaping. Shared closed result validation runs before SDK serialization and before local/recovery persistence, including decorated activity implementations. Only safe activity selectors/versions reconstruct the credential-bearing request inside the trusted worker. Missing historical templates or changed principal/configuration fail closed. Private test artifacts stay under ignored `.tools/`.
 
-This demonstrates local synthetic durability and identity preservation. It supplies no real provider, remote AP2 peer, ACP merchant transport, hosted runtime, production availability, distributed registration or certification claim.
+This demonstrates local synthetic durability and identity preservation, including the explicitly registered synthetic external ACP transport. It supplies no real provider, production merchant trust, remote AP2 peer, hosted runtime, production availability, distributed registration or certification claim.

@@ -23,7 +23,9 @@ PYTHON_MODULES = {
     "offline-artifacts": ["integrations.offline_lab.tests.test_lab", "integrations.ap2_vectors.test_verifier", "integrations.test_external_checkout"],
     "http": ["scripts.test_http", "scripts.test_checkout_http", "scripts.test_external_binding_http"],
     "langgraph": ["workflows.test_payment_workflow", "workflows.test_live", "workflows.test_runtime", "workflows.test_temporal_runtime",
-                  "workflows.test_checkout_workflow", "workflows.test_checkout_live"],
+                  "workflows.test_checkout_workflow", "workflows.test_checkout_live",
+                  "workflows.test_external_handoff", "workflows.test_external_handoff_client", "workflows.test_legacy_history",
+                  "workflows.test_external_handoff_live", "workflows.test_runtime_trace", "workflows.test_runtime_debug_cli"],
 }
 DB_ENV = ("PAYMENTS_DB_URL", "PAYMENTS_DB_USER", "PAYMENTS_DB_PASSWORD")
 

@@ -24,7 +24,7 @@ class CrashAfterAcceptanceClient(LocalPaymentClient):
 
     def _request(self, method, path, key=None, body=None):
         result = super()._request(method, path, key, body)
-        step = "create_intent" if path == "/intents" else "quote_intent" if path.endswith("/quote") else "execute_existing_attempt" if path.endswith("/execute") else None
+        step = "create_intent" if path == "/intents" else "quote_intent" if path.endswith(("/quote", "/quote-external")) else "execute_existing_attempt" if path.endswith("/execute") else None
         if method == "POST" and step == self._step and not self._marker.exists():
             # Safe marker is the deterministic acceptance barrier; no payload/token.
             self._marker.write_text(step, encoding="ascii")

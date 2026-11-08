@@ -145,7 +145,10 @@ def main() -> int:
         process = subprocess.run(
             [sys.executable, "-c", "from scripts.run_python_evidence import worker_main; "
              "raise SystemExit(worker_main())", str(args.context.resolve()), str(output), *args.modules],
-            cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=240)
+            # The shared workflow stage includes isolated server/process recovery
+            # journeys. Keep its fixed budget below the outer 600-second deadline.
+            cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=540 if context["stage"] == "langgraph" else 240)
         code = process.returncode
     except (OSError, subprocess.TimeoutExpired):
         value = project(context, "python-unittest", [], ["INCOMPLETE_PRODUCER"])

@@ -8,7 +8,7 @@ import re
 from typing import Protocol
 
 from workflows.payment_workflow import (
-    PROFILE, PROFILES, SCENARIOS, STATES, WorkflowError, canonical_uuid,
+    PROFILE, PROFILES, EXTERNAL_PROFILE, SCENARIOS, STATES, WorkflowError, canonical_uuid,
     positive_version, safe_money,
 )
 
@@ -16,12 +16,17 @@ CONTRACT = "payment-runtime-0.1"
 DECISION_VERSION = "purchase-decisions-1"
 TEMPLATE_VERSION = "synthetic-request-1"
 ACTIVITY_VERSION = "payment-activities-1"
+EXTERNAL_TEMPLATE_VERSION = "external-checkout-request-1"
+EXTERNAL_ACTIVITY_VERSION = "external-checkout-activities-1"
+EXTERNAL_HANDOFF_CAPABILITY = "external-checkout-handoff-1"
+TRACE_CAPABILITY = "bounded-step-replay-1"
+RUNTIME_PROFILES = (*PROFILES, EXTERNAL_PROFILE)
 MAX_ACTIVITIES = 512
 MAX_PAYLOAD_BYTES = 16_384
 MAX_POLL_SECONDS = 60
 KINDS = frozenset(("decide", "create_intent", "quote_intent", "read_status", "execute_existing_attempt"))
 REASONS = frozenset(("external-change", "manual", "timer"))
-SQLITE_CAPABILITIES = frozenset(("restart-resume", "single-local-driver", "cooperative-stop", "versioned-decisions", "durable-wake"))
+SQLITE_CAPABILITIES = frozenset(("restart-resume", "single-local-driver", "cooperative-stop", "versioned-decisions", "durable-wake", EXTERNAL_HANDOFF_CAPABILITY, TRACE_CAPABILITY))
 TEMPORAL_CAPABILITIES = SQLITE_CAPABILITIES | frozenset(("durable-timer", "activity-retry", "history-replay"))
 
 
@@ -40,6 +45,40 @@ def encoded(value):
 
 
 @dataclass(frozen=True)
+class CheckoutSource:
+    purchase_id: str
+    expected_purchase_revision: int
+    response_reference: str
+
+    def __post_init__(self):
+        self.checked()
+
+    def checked(self):
+        valid = (type(self.purchase_id) is str and type(self.response_reference) is str
+                 and type(self.expected_purchase_revision) is int
+                 and 1 <= self.expected_purchase_revision <= 2147483647)
+        if valid:
+            try:
+                canonical_uuid(self.purchase_id)
+                canonical_uuid(self.response_reference)
+            except WorkflowError:
+                valid = False
+        if not valid:
+            fail("INVALID_CHECKOUT_SOURCE")
+        return self
+
+    def data(self):
+        self.checked()
+        return asdict(self)
+
+    @classmethod
+    def from_data(cls, data):
+        if type(data) is not dict or set(data) != {"purchase_id", "expected_purchase_revision", "response_reference"}:
+            fail("INVALID_CHECKOUT_SOURCE")
+        return cls(data["purchase_id"], data["expected_purchase_revision"], data["response_reference"])
+
+
+@dataclass(frozen=True)
 class StartWorkflow:
     scope_ref: str
     principal_id: str
@@ -53,15 +92,26 @@ class StartWorkflow:
     activity_version: str = ACTIVITY_VERSION
     required_capabilities: tuple[str, ...] = ()
     activity_limit: int = MAX_ACTIVITIES
+    checkout_source: CheckoutSource | None = None
 
     def checked(self, capabilities):
         label(self.scope_ref); label(self.principal_id)
         canonical_uuid(self.run_id); canonical_uuid(self.workflow_id)
         label(self.runtime)
-        if self.scenario not in SCENARIOS or self.profile not in PROFILES:
+        if self.scenario not in SCENARIOS or self.profile not in RUNTIME_PROFILES:
             fail()
-        if (self.decision_version != DECISION_VERSION or self.template_version != TEMPLATE_VERSION
-                or self.activity_version != ACTIVITY_VERSION):
+        external = self.profile == EXTERNAL_PROFILE
+        if external:
+            if type(self.checkout_source) is not CheckoutSource:
+                fail("INVALID_CHECKOUT_SOURCE")
+            self.checkout_source.checked()
+            if EXTERNAL_HANDOFF_CAPABILITY not in capabilities:
+                fail("UNSUPPORTED_RUNTIME_CAPABILITY")
+        elif self.checkout_source is not None:
+            fail("INVALID_CHECKOUT_SOURCE")
+        if (self.decision_version != DECISION_VERSION
+                or self.template_version != (EXTERNAL_TEMPLATE_VERSION if external else TEMPLATE_VERSION)
+                or self.activity_version != (EXTERNAL_ACTIVITY_VERSION if external else ACTIVITY_VERSION)):
             fail("UNSUPPORTED_RUNTIME_VERSION")
         if type(self.activity_limit) is not int or not 8 <= self.activity_limit <= MAX_ACTIVITIES:
             fail("UNSUPPORTED_RUNTIME_LIMIT")
@@ -74,8 +124,14 @@ class StartWorkflow:
         return self
 
     def data(self):
+        if self.checkout_source is not None and type(self.checkout_source) is not CheckoutSource:
+            fail("INVALID_CHECKOUT_SOURCE")
         value = asdict(self)
         value["required_capabilities"] = sorted(self.required_capabilities)
+        if self.checkout_source is None:
+            del value["checkout_source"]
+        else:
+            value["checkout_source"] = self.checkout_source.data()
         return value
 
     def fingerprint(self):
@@ -89,10 +145,16 @@ class StartWorkflow:
 
 
 def start_from_data(data):
-    expected = set(StartWorkflow.__dataclass_fields__)
-    if not isinstance(data, dict) or set(data) != expected:
+    legacy_fields = set(StartWorkflow.__dataclass_fields__) - {"checkout_source"}
+    if (not isinstance(data, dict)
+            or set(data) not in (legacy_fields, legacy_fields | {"checkout_source"})):
         fail()
     value = dict(data)
+    external = value.get("profile") == EXTERNAL_PROFILE
+    if external != ("checkout_source" in value):
+        fail("INVALID_CHECKOUT_SOURCE")
+    if external:
+        value["checkout_source"] = CheckoutSource.from_data(value["checkout_source"])
     if not isinstance(value["required_capabilities"], (tuple, list)):
         fail()
     value["required_capabilities"] = tuple(value["required_capabilities"])
@@ -189,8 +251,20 @@ class RegistrationStore(Protocol):
     def stage_activity(self, reference: WorkflowRef, progress: dict, envelope: dict) -> bool:
         """Atomically order pause against staging; an applied pause prevents a new dispatch."""
         ...
-    def record_activity(self, envelope: dict, result: dict) -> None:
-        """Validate and monotonically retain safe recovery references before completion."""
+    def describe_trace(self):
+        """Typed trusted writer descriptor; guarantees require behavioral evidence."""
+        ...
+    def trace_policy(self, reference: WorkflowRef) -> dict: ...
+    def begin_activity(self, envelope: dict):
+        """Durably begin one diagnostic invocation before executing an activity."""
+        ...
+    def record_failure(self, envelope: dict, failure: dict, invocation) -> None: ...
+    def record_activity(self, envelope: dict, result: dict, invocation=None) -> None:
+        """Atomically retain a terminal result and monotonic recovery projection.
+
+        An invocation is mandatory for new registrations; omission is permitted
+        only for positively identified historical registrations without a journal.
+        """
         ...
     def recovery(self, reference: WorkflowRef) -> dict: ...
 
@@ -219,7 +293,7 @@ def safe_state(value):
                 fail()
             result[key] = item
         elif key == "profile":
-            if item not in PROFILES:
+            if item not in RUNTIME_PROFILES:
                 fail()
             result[key] = item
         elif key == "exposureState":

@@ -23,6 +23,8 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - A [PostgreSQL provider binding journal](docs/durable-provider-journal.md) behind the unchanged journal interface, with immutable submission ownership, retained conflicting evidence and independent JVM crash/recovery checks over the durable synthetic peer.
 - Application-owned execute-command policy through a typed atomic transaction contract, retaining PostgreSQL locking, command replay and operation/outbox/state atomicity.
 - Explicit constructor DI and ordered service decorators, bounded replaceable logging/metrics providers, and transport-independent typed application failures; see [service composition](docs/service-composition.md).
+- Immutable external-checkout source registration for the shared SQLite/Temporal payment workflow; accepted quote retries retain the original source and command identity across restarts.
+- Bounded durable workflow diagnostics and offline recorded-step replay, separate from optional logging and live payment recovery; see [workflow debugging](docs/workflow-debugging.md).
 - Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
 Execution currently accepts only explicit synthetic profiles. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
@@ -38,6 +40,7 @@ This project is for teams building purchasing agents, merchant checkout integrat
 | Business procurement | An agent prepares a purchase and waits for a manager's approval. | Bind approval to the exact checkout and spending authority; recheck price, expiry and budget before execution. |
 | Customer authentication | A customer must complete 3DS, wallet approval or a bank redirect. | Pause the workflow for a trusted interaction, then resume from a verified result without exposing credentials or OTPs to the agent. |
 | Uncertain payment outcomes | The provider accepts a payment, but the response is lost or a worker crashes. | Preserve the original operation and idempotency identity, retain unresolved exposure and reconcile before considering any further action. |
+| Workflow debugging | An activity fails or a restart leaves its outcome uncertain. | Inspect safe invocation records and replay recorded steps and pure decisions offline; use separate live recovery to continue the original workflow. See [debugging and replay](docs/workflow-debugging.md). |
 | Scheduled purchasing | Purchase an item at an agreed time or when an authorised condition is met. | Use durable timers and recheck current availability, checkout terms and valid authority; an expired grant requires fresh authority. |
 | Long-running bank payments | A payment remains pending for hours or days. | Track the original payment across restarts and handle delayed or duplicate events without treating a pending status as settlement. |
 | Multi-step purchases | Coordinate a booking, payment and fulfillment. | Keep step ownership and outcomes explicit, with separately defined recovery or compensation for partial completion. |
@@ -114,6 +117,7 @@ The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/pri
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
 - [Service DI, logging, metrics and application failures](docs/service-composition.md), [design decision](docs/adr/0015-service-composition-observability-errors.md)
 - [Durable AP2/ACP composition and replacement ports](docs/durable-composition.md), [durable runtime and Temporal setup](docs/durable-runtime.md)
+- [Workflow debugging, safe export and offline replay](docs/workflow-debugging.md)
 - [External commerce lifecycle](docs/durable-external-checkout.md), [external checkout authority](docs/external-checkout-authority.md), [provider journal](docs/durable-provider-journal.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
 - [Generic extensions and adapter TCK](docs/extensions-and-tck.md), [pinned upstream bridge design](docs/ap2-acp-bridge-design.md)
