@@ -13,6 +13,11 @@ import io.agenticpayments.application.PaymentCommandTransactions;
 import io.agenticpayments.application.PaymentCommandTransactions.*;
 import io.agenticpayments.application.PaymentStore;
 import io.agenticpayments.application.WorkerReceipt;
+import io.agenticpayments.application.RunPaymentWork;
+import io.agenticpayments.application.PaymentWorkerTransactions;
+import io.agenticpayments.application.PaymentWorkerTransactions.*;
+import io.agenticpayments.application.PaymentFactVerifier;
+import io.agenticpayments.application.SyntheticPendingProgression;
 import io.agenticpayments.application.ExternalCheckoutRegistration;
 import io.agenticpayments.application.CheckoutLifecycleTransactions.CoordinationDomain;
 import io.agenticpayments.application.PaymentService.*;
@@ -40,10 +45,11 @@ public final class JdbcPaymentStore implements PaymentStore {
     private final JdbcObservedCheckoutSource externalSource=new JdbcObservedCheckoutSource();
     private final ExecutePayment execution;
     private final ApprovePayment approval;
+    private final RunPaymentWork worker;
+    private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
-    private record Dispatch(ChargeOperation operation,String kind,long fence) {}
     @Override public Set<String> admissionCapabilities() {
         return externalRegistration==null?Set.of("atomic-replay-grant-reservation-0.1"):
                 Set.of("atomic-replay-grant-reservation-0.1","atomic-external-checkout-binding-0.1");
@@ -55,6 +61,13 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition,Ports externalComposition,
                             ExternalCheckoutRegistration externalRegistration,CoordinationDomain coordinationDomain) {
+        this(ds,adapter,replayOwner,composition,externalComposition,externalRegistration,coordinationDomain,
+                legacyVerifier(adapter),legacyProgression(adapter));
+    }
+    /** Trusted provider collaborators can be directly implemented, adapted or decorated. */
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition,Ports externalComposition,
+                            ExternalCheckoutRegistration externalRegistration,CoordinationDomain coordinationDomain,
+                            PaymentFactVerifier verifier,SyntheticPendingProgression progression) {
         this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
         this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
         if((externalComposition==null)!=(externalRegistration==null)
@@ -63,30 +76,43 @@ public final class JdbcPaymentStore implements PaymentStore {
         this.externalCoordinator=externalComposition==null?null:new NativeApplicationCoordinator(externalComposition.checkout(),externalComposition.issuer(),externalComposition.verifier(),externalComposition.artifacts(),EXTERNAL_PROFILE);
         if(externalComposition!=null) externalCapabilities();
         var transactions=new PaymentCommandTransactions() {
-            private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
             public String requestDigest(ExecuteCommand command){return PaymentRules.sha256(encode(command));}
             public String approvalRequestDigest(ApproveCommand command){return PaymentRules.sha256(encode(command));}
             public Result run(Session session,PaymentCommandTransactions.Work work){
-                if(entered.get())throw new IllegalStateException("Nested payment command transaction");
-                entered.set(true);
-                try{return transaction(session,tx->{
+                return transaction(session,tx->{
                         var scope=new CommandTransaction(tx);
                         try{return work.run(scope);}finally{scope.active=false;}
                     });
-                } finally{entered.remove();}
             }
             public Result runApproval(Session session,PaymentCommandTransactions.ApprovalWork work){
-                if(entered.get())throw new IllegalStateException("Nested payment command transaction");
-                entered.set(true);
-                try{return transaction(session,tx->{
+                return transaction(session,tx->{
                         var scope=new ApprovalCommandTransaction(tx);
                         try{return work.run(scope);}finally{scope.active=false;}
                     });
-                } finally{entered.remove();}
             }
         };
         this.execution=new ExecutePayment(transactions,adapter::capabilities);
         this.approval=new ApprovePayment(transactions,adapter::capabilities);
+        var workerTransactions=new PaymentWorkerTransactions() {
+            public <T> T run(Session session,PaymentWorkerTransactions.Work<T> work) {
+                return transaction(session,tx->{
+                    var scope=new WorkerTransaction(tx);
+                    try{return work.run(scope);}finally{scope.active=false;}
+                });
+            }
+        };
+        this.worker=new RunPaymentWork(workerTransactions,adapter,verifier,progression);
+    }
+
+    private static PaymentFactVerifier legacyVerifier(PaymentAdapter adapter) {
+        Objects.requireNonNull(adapter);
+        if(adapter instanceof JdbcSimulatorAdapter local)return (expected,delivered)->local.verifyEvent(expected.identity(),delivered.eventId());
+        return (expected,delivered)->adapter.lookup(expected.identity()).fact().filter(delivered::equals)
+                .orElseThrow(()->new IllegalArgumentException("Unverified adapter fact"));
+    }
+    private static SyntheticPendingProgression legacyProgression(PaymentAdapter adapter) {
+        if(adapter instanceof JdbcSimulatorAdapter local)return (expected,pending)->local.finishPending(expected.identity());
+        return (expected,pending)->pending;
     }
 
     public void seedRun(Session s,Instant clock,long budget) {
@@ -379,124 +405,164 @@ public final class JdbcPaymentStore implements PaymentStore {
             update(tx.c,"UPDATE simulation_runs SET virtual_time=? WHERE tenant_id=? AND run_id=?",clock,s.tenantId(),s.runId());audit(new Tx(tx.c,s,clock),null,"CLOCK_ADVANCED");return null;
         });
     }
-    public boolean runNext(Session s) {
-        WorkerReceipt receipt=runNextRecorded(s);return receipt.operationId()!=null||receipt.progressed();
-    }
-    public WorkerReceipt runNextRecorded(Session s) {
-        role(s,"runner:write");
-        capabilities();
-        long[] before=new long[4];Object[] selection=new Object[3];
-        Dispatch d=transaction(s,tx->{
-            activity(tx,before);
-            expire(tx);
-            var pending=one(tx.c,"SELECT w.*,a.intent_id FROM outbox w JOIN financial_operations o USING(tenant_id,run_id,operation_id) JOIN payment_attempts a USING(tenant_id,run_id,attempt_id) WHERE w.tenant_id=? AND w.run_id=? AND NOT w.done ORDER BY CASE w.kind WHEN 'PREPARE' THEN 0 WHEN 'DISPATCH' THEN 1 ELSE 2 END,w.enqueue_sequence LIMIT 1",s.tenantId(),s.runId());
-            if(pending==null) return null;
-            UUID op=(UUID)pending.get("operation_id"), id=(UUID)pending.get("intent_id"); var i=intentUnchecked(tx,id); var a=attempt(tx,id); String kind=text(pending,"kind");
-            selection[0]=op;selection[1]=kind;selection[2]=number(pending,"fence");
-            if(PaymentRules.TERMINAL.contains(text(i,"state"))) { done(tx,op,kind); return null; }
-            long fence=number(pending,"fence")+1;
-            selection[2]=fence;
-            update(tx.c,"UPDATE outbox SET fence=? WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",fence,s.tenantId(),s.runId(),op,kind);
-            if(kind.equals("PREPARE")&&nativeProfile(i)&&!nativeGate(tx,i,a,grant(tx,text(a,"grant_id")))) return null;
-            if(kind.equals("DISPATCH")) {
-                if(!text(i,"state").equals("READY")) { done(tx,op,kind); return null; }
-                var g=grant(tx,text(a,"grant_id")); var r=reservation(tx,(UUID)a.get("attempt_id")); var b=budget(tx,text(r,"budget_id"));
-                if(Boolean.TRUE.equals(b.get("frozen"))) { done(tx,op,kind); return null; }
-                if(!eligible(tx,g,a,i)) { terminate(tx,i,a,text(g,"state").equals("REVOKED")?"CANCELLED":"EXPIRED"); return null; }
-                if(nativeProfile(i)&&!nativeGate(tx,i,a,g)) return null;
-                var ac=one(tx.c,"SELECT * FROM customer_actions WHERE tenant_id=? AND run_id=? AND operation_id=?",s.tenantId(),s.runId(),op);
-                boolean needsAction=text(i,"scenario_id").equals("challenge-then-success");
-                var q=quote(tx,i);
-                if(needsAction&&(ac==null||!text(ac,"state").equals("VERIFIED")||!tx.now.isBefore(instant(ac,"expires_at"))||!Objects.equals(ac.get("subject_id"),a.get("subject_id"))||!Objects.equals(ac.get("checkout_digest"),q.get("digest")))) { terminate(tx,i,a,"FAILED"); return null; }
-                if(!text(r,"state").equals("HELD")) throw new IllegalStateException("Missing execution exposure");
-                var seq=one(tx.c,"UPDATE simulation_runs SET admission_sequence=admission_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING admission_sequence",s.tenantId(),s.runId());
-                update(tx.c,"UPDATE financial_operations SET admitted_sequence=?,admitted_at=?,admitted_grant_version=? WHERE tenant_id=? AND run_id=? AND operation_id=?",seq.get("admission_sequence"),tx.now,g.get("version"),s.tenantId(),s.runId(),op);
-                change(tx,id,"ADMITTED"); done(tx,op,"DISPATCH"); work(tx,op,"RECONCILE");
-            }
-            return new Dispatch(envelope(tx,i,a,operationById(tx,op)),kind,fence);
-        });
-        if(d==null) return receipt(s,before,selection);
-        if(d.kind.equals("PREPARE")) {
-            Preparation preparation=adapter.prepare(d.operation);
-            transaction(s,tx->{
-                var id=d.operation.identity(); var i=intentUnchecked(tx,id.intentId()); var a=attempt(tx,id.intentId());
-                if(!text(i,"state").equals("PREPARING")||!fence(tx,id.operationId(),"PREPARE",d.fence)) return null;
-                var g=grant(tx,text(a,"grant_id"));
-                if(!eligible(tx,g,a,i)) { terminate(tx,i,a,text(g,"state").equals("REVOKED")?"CANCELLED":"EXPIRED"); return null; }
-                if(nativeProfile(i)&&!nativeGate(tx,i,a,g)) return null;
-                if((preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE)!=text(i,"scenario_id").equals("challenge-then-success")) { terminate(tx,i,a,"FAILED"); return null; }
-                if(preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE) {
-                    var q=quote(tx,i);
-                    update(tx.c,"INSERT INTO customer_actions(tenant_id,run_id,action_id,operation_id,subject_id,checkout_digest,state,expires_at) VALUES(?,?,?,?,?,?,'OPEN',?) ON CONFLICT DO NOTHING",s.tenantId(),s.runId(),UUID.randomUUID(),id.operationId(),a.get("subject_id"),q.get("digest"),tx.now.plusSeconds(600));
-                    change(tx,id.intentId(),"WAITING_ACTION");
-                } else { change(tx,id.intentId(),"READY"); work(tx,id.operationId(),"DISPATCH"); }
-                done(tx,id.operationId(),"PREPARE"); return null;
-            });
-        } else if(d.kind.equals("DISPATCH")) {
-            try { acceptFact(s,d.operation,adapter.execute(d.operation)); }
-            catch(AdapterUnavailableException e) { markUnknown(s,d.operation.identity()); }
-        } else {
-            try {
-                LookupResult lookup=adapter.lookup(d.operation.identity());
-                if(lookup.status()==LookupResult.Status.FOUND) {
-                    Fact fact=lookup.fact().orElseThrow();
-                    // Explicit scheduler step progresses a delayed synthetic scenario, never a live provider.
-                    if(fact.outcome()==Outcome.PENDING&&adapter instanceof JdbcSimulatorAdapter local) fact=local.finishPending(d.operation.identity());
-                    acceptFact(s,d.operation,fact);
-                } else markUnknown(s,d.operation.identity());
-            } catch(AdapterUnavailableException e) { markUnknown(s,d.operation.identity()); }
+    /** Typed SQL phases; application decisions are in RunPaymentWork. */
+    private final class WorkerTransaction implements PaymentWorkerTransactions.Transaction {
+        private final Tx tx;
+        private final Thread thread=Thread.currentThread();
+        private boolean active=true,nativeVerified,written;
+        private Map<String,Object> intentRow,attemptRow,operationRow,grantRow;
+        private Snapshot snapshotValue;
+        private WorkItem selected;
+        private Claim claimed;
+        WorkerTransaction(Tx tx){this.tx=tx;}
+        private void active(){if(!active||thread!=Thread.currentThread())throw new IllegalStateException("Payment transaction is no longer active");}
+        private void bound(Snapshot snapshot) {
+            active();if(snapshot==null||snapshot!=snapshotValue||written)throw new IllegalArgumentException("Unbound worker transaction facts");
         }
-        return receipt(s,before,selection);
+        private void bound(Claim claim,Snapshot snapshot) {
+            bound(snapshot);if(claim==null||!claim.operationId().equals(snapshot.operation().identity().operationId()))throw new IllegalArgumentException("Unbound worker claim");
+        }
+        private Map<String,Object> outbox(UUID operation,WorkKind kind) throws SQLException {
+            return one(tx.c,"SELECT * FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",tx.s.tenantId(),tx.s.runId(),operation,kind.name());
+        }
+        public Instant now(){active();return tx.now;}
+        public Activity activity() throws SQLException {
+            active();long[] values=new long[4];JdbcPaymentStore.this.activity(tx,values);
+            return new Activity(values[0],values[1],values[2],values[3]);
+        }
+        public void expireEligible() throws Exception {
+            active();if(snapshotValue!=null||selected!=null||claimed!=null||written)throw new IllegalStateException("Worker phase already selected");
+            expire(tx);
+        }
+        public Optional<WorkItem> next() throws SQLException {
+            active();if(claimed!=null||written)throw new IllegalStateException("Worker phase already claimed");
+            var row=one(tx.c,"SELECT w.* FROM outbox w JOIN financial_operations o USING(tenant_id,run_id,operation_id) JOIN payment_attempts a USING(tenant_id,run_id,attempt_id) WHERE w.tenant_id=? AND w.run_id=? AND NOT w.done ORDER BY CASE w.kind WHEN 'PREPARE' THEN 0 WHEN 'DISPATCH' THEN 1 ELSE 2 END,w.enqueue_sequence LIMIT 1",tx.s.tenantId(),tx.s.runId());
+            selected=row==null?null:new WorkItem(uuid(row,"operation_id"),WorkKind.valueOf(text(row,"kind")),number(row,"fence"));
+            claimed=null;return Optional.ofNullable(selected);
+        }
+        public Snapshot load(UUID operationId) throws SQLException {
+            active();if(written)throw new IllegalStateException("Worker phase already written");
+            operationRow=operationById(tx,operationId);attemptRow=required(one(tx.c,"SELECT * FROM payment_attempts WHERE tenant_id=? AND run_id=? AND attempt_id=?",tx.s.tenantId(),tx.s.runId(),operationRow.get("attempt_id")));
+            intentRow=intentUnchecked(tx,uuid(attemptRow,"intent_id"));grantRow=grant(tx,text(attemptRow,"grant_id"));
+            var quote=JdbcPaymentStore.this.quote(tx,intentRow);var reservation=JdbcPaymentStore.this.reservation(tx,uuid(attemptRow,"attempt_id"));
+            var budget=JdbcPaymentStore.this.budget(tx,text(reservation,"budget_id"));
+            var action=one(tx.c,"SELECT * FROM customer_actions WHERE tenant_id=? AND run_id=? AND operation_id=?",tx.s.tenantId(),tx.s.runId(),operationId);
+            nativeVerified=false;
+            return snapshotValue=new Snapshot(envelope(tx,intentRow,attemptRow,operationRow),text(intentRow,"profile"),text(intentRow,"state"),
+                    number(attemptRow,"grant_version"),text(attemptRow,"subject_id"),text(quote,"digest"),
+                    new Grant(text(grantRow,"state"),number(grantRow,"version"),text(grantRow,"subject_id"),text(grantRow,"merchant_id"),instant(grantRow,"valid_from"),instant(grantRow,"expires_at")),
+                    text(reservation,"state"),Boolean.TRUE.equals(budget.get("frozen")),operationRow.get("admitted_sequence")!=null,
+                    action==null?null:new Action(text(action,"state"),text(action,"subject_id"),text(action,"checkout_digest"),instant(action,"expires_at")));
+        }
+        public Snapshot findAdmitted(UUID intentId) throws SQLException {
+            active();intentUnchecked(tx,intentId);var attempt=JdbcPaymentStore.this.attempt(tx,intentId);
+            if(attempt==null)fail(ApplicationFailure.INVALID_STATE);
+            var operation=JdbcPaymentStore.this.operation(tx,uuid(attempt,"attempt_id"));
+            if(operation==null||operation.get("admitted_sequence")==null)fail(ApplicationFailure.INVALID_STATE);
+            return load(uuid(operation,"operation_id"));
+        }
+        public Claim claim(WorkItem work) throws SQLException {
+            active();if(work==null||work!=selected||claimed!=null)throw new IllegalArgumentException("Unbound worker selection");
+            var row=outbox(work.operationId(),work.kind());
+            if(row==null||Boolean.TRUE.equals(row.get("done"))||number(row,"fence")!=work.fence())throw new IllegalArgumentException("Stale worker selection");
+            long next=Math.addExact(work.fence(),1);
+            update(tx.c,"UPDATE outbox SET fence=? WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",next,tx.s.tenantId(),tx.s.runId(),work.operationId(),work.kind().name());
+            return claimed=new Claim(work.operationId(),work.kind(),next);
+        }
+        public Claim reconciliationClaim(Snapshot snapshot) throws SQLException {
+            bound(snapshot);if(!snapshot.admitted())throw new IllegalArgumentException("Unadmitted observation");
+            var operation=snapshot.operation().identity().operationId();var row=outbox(operation,WorkKind.RECONCILE);
+            if(row==null)throw new IllegalStateException("Missing reconciliation work");
+            if(Boolean.TRUE.equals(row.get("done")))return new Claim(operation,WorkKind.RECONCILE,number(row,"fence"));
+            selected=new WorkItem(operation,WorkKind.RECONCILE,number(row,"fence"));return claim(selected);
+        }
+        public boolean isCurrent(Claim claim) throws SQLException {
+            active();return claim!=null&&fence(tx,claim.operationId(),claim.kind().name(),claim.fence());
+        }
+        public boolean nativeGate(Snapshot snapshot) throws Exception {
+            bound(snapshot);if(!nativeProfile(intentRow))throw new IllegalArgumentException("Non-native worker gate");
+            nativeVerified=JdbcPaymentStore.this.nativeGate(tx,intentRow,attemptRow,grantRow);
+            if(!nativeVerified)written=true;
+            return nativeVerified;
+        }
+        public void terminateBeforeAdmission(Snapshot snapshot,Termination termination) throws SQLException {
+            bound(snapshot);terminate(tx,intentRow,attemptRow,Objects.requireNonNull(termination).name());written=true;
+        }
+        public void completeObsolete(WorkItem work) throws SQLException {
+            active();if(work==null||work!=selected||written)throw new IllegalArgumentException("Unbound worker selection");
+            long expected=claimed==null?work.fence():claimed.fence();
+            if(!fence(tx,work.operationId(),work.kind().name(),expected))throw new IllegalArgumentException("Stale worker selection");
+            done(tx,work.operationId(),work.kind().name());written=true;
+        }
+        public void admit(Claim claim,Snapshot snapshot) throws SQLException {
+            bound(claim,snapshot);
+            if(claim!=claimed||claim.kind()!=WorkKind.DISPATCH||!isCurrent(claim)||snapshot.admitted()
+                    ||!"READY".equals(snapshot.state())||!"HELD".equals(snapshot.reservationState())
+                    ||(nativeProfile(intentRow)&&!nativeVerified))throw new IllegalArgumentException("Unbound dispatch admission");
+            var sequence=one(tx.c,"UPDATE simulation_runs SET admission_sequence=admission_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING admission_sequence",tx.s.tenantId(),tx.s.runId());
+            update(tx.c,"UPDATE financial_operations SET admitted_sequence=?,admitted_at=?,admitted_grant_version=? WHERE tenant_id=? AND run_id=? AND operation_id=?",sequence.get("admission_sequence"),tx.now,grantRow.get("version"),tx.s.tenantId(),tx.s.runId(),claim.operationId());
+            change(tx,snapshot.operation().identity().intentId(),"ADMITTED");done(tx,claim.operationId(),"DISPATCH");work(tx,claim.operationId(),"RECONCILE");written=true;
+        }
+        public void completePreparation(Claim claim,Snapshot snapshot,ActionType action) throws SQLException {
+            bound(claim,snapshot);
+            if(claim.kind()!=WorkKind.PREPARE||!isCurrent(claim)||snapshot.admitted()||!"PREPARING".equals(snapshot.state())
+                    ||(nativeProfile(intentRow)&&!nativeVerified))throw new IllegalArgumentException("Unbound preparation completion");
+            if(action==ActionType.SYNTHETIC_CHALLENGE) {
+                update(tx.c,"INSERT INTO customer_actions(tenant_id,run_id,action_id,operation_id,subject_id,checkout_digest,state,expires_at) VALUES(?,?,?,?,?,?,'OPEN',?) ON CONFLICT DO NOTHING",tx.s.tenantId(),tx.s.runId(),UUID.randomUUID(),claim.operationId(),attemptRow.get("subject_id"),snapshot.checkoutDigest(),tx.now.plusSeconds(600));
+                change(tx,snapshot.operation().identity().intentId(),"WAITING_ACTION");
+            } else {change(tx,snapshot.operation().identity().intentId(),"READY");work(tx,claim.operationId(),"DISPATCH");}
+            done(tx,claim.operationId(),"PREPARE");written=true;
+        }
+        public void markUnknown(Claim claim,Snapshot snapshot) throws SQLException {
+            bound(claim,snapshot);
+            if(!snapshot.admitted()||!"ADMITTED".equals(snapshot.state()))return;
+            var row=outbox(claim.operationId(),claim.kind());
+            boolean valid=row!=null&&number(row,"fence")==claim.fence()
+                    &&(claim.kind()==WorkKind.DISPATCH&&Boolean.TRUE.equals(row.get("done"))
+                    ||claim.kind()==WorkKind.RECONCILE&&!Boolean.TRUE.equals(row.get("done")));
+            if(!valid)return;
+            change(tx,snapshot.operation().identity().intentId(),"UNKNOWN");work(tx,claim.operationId(),"RECONCILE");written=true;
+        }
+        public void applyVerifiedFact(ChargeOperation expected,Fact fact) throws Exception {
+            active();var snapshot=load(expected.identity().operationId());
+            if(!snapshot.operation().equals(expected)||!snapshot.admitted())throw new IllegalArgumentException("Unbound financial evidence");
+            applyFact(tx,expected,fact);written=true;
+        }
+        public WorkerReceipt receipt(Activity before,Selection selected) throws SQLException {
+            active();return JdbcPaymentStore.this.receipt(tx,new long[]{before.auditSequence(),before.completedWork(),before.evidence(),before.conflicts()},selected);
+        }
     }
-    public void reconcile(Session s,UUID id,boolean sealIfAbsent) {
-        role(s,"runner:write"); ChargeOperation op=transaction(s,tx->{
-            var i=intentUnchecked(tx,id); var a=attempt(tx,id); if(a==null) fail(ApplicationFailure.INVALID_STATE); var o=operation(tx,(UUID)a.get("attempt_id"));
-            if(o==null||o.get("admitted_sequence")==null) fail(ApplicationFailure.INVALID_STATE); return envelope(tx,i,a,o);
-        });
-        try {
-            var lookup=adapter.lookup(op.identity());
-            if(lookup.status()==LookupResult.Status.FOUND) acceptFact(s,op,lookup.fact().orElseThrow());
-            else if(lookup.status()==LookupResult.Status.NOT_FOUND&&sealIfAbsent) acceptFact(s,op,adapter.sealNoEffect(op));
-            else markUnknown(s,op.identity());
-        } catch(AdapterUnavailableException e) { markUnknown(s,op.identity()); }
-    }
-    private void acceptFact(Session s,ChargeOperation expected,Fact delivered) {
-        Fact verified;
-        if(adapter instanceof JdbcSimulatorAdapter local) verified=local.verifyEvent(expected.identity(),delivered.eventId());
-        else verified=adapter.lookup(expected.identity()).fact().filter(delivered::equals).orElseThrow(()->new IllegalArgumentException("Unverified adapter fact"));
-        if(!verified.equals(delivered)) throw new IllegalArgumentException("Unverified adapter fact");
-        transaction(s,tx->{
-            var id=expected.identity(); var i=intentUnchecked(tx,id.intentId()); var a=attempt(tx,id.intentId()); var o=operationById(tx,id.operationId());
-            String digest=PaymentRules.sha256(encode(delivered));
-            var existing=one(tx.c,"SELECT * FROM event_inbox WHERE tenant_id=? AND run_id=? AND event_id=?",s.tenantId(),s.runId(),delivered.eventId());
-            if(existing!=null) {
-                if(!Objects.equals(existing.get("fact_digest"),digest)) { conflict(tx,delivered,id.operationId(),digest,"event-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"event-conflict"); }
-                return null;
-            }
-            update(tx.c,"INSERT INTO event_inbox VALUES(?,?,?,?,?)",s.tenantId(),s.runId(),delivered.eventId(),id.operationId(),digest);
-            update(tx.c,"INSERT INTO operation_evidence(tenant_id,run_id,event_id,operation_id,sequence,outcome,fact_digest) VALUES(?,?,?,?,?,?,?)",s.tenantId(),s.runId(),delivered.eventId(),id.operationId(),delivered.sequence(),delivered.outcome().name(),digest);
-            if(!delivered.identity().equals(id)||!delivered.money().equals(expected.money())) { conflict(tx,delivered,id.operationId(),digest,"binding-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"binding-conflict"); return null; }
-            String finalOutcome=text(o,"final_outcome");
-            if(finalOutcome!=null&&!finalOutcome.equals(delivered.outcome().name())&&delivered.outcome()!=Outcome.PENDING) { conflict(tx,delivered,id.operationId(),digest,"final-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"final-conflict"); return null; }
-            if(delivered.sequence()<number(o,"fact_sequence")) return null;
-            if(delivered.sequence()==number(o,"fact_sequence")&&number(o,"fact_sequence")>0) { conflict(tx,delivered,id.operationId(),digest,"sequence-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"sequence-conflict"); return null; }
-            update(tx.c,"UPDATE financial_operations SET fact_sequence=? WHERE tenant_id=? AND run_id=? AND operation_id=?",delivered.sequence(),s.tenantId(),s.runId(),id.operationId());
-            if(finalOutcome!=null) return null;
-            if(delivered.outcome()==Outcome.PENDING) { acceptEvidence(tx,delivered.eventId()); change(tx,id.intentId(),"PENDING"); }
-            else {
-                var currentReservation=reservation(tx,(UUID)a.get("attempt_id"));
-                if(delivered.outcome()==Outcome.NO_EFFECT&&Boolean.TRUE.equals(budget(tx,text(currentReservation,"budget_id")).get("frozen"))) return null;
-                acceptEvidence(tx,delivered.eventId());
-                String next=delivered.outcome()==Outcome.SUCCEEDED?"SUCCEEDED":"FAILED";
-                settle(tx,a,delivered.outcome()==Outcome.SUCCEEDED?"CONSUMED":"RELEASED"); change(tx,id.intentId(),next);
-                update(tx.c,"UPDATE financial_operations SET final_outcome=? WHERE tenant_id=? AND run_id=? AND operation_id=?",delivered.outcome().name(),s.tenantId(),s.runId(),id.operationId());
-                done(tx,id.operationId(),"RECONCILE");
-            }
-            return null;
-        });
-    }
-    private void markUnknown(Session s,OperationIdentity id) {
-        transaction(s,tx->{ var i=intentUnchecked(tx,id.intentId()); if(!PaymentRules.TERMINAL.contains(text(i,"state"))&&!text(i,"state").equals("UNKNOWN")) change(tx,id.intentId(),"UNKNOWN"); work(tx,id.operationId(),"RECONCILE"); return null; });
+    public boolean runNext(Session s) { return worker.runNext(s); }
+    public WorkerReceipt runNextRecorded(Session s) { return worker.runNextRecorded(s); }
+    public void reconcile(Session s,UUID id,boolean sealIfAbsent) { worker.reconcile(s,id,sealIfAbsent); }
+    private void applyFact(Tx tx,ChargeOperation expected,Fact delivered) throws Exception {
+        Session s=tx.s;
+        var id=expected.identity(); var i=intentUnchecked(tx,id.intentId()); var a=attempt(tx,id.intentId()); var o=operationById(tx,id.operationId());
+        String digest=PaymentRules.sha256(encode(delivered));
+        var existing=one(tx.c,"SELECT * FROM event_inbox WHERE tenant_id=? AND run_id=? AND event_id=?",s.tenantId(),s.runId(),delivered.eventId());
+        if(existing!=null) {
+            if(!Objects.equals(existing.get("fact_digest"),digest)) { conflict(tx,delivered,id.operationId(),digest,"event-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"event-conflict"); }
+            return;
+        }
+        update(tx.c,"INSERT INTO event_inbox VALUES(?,?,?,?,?)",s.tenantId(),s.runId(),delivered.eventId(),id.operationId(),digest);
+        update(tx.c,"INSERT INTO operation_evidence(tenant_id,run_id,event_id,operation_id,sequence,outcome,fact_digest) VALUES(?,?,?,?,?,?,?)",s.tenantId(),s.runId(),delivered.eventId(),id.operationId(),delivered.sequence(),delivered.outcome().name(),digest);
+        if(!delivered.identity().equals(id)||!delivered.money().equals(expected.money())) { conflict(tx,delivered,id.operationId(),digest,"binding-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"binding-conflict"); return; }
+        String finalOutcome=text(o,"final_outcome");
+        if(finalOutcome!=null&&!finalOutcome.equals(delivered.outcome().name())&&delivered.outcome()!=Outcome.PENDING) { conflict(tx,delivered,id.operationId(),digest,"final-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"final-conflict"); return; }
+        if(delivered.sequence()<number(o,"fact_sequence")) return;
+        if(delivered.sequence()==number(o,"fact_sequence")&&number(o,"fact_sequence")>0) { conflict(tx,delivered,id.operationId(),digest,"sequence-conflict"); freeze(tx,a,id.operationId(),expected.money().minorUnits(),"sequence-conflict"); return; }
+        update(tx.c,"UPDATE financial_operations SET fact_sequence=? WHERE tenant_id=? AND run_id=? AND operation_id=?",delivered.sequence(),s.tenantId(),s.runId(),id.operationId());
+        if(finalOutcome!=null) return;
+        if(delivered.outcome()==Outcome.PENDING) { acceptEvidence(tx,delivered.eventId()); change(tx,id.intentId(),"PENDING"); }
+        else {
+            var currentReservation=reservation(tx,(UUID)a.get("attempt_id"));
+            if(delivered.outcome()==Outcome.NO_EFFECT&&Boolean.TRUE.equals(budget(tx,text(currentReservation,"budget_id")).get("frozen"))) return;
+            acceptEvidence(tx,delivered.eventId());
+            String next=delivered.outcome()==Outcome.SUCCEEDED?"SUCCEEDED":"FAILED";
+            settle(tx,a,delivered.outcome()==Outcome.SUCCEEDED?"CONSUMED":"RELEASED"); change(tx,id.intentId(),next);
+            update(tx.c,"UPDATE financial_operations SET final_outcome=? WHERE tenant_id=? AND run_id=? AND operation_id=?",delivered.outcome().name(),s.tenantId(),s.runId(),id.operationId());
+            done(tx,id.operationId(),"RECONCILE");
+        }
     }
     private void expire(Tx tx) throws Exception {
         for(var i:rows(tx.c,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND state IN ('QUOTED','APPROVED','PREPARING','WAITING_ACTION','READY') ORDER BY creation_sequence",tx.s.tenantId(),tx.s.runId())) {
@@ -562,6 +628,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         });
     }
     private <T> T transaction(Session s,Work<T> work) {
+        if(entered.get())throw new IllegalStateException("Nested payment transaction");
+        entered.set(true);
+        try{return transactionBody(s,work);}finally{entered.remove();}
+    }
+    private <T> T transactionBody(Session s,Work<T> work) {
         for(int retry=0;retry<3;retry++) {
             try(var c=ds.getConnection()) {
                 c.setAutoCommit(false);
@@ -796,9 +867,9 @@ public final class JdbcPaymentStore implements PaymentStore {
         values[2]=number(one(tx.c,"SELECT count(*) AS value FROM operation_evidence WHERE tenant_id=? AND run_id=?",tx.s.tenantId(),tx.s.runId()),"value");
         values[3]=number(one(tx.c,"SELECT (SELECT count(*) FROM conflict_evidence WHERE tenant_id=? AND run_id=?)+(SELECT count(*) FROM disputed_exposure WHERE tenant_id=? AND run_id=?) AS value",tx.s.tenantId(),tx.s.runId(),tx.s.tenantId(),tx.s.runId()),"value");
     }
-    private WorkerReceipt receipt(Session s,long[] before,Object[] selected) {
-        return transaction(s,tx->{long[] after=new long[4];activity(tx,after);boolean progress=!Arrays.equals(before,after);
-            var extent=one(tx.c,"SELECT COALESCE(min(step_sequence),0) AS first,COALESCE(max(step_sequence),0) AS last FROM audit_events WHERE tenant_id=? AND run_id=? AND step_sequence>?",s.tenantId(),s.runId(),before[0]);
-            return new WorkerReceipt((UUID)selected[0],(String)selected[1],selected[2]==null?0:(long)selected[2],number(extent,"first"),number(extent,"last"),progress);});
+    private WorkerReceipt receipt(Tx tx,long[] before,Selection selected) throws SQLException {
+        Session s=tx.s;long[] after=new long[4];activity(tx,after);boolean progress=!Arrays.equals(before,after);
+        var extent=one(tx.c,"SELECT COALESCE(min(step_sequence),0) AS first,COALESCE(max(step_sequence),0) AS last FROM audit_events WHERE tenant_id=? AND run_id=? AND step_sequence>?",s.tenantId(),s.runId(),before[0]);
+        return new WorkerReceipt(selected.operationId(),selected.kind()==null?null:selected.kind().name(),selected.fence(),number(extent,"first"),number(extent,"last"),progress);
     }
 }

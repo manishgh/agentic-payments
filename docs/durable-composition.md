@@ -57,7 +57,17 @@ Scopes are synchronous, thread-confined and invalid after the callback returns. 
 
 Existing execute-only transaction implementations remain source-compatible: the added approval entry methods default to typed `UNSUPPORTED_CAPABILITY`, without invoking approval work. Implement approval explicitly to enable it; a forwarding wrapper must delegate both its digest and transaction entry methods. Typed write records alone confer no authority, and implementing the interface does not establish distributed atomicity. See [ADR 0018](adr/0018-approval-application-transaction.md) for the contract and acceptance obligations.
 
-Worker dispatch, further native transaction-phase extraction and provider-journal admission wiring remain separate work. No provider or external checkout completion call is introduced by approval extraction.
+### Worker coordination and recovery
+
+`RunPaymentWork` accepts `PaymentWorkerTransactions`, the existing payment adapter, a `PaymentFactVerifier` and `SyntheticPendingProgression` through constructor injection. Each responsibility can be implemented directly, adapted or decorated. The application coordinates preparation, admission, lookup and uncertainty; the transaction owner preserves indivisible state/outbox/reservation changes. See [ADR 0019](adr/0019-worker-transaction-ownership.md) for the versioned behavioral contract and exact ordering.
+
+A successful admission commit permanently completes DISPATCH and publishes RECONCILE before returning the original operation for one provider call. A crash or ambiguous commit acknowledgement does not authorize another send. Recovery looks up that same operation and retains HELD exposure until verified financial evidence or a genuine provider no-effect seal resolves it. The local simulator supplies that seal; arbitrary external adapters cannot assume the same guarantee.
+
+Outbox generations are claim counters, not timed leases. Preparation completion and missing/unavailable reconciliation observations must still own their claim. Manual reconciliation also claims the existing RECONCILE generation, so it can supersede an older scheduled observation without creating new work. Uncertainty can change ADMITTED to UNKNOWN but cannot erase PENDING or a terminal result. Authentic late facts still pass verification and the existing conflict/settlement rules regardless of claim age.
+
+Worker, approval and execution callbacks share the reference owner's nesting guard and reject use after return or on another thread. Transaction callbacks never call provider preparation, submission, lookup, verification or progression. Wrappers must preserve the commit-before-send boundary and must not retry an admitted send. Worker receipts retain the historical selected identity, counter and committed activity range; concurrent activity may contribute to that range.
+
+The default infrastructure wiring retains the exact simulator's event-history verification and explicit scheduled pending progression. Other legacy adapters retain lookup/equality verification and no synthetic progression. Hosts retaining JDBC can use `PaymentServices.local(dataSource, adapter, ports, verifier, progression)` to inject these collaborators. Manual reconciliation never invokes synthetic progression. Further extraction of the existing expiry, native and evidence-settlement phases remains separate work, as do timed leases and provider-journal admission wiring.
 
 ## Run the native reference
 

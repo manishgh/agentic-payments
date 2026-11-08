@@ -37,6 +37,34 @@ class AdversarialEvidenceIntegrationTest {
     private Result status(UUID intent) { return service.status(session,intent); }
     private static Map<String,Object> stableStatus(Result result) { var body=new LinkedHashMap<>(result.body());body.remove("correlationId");return body; }
 
+    private record ClaimWitness(Map<String,String> otherTables,String expectedOutbox) {}
+    /** Only the selected unfinished RECONCILE counter may advance, even if verification fails. */
+    private ClaimWitness beforeObservation(UUID operation) throws Exception {
+        var tables=new LinkedHashMap<>(durableWitness());tables.remove("outbox");
+        return new ClaimWitness(tables,outboxWitness(operation));
+    }
+    private void unchangedExceptObservationClaim(ClaimWitness before) throws Exception {
+        var after=new LinkedHashMap<>(durableWitness());after.remove("outbox");
+        assertEquals(before.otherTables(),after,"Financial state and evidence must remain byte-identical");
+        assertEquals(before.expectedOutbox(),outboxWitness(null),"Only the original unfinished RECONCILE fence may increment once");
+    }
+    private String outboxWitness(UUID incrementOperation) throws Exception {
+        var values=new ArrayList<String>();int incremented=0;
+        try(var c=ds.getConnection();var p=c.prepareStatement("SELECT row_to_json(t)::text FROM outbox t WHERE tenant_id=? AND run_id=? ORDER BY operation_id,kind")) {
+            p.setString(1,session.tenantId());p.setObject(2,session.runId());
+            try(var rows=p.executeQuery()){while(rows.next()){
+                var value=(com.fasterxml.jackson.databind.node.ObjectNode)JSON.readTree(rows.getString(1));
+                if(incrementOperation!=null&&incrementOperation.toString().equals(value.path("operation_id").asText())
+                        &&"RECONCILE".equals(value.path("kind").asText())&&!value.path("done").asBoolean()){
+                    value.put("fence",value.path("fence").asLong()+1);incremented++;
+                }
+                values.add(JSON.writeValueAsString(value));
+            }}
+        }
+        if(incrementOperation!=null)assertEquals(1,incremented,"Fixture must contain exactly one unfinished reconciliation");
+        return values.size()+":sha256:"+PaymentRules.sha256(String.join("\n",values));
+    }
+
     /** Compare every row, including counters/versions, without leaking payloads in failed assertions. */
     private Map<String,String> durableWitness() throws Exception {
         var hashes=new LinkedHashMap<String,String>();
@@ -127,10 +155,10 @@ class AdversarialEvidenceIntegrationTest {
             freshRun();var adapter=trusted();UUID intent=dispatched("delayed-success");Fact original=adapter.delegate.lookup(adapter.operation.identity()).fact().orElseThrow();
             Fact forged=new Fact(original.eventId(),original.identity(),new Money("EUR",1251),original.sequence(),Outcome.SUCCEEDED);
             adapter.scripted.add(LookupResult.found(forged));adapter.scripted.add(absentOnVerification?LookupResult.notFound():LookupResult.found(original));
-            var before=durableWitness();int lookups=adapter.lookupCalls;
+            var before=beforeObservation(original.identity().operationId());int lookups=adapter.lookupCalls;
             assertThrows(IllegalArgumentException.class,()->service.reconcile(session,intent,false));
             assertEquals(lookups+2,adapter.lookupCalls,"Delivery must be independently checked through the trusted lookup boundary");
-            assertEquals(before,durableWitness());assertEquals("PENDING",status(intent).body().get("state"));
+            unchangedExceptObservationClaim(before);assertEquals("PENDING",status(intent).body().get("state"));
             assertEquals(1250L,budget().get("held"));assertEquals(0L,budget().get("consumed"));
         }
     }
@@ -166,7 +194,7 @@ class AdversarialEvidenceIntegrationTest {
         assertEquals("sequence-conflict",row(ds,"SELECT reason FROM conflict_evidence WHERE tenant_id=? AND run_id=?",session.tenantId(),session.runId()).get("reason"));
         assertEquals(2,count("operation_evidence"));assertEquals(1,scalar(ds,"SELECT count(*) FROM operation_evidence WHERE tenant_id=? AND run_id=? AND accepted",session.tenantId(),session.runId()));
         assertEquals(pending.sequence(),operation(pending.identity().operationId()).get("fact_sequence"));
-        var frozen=durableWitness();service.reconcile(session,intent,false);assertEquals(frozen,durableWitness(),"Repeated quarantined event must not duplicate conflict or dispute");
+        var frozen=beforeObservation(pending.identity().operationId());service.reconcile(session,intent,false);unchangedExceptObservationClaim(frozen);
     }
 
     @Test void contradictorySuccessAfterSealedNoEffectCannotRewriteRelease() throws Exception {

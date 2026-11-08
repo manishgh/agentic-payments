@@ -7,7 +7,7 @@ The repository provides a runnable synthetic purchasing platform: a Java payment
 | Area | Available behavior |
 | --- | --- |
 | Payment coordination | Exact money, scoped command replay, atomic budget reservations, one execution owner, trusted synthetic challenges and retained unknown outcomes. |
-| Application transaction boundary | Approval and execute-command policy run through typed views of one atomic owner, with direct/adapted/wrapped application tests and PostgreSQL rollback/concurrency evidence. Native transaction integration and workers remain in the reference store. |
+| Application transaction boundary | Approval, execution commands and worker policy run through typed atomic transaction contracts, with direct/adapted/wrapped tests and PostgreSQL rollback/concurrency evidence. Worker generations fence stale control results. Native integration, expiry and evidence settlement remain reference-store phases; timed leases are not implemented. |
 | AP2 and embedded ACP | Independently authored direct TAP authority, exact signed checkout binding, current key/grant verification and atomic replay/admission checks. |
 | Replaceable components | Versioned checkout, authority, crypto, key, artifact, admission, provider and workflow responsibilities; implementations can be direct, adapted or delegated. |
 | Service composition and diagnostics | Explicit constructor DI, validated lifetimes, ordered service wrappers, typed application failures and optional bounded logging/metrics. No-op telemetry is the default; JSON console is a local opt-in. |

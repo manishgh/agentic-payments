@@ -1,6 +1,6 @@
 # Simulator transaction and persistence design
 
-Status: reviewed logical design; normalized PostgreSQL migrations and the bounded runtime now exist. Physical storage combines the inbox/evidence facts with a separate conflict table; the run lock serializes mutation eligibility. The preview uses claim-fence counters rather than timed leases. Full seeded schedule replay remains incomplete. See the current status and code review for implementation evidence and limits.
+Status: reviewed logical design; normalized PostgreSQL migrations and the bounded runtime now exist. Physical storage combines the inbox/evidence facts with a separate conflict table; the run lock serializes mutation eligibility. The preview uses claim-fence counters rather than timed leases. Full seeded schedule replay remains incomplete. See [current status](status.md) and executable tests for implementation evidence and limits.
 Profiles: `local-fake-single-tender-0.1` and `local-ap2-acp-single-tender-0.1`; contracts: [internal API](api-contracts.md); scope: [ADR 0001](adr/0001-simulator-preview.md) and [durable admission](adr/0006-durable-ap2-admission.md).
 PostgreSQL is the recommended authoritative transaction store; graph checkpoints are separate, nonauthoritative orchestration storage.
 
@@ -32,7 +32,7 @@ Merchants, grants and budgets are run-isolated fixtures; no shared cross-run bud
 | `financial_operations` | tenant, run, operation ID, attempt ID, kind, adapter key, request digest, state, admission sequence/time, owner | Unique `(tenant,run,attempt,kind)`; immutable identity/key/request/owner. |
 | `customer_actions` | tenant, run, action ID, attempt/operation ID, subject, checkout digest, expiry, state/version | OPEN/VERIFIED/DENIED/EXPIRED/CANCELLED; one current challenge per `(tenant,run,operation)`. |
 | `commands` | tenant/run/principal/method/route/resource/key, validated request digest, accepted response/status, command ID | Unique scoped idempotency identity; response committed with mutation. |
-| `outbox` | tenant, run, work ID, operation ID, kind, due clock, lease/fence, attempts, acknowledgement | Unique `(tenant,run,operation,kind)`; lease changes worker eligibility, never financial identity. |
+| `outbox` | tenant, run, operation ID, kind, enqueue sequence, fence counter, done | Unique `(tenant,run,operation,kind)`; claim generation changes worker eligibility, never financial identity. No timed lease. |
 | `event_inbox` | tenant, run, adapter/account, event ID, operation ID, fact sequence, safe fact/digest, verification result | Unique `(tenant,run,adapter,account,event)`; authenticated fixture-port facts only. |
 | `operation_evidence` | tenant, run, evidence ID, operation ID, source, sequence, normalized outcome, artifact digest | Append-only safe facts; do not overwrite conflicting evidence. |
 | `disputed_exposure` | tenant, run, dispute ID, budget/operation ID, possible amount/currency, evidence references, state | Exceptional invariant-breach tracking; budget frozen; never adds spendable capacity. |
@@ -62,13 +62,10 @@ SQL checks constrain enums and immutable shapes; application transitions require
 Use PostgreSQL READ COMMITTED plus explicit row locks and unique constraints; do not rely on a preliminary unlocked read.
 Every mutating transaction first locks its `simulation_runs` row, verifies ACTIVE and snapshots its current virtual time.
 Runner clock advance locks the same row; it cannot advance between a command's expiry check and commit. Clock advance and admission have a durable total order.
-Global lock order: run -> authority grants (ID order) -> budgets -> intents -> attempts -> operations -> actions -> reservations.
-This deliberately serializes mutations within a run for deterministic simulation; different runs remain concurrent and isolated.
+The run row lock is the reference mutation-serialization boundary; this implementation does not acquire separate worker leases or rely on a grant/budget/intent lock hierarchy. Different runs remain concurrent and isolated.
 Read-only status uses one REPEATABLE READ transaction for coherent run-clock/resource snapshots; it does not change expiry state.
-Commands for one intent may first read IDs without locks, then lock in that order and reread/revalidate all mutable state.
-No code may lock an intent and then wait for its grant/budget. Retry transaction deadlocks/serialization conflicts with the same command identity.
-Workers claim outbox leases in a short separate transaction; release those row locks before entering domain lock order.
-Grant scope is immutable, so reading its budget ID before taking the grant lock cannot redirect the subsequent lock set.
+Commands and worker phases reread authoritative facts under that run lock. Retry deadlocks/serialization conflicts using the same command identity; no provider effects occur within a retryable callback.
+Workers increment outbox claim counters under the same lock. DISPATCH admission, completion and RECONCILE publication share that transaction; external adapter calls begin only after commit.
 All decisions and their command response/audit/outbox mutations commit together; never make an adapter call while database locks are held.
 
 ## Approval transaction
@@ -95,13 +92,13 @@ Authority loss takes precedence over successful action continuation and produces
 
 ## Dispatch admission and revocation ordering
 
-READY produces a durable DISPATCH work item. A worker takes its lease, then locks run/grant/budget/intent/attempt/operation in order.
-It checks lease fence, READY, unchanged bindings/capabilities, current grant epoch/validity and VERIFIED action when required.
+READY produces a durable DISPATCH work item. A worker selects and increments its generation under the run lock.
+It checks the current claim, READY, unchanged bindings/capabilities, current grant epoch/validity and VERIFIED action when required.
 The admission transaction writes ADMITTED, a monotonic admission sequence and immutable operation identity before the effectful send.
 This commit is the linearization point named **dispatch admission**; the physical adapter call follows immediately outside the transaction.
 The worker can crash between commit and send. It is therefore unsafe to claim either acceptance or no effect from ADMITTED alone.
-No new admission occurs after a revocation commit; both operations serialize on the grant lock.
-Revocation locks run, grant then affected budgets/intents in ID order, marks REVOKED/epoch+1 and cancels all pre-admission attempts.
+No new admission occurs after a revocation commit; both operations serialize on the run lock.
+Revocation takes that lock, marks REVOKED/epoch+1 and cancels all pre-admission attempts.
 It atomically releases their reservations/cancels open actions; admitted attempts keep HELD exposure and reconciliation work.
 The revoke response distinguishes future blocked admissions from already-admitted attempts; it never promises an external rollback.
 Authority expiry uses the same pre-admission rules, with EXPIRED instead of CANCELLED, under the run clock.
@@ -119,7 +116,7 @@ The simulator reconciliation port can atomically seal a not-yet-accepted key as 
 If acceptance won the race, sealing returns the accepted/pending/final fact instead; it cannot cancel an already-accepted charge.
 This atomic journal behavior is a stated simulator assumption, not a promised capability of real PSPs (EXT-004/CT-004).
 Core crash after adapter acceptance is recovered by lookup/replayed facts, not by allocating a new operation.
-Lost worker leases permit another worker to reconcile/replay only the same key. No universal exactly-once delivery is claimed.
+Process loss permits another worker to reconcile the same operation; it cannot reacquire the completed DISPATCH for another send. Current PREPARE/RECONCILE generations fence stale control results without a lease timer. Missing/unavailable observations cannot regress PENDING or terminal state, while authentic late evidence remains admissible. No universal exactly-once delivery is claimed.
 No automatic unresolved deadline releases funds; unresolved attempts remain visible and require simulator evidence or operator investigation.
 
 ## Event application, late evidence and compensation
@@ -162,6 +159,6 @@ Reports retain safe versions/digests, clock/schedule, CT outcomes and normalized
 Run-lifetime retention is the preview policy; deletion is explicit isolated-run teardown after worker stop, not a time-based financial cleanup.
 Future real evidence retention/encryption/key policy is a G2-P/managed-service decision, not implied by local fixtures.
 G2-S tests must cover CT-001..007 and CT-009..012; CT-008 is explicitly unsupported, with rejection tests instead of a claimed pass.
-Required fault interleavings: competing budgets, revoke-before/after admission, stale lease, acceptance-response loss, core crash and late/duplicate facts.
+Required fault interleavings: competing budgets, revoke-before/after admission, stale claim completion, acceptance-response loss, core crash and late/duplicate facts.
 Add clock-advance races at quote/authority/action expiry: whichever run-row transaction commits first determines eligibility, never wall-clock timing.
 Evidence must include normalized state/reservation/journal digests and demonstrate identical replay from pinned clock/schedule/configuration.
