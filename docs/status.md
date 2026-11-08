@@ -1,16 +1,20 @@
 # Current status and handoff
 
-Updated: 2026-11-07, Europe/Berlin.
+Updated: 2026-11-08, Europe/Berlin.
 
 ## Current milestone
+
+The follow-on implements standalone external ACP lifecycle transport and the typed execution-command transaction boundary. Independent source reviews and a fresh 368-test aggregate pass. Provider execution requires the separately described [SDK evolution](provider-adapter-evolution.md); a local merchant peer is not vendor sandbox evidence.
 
 IMP-010's native application-coordination slice is implemented and independently accepted. It moves protocol/artifact policy behind the existing composition ports while retaining PostgreSQL transaction ownership, stored JSON compatibility and trust-snapshot ordering. Broader financial-use-case extraction remains outstanding.
 
 The local synthetic reference implementation is runnable: versioned contracts, extensible Java adapter SDK and reusable TCK, Java payment core, normalized PostgreSQL migrations and durable simulator, loopback HTTP API, trusted TypeScript UI, LangGraph/SQLite workflow and repeatable evidence runner. Implementation branch: `codex/reference-platform` in [manishgh/agentic-payments](https://github.com/manishgh/agentic-payments).
 
-The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 direct TAP engine now binds native synthetic authority and an exact embedded ACP checkout to durable financial admission. Checkout, authority, crypto, key and artifact implementations are injectable. LangGraph decisions run through a shared local SQLite/Temporal runtime contract. ACP merchant HTTP transport, external providers, Cadence/Azure adapters and broader AP2 profiles remain outstanding. See [durable composition](durable-composition.md) and [runtime guide](durable-runtime.md).
+The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 direct TAP engine now binds native synthetic authority and an exact embedded ACP checkout to durable financial admission. Checkout, authority, crypto, key and artifact implementations are injectable. LangGraph decisions run through a shared local SQLite/Temporal runtime contract. A standalone [ACP lifecycle HTTP adapter](external-checkout.md) now exists; recoverable platform wiring, external providers, Cadence/Azure adapters and broader AP2 profiles remain outstanding. See [durable composition](durable-composition.md) and [runtime guide](durable-runtime.md).
 
 ## Validation and review
+
+The external-checkout/execution-boundary slice passed fresh-database run `25c4d21e79d0490ca44d62a49f2abfaa`: all twelve stages and 368 methods, zero failures/errors/skips, unchanged 314-file source SHA-256 `504ad2d6d5ef3a358f1dae291a57c2a9428a54338a30fb47a157e5ea8b006a69`, and separate semantic bundle verification. Astra reviews 0025..0028 accept the bounded designs and source. Actual four-operation HTTP captures pass the complete pinned ACP schema under the current execution identity. PostgreSQL evidence proves rollback, replay compatibility and real lock contention; retained LangGraph/Temporal tests pass. All 48 selected observations qualify PASS, eleven CT rows remain incomplete, and the verdict remains `NOT_CERTIFIED`. See [implementation evidence](implementation-evidence.md).
 
 The coordination slice passed fresh-database run `ee1b4a75992f4ee788ed2cab4376516f`: twelve stages and 326 methods, zero failures/errors/skips, unchanged 299-file source identity, and separate semantic bundle verification. Astra reviews 0023/0024 accept the design/source. Nine new methods exercise database-independent application policy, fresh enrollment snapshots, historical persisted JSON and rollback after provisional writes; the existing crypto-outage tests now also check the dispatch fence. All 48 selected observations qualify PASS; eleven CT rows remain incomplete and the verdict remains `NOT_CERTIFIED`. See [implementation evidence](implementation-evidence.md).
 

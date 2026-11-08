@@ -16,6 +16,7 @@ final class RunLockBarrierDataSource implements DataSource {
     final CountDownLatch entered=new CountDownLatch(1);
     final CountDownLatch acquired=new CountDownLatch(1);
     final CountDownLatch resume=new CountDownLatch(1);
+    volatile int backendPid;
     RunLockBarrierDataSource(DataSource delegate,boolean holdAfterAcquire) { this.delegate=delegate;this.holdAfterAcquire=holdAfterAcquire; }
     @Override public Connection getConnection() throws SQLException { return wrap(delegate.getConnection()); }
     @Override public Connection getConnection(String u,String p) throws SQLException { return wrap(delegate.getConnection(u,p)); }
@@ -26,6 +27,7 @@ final class RunLockBarrierDataSource implements DataSource {
                 PreparedStatement statement=(PreparedStatement)result;
                 return Proxy.newProxyInstance(PreparedStatement.class.getClassLoader(),new Class<?>[]{PreparedStatement.class},(p,m,a)->{
                     if(m.getName().equals("executeQuery")&&armed.compareAndSet(true,false)) {
+                        try(var query=connection.createStatement();var pid=query.executeQuery("SELECT pg_backend_pid()")){if(!pid.next())throw new SQLException("Missing test backend PID");backendPid=pid.getInt(1);}
                         entered.countDown();Object rows=invoke(statement,m,a);acquired.countDown();
                         if(holdAfterAcquire&&!resume.await(15,TimeUnit.SECONDS))throw new SQLException("Test run-lock barrier timed out");
                         return rows;

@@ -1,6 +1,6 @@
 # Architecture concept
 
-Status: platform composition brief, updated 2026-11-07. Bounded reference and independent AP2 designs have separate accepted [gate records](reviews/gates.md). The broader real-provider and managed-platform design gates in the [roadmap](roadmap.md) remain open.
+Status: platform composition brief, updated 2026-11-08. Bounded reference and independent AP2 designs have separate accepted [gate records](reviews/gates.md). The broader real-provider and managed-platform design gates in the [roadmap](roadmap.md) remain open.
 
 ## Composition
 
@@ -40,6 +40,10 @@ Use a modular core with domain/application/ports/infrastructure boundaries. Prov
 The independently authored [Java AP2 engine](ap2-engine.md) supplies a bounded synthetic direct TAP mandate/receipt verifier and role exchange. The explicit [native composition](durable-composition.md) binds its verified authority and exact embedded ACP checkout to durable admission, with atomic replay consumption and reservation. LangGraph does not acquire signing keys or native authority artifacts. It runs bounded decisions through a replaceable [durable runtime](durable-runtime.md); PostgreSQL remains the reference authority for payment state.
 
 For native composition, `NativeApplicationCoordinator` centralizes exact artifact handling and verification policy using the existing ports. `JdbcPaymentStore` retains transaction ownership and the explicit provisioning, trust-snapshot and financial-admission ordering. This is a bounded application-layer extraction; overall financial-use-case coordination still needs further separation. See [ADR 0008](adr/0008-native-application-coordination.md).
+
+`ExecutePayment` now owns execution-command authorization, accepted-command replay, grant/state checks and operation binding through one typed `PaymentCommandTransactions` boundary. JDBC retains the indivisible operation/outbox/state/audit/command writes and existing retry rules. Approval, worker dispatch and full admission-backend extraction remain separate work; see [ADR 0010](adr/0010-payment-transaction-boundary.md).
+
+The standalone [external checkout client](external-checkout.md) implements create/retrieve/update/cancel through the replaceable `CheckoutSessions` contract. Its network calls are not wired into the current transaction-bound native checkout. Future integration must durably stage commands, send outside the lock and recheck current checkout/authority binding before admission. The [provider roadmap](provider-adapter-evolution.md) covers the executable SDK evolution needed for real PSPs.
 
 ## Execution flow
 

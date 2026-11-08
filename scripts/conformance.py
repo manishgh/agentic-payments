@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PYTHON_MODULES = {
     "evidence-tooling": ["scripts.test_evidence_collectors", "scripts.test_requirement_evidence", "scripts.test_conformance", "scripts.test_bootstrap_temporal"],
     "upstream-integrity": ["integrations.upstream.test_probes"],
-    "offline-artifacts": ["integrations.offline_lab.tests.test_lab", "integrations.ap2_vectors.test_verifier"],
+    "offline-artifacts": ["integrations.offline_lab.tests.test_lab", "integrations.ap2_vectors.test_verifier", "integrations.test_external_checkout"],
     "http": ["scripts.test_http"],
     "langgraph": ["workflows.test_payment_workflow", "workflows.test_live", "workflows.test_runtime", "workflows.test_temporal_runtime"],
 }
@@ -115,7 +115,8 @@ def run(output: Path, require_certification=False) -> int:
             elif name == "java-postgresql":
                 command = [maven, "-B", "-ntp", "clean", "verify", "dependency:build-classpath",
                            "-Dmdep.outputFile=target/classpath.txt", f"-Dpayment.evidenceDirectory={stage_dir / 'surefire'}",
-                           f"-Dap2.vectors={stage_dir / 'ap2-vectors' / 'vectors.json'}"]
+                           f"-Dap2.vectors={stage_dir / 'ap2-vectors' / 'vectors.json'}",
+                           f"-Dcheckout.evidenceRun={stage['executionId']}"]
             elif name in {"adapter-tck", "recorded-replay"}:
                 classpath = str(ROOT / "target/classes") + os.pathsep + (ROOT / "target/classpath.txt").read_text().strip()
                 main_class = ("io.agenticpayments.infrastructure.tck.TckMain" if name == "adapter-tck"
@@ -133,7 +134,9 @@ def run(output: Path, require_certification=False) -> int:
                     commands = [[sys.executable, "-m", "integrations.ap2_vectors", "--generate", str(stage_dir / "ap2-vectors")],
                                 command, [sys.executable, "-m", "integrations.ap2_vectors", "--verify-java",
                                           str(ROOT / "target/ap2-vectors/java-output.json")],
-                                [sys.executable, "-m", "integrations.verify_native_checkout"]]
+                                [sys.executable, "-m", "integrations.verify_native_checkout"],
+                                [sys.executable, "-m", "integrations.verify_external_checkout",
+                                 "--execution-id", stage["executionId"]]]
                 for invocation in commands:
                     process = subprocess.run(invocation, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT,
                                              timeout=600 if name in {"java-postgresql", "langgraph"} else 300)

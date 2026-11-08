@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.*;
 import io.agenticpayments.application.PaymentException;
 import io.agenticpayments.application.NativeApplicationCoordinator;
 import io.agenticpayments.application.NativeApplicationCoordinator.*;
+import io.agenticpayments.application.ExecutePayment;
+import io.agenticpayments.application.PaymentCommandTransactions;
+import io.agenticpayments.application.PaymentCommandTransactions.*;
 import io.agenticpayments.application.PaymentStore;
 import io.agenticpayments.application.WorkerReceipt;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.domain.PaymentRules;
-import io.agenticpayments.domain.OperationBinding;
 import io.agenticpayments.sdk.*;
 import io.agenticpayments.composition.Composition.*;
 import javax.sql.DataSource;
@@ -26,6 +28,7 @@ public final class JdbcPaymentStore implements PaymentStore {
     private final UUID replayOwner;
     private final Ports composition;
     private final NativeApplicationCoordinator nativeCoordinator;
+    private final ExecutePayment execution;
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
@@ -36,6 +39,19 @@ public final class JdbcPaymentStore implements PaymentStore {
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition) {
         this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
         this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
+        this.execution=new ExecutePayment(new PaymentCommandTransactions() {
+            private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
+            public String requestDigest(ExecuteCommand command){return PaymentRules.sha256(encode(command));}
+            public Result run(Session session,PaymentCommandTransactions.Work work){
+                if(entered.get())throw new IllegalStateException("Nested payment command transaction");
+                entered.set(true);
+                try{return transaction(session,tx->{
+                        var scope=new CommandTransaction(tx);
+                        try{return work.run(scope);}finally{scope.active=false;}
+                    });
+                } finally{entered.remove();}
+            }
+        },adapter::capabilities);
     }
 
     public void seedRun(Session s,Instant clock,long budget) {
@@ -115,20 +131,62 @@ public final class JdbcPaymentStore implements PaymentStore {
         });
     }
     public Result execute(Session s,UUID id,String key,ExecuteCommand cmd) {
-        role(s,"execution:write"); validate(cmd==null?0:cmd.expectedVersion());
-        capabilities();
-        return command(s,key,"POST /intents/{id}/execute",id.toString(),cmd,tx->{
-            var i=intent(tx,id); version(i,cmd.expectedVersion()); state(i,"APPROVED"); var a=attempt(tx,id); var q=quote(tx,i); var g=grant(tx,text(a,"grant_id"));
-            authority(tx,g,text(a,"subject_id"),text(i,"merchant_id"));
-            if(!eligible(tx,g,a,i)) fail(409,"AUTHORITY_REVOKED");
-            if(nativeProfile(i)) verifyNative(tx,i,a,g);
-            if(!Objects.equals(cmd.attemptId(),a.get("attempt_id"))) fail(422,"AUTHORITY_BINDING_INVALID");
-            UUID op=UUID.randomUUID();
-            String digest=new OperationBinding(s.tenantId(),s.runId(),text(i,"merchant_id"),id,(UUID)a.get("attempt_id"),op,text(q,"digest"),text(q,"currency"),number(q,"minor_units"),text(a,"grant_id"),number(a,"grant_version"),text(a,"subject_id"),text(i,"scenario_id"),text(q,"credential_reference")).digest();
-            update(tx.c,"INSERT INTO financial_operations(tenant_id,run_id,operation_id,attempt_id,adapter_key,request_digest) VALUES(?,?,?,?,?,?)",s.tenantId(),s.runId(),op,a.get("attempt_id"),op,digest);
-            work(tx,op,"PREPARE"); change(tx,id,"PREPARING");
-            return result(202,map("intentId",id,"state","PREPARING","version",cmd.expectedVersion()+1,"attemptId",a.get("attempt_id"),"operationId",op));
-        });
+        return execution.execute(s,id,key,cmd);
+    }
+
+    /** Infrastructure-only row mapping and indivisible writes; use-case decisions live in ExecutePayment. */
+    private final class CommandTransaction implements PaymentCommandTransactions.Transaction {
+        private final Tx tx;
+        private final Thread thread=Thread.currentThread();
+        private boolean active=true,nativeVerified;
+        private Map<String,Object> intentRow,attemptRow,grantRow,acceptedRow;
+        private ExecutionIntent intentValue;
+        private ExecutionAttempt attemptValue;
+        private ExecutionGrant grantValue;
+        private AcceptedCommand acceptedValue;
+        CommandTransaction(Tx tx){this.tx=tx;}
+        private void active(){if(!active||thread!=Thread.currentThread())throw new IllegalStateException("Payment transaction is no longer active");}
+        public Instant now(){active();return tx.now;}
+        public ExecutionIntent intent(UUID id) throws SQLException {
+            active();intentRow=intentUnchecked(tx,id);nativeVerified=false;
+            return intentValue=new ExecutionIntent(id,text(intentRow,"merchant_id"),text(intentRow,"profile"),text(intentRow,"state"),number(intentRow,"version"),(int)number(intentRow,"checkout_revision"),text(intentRow,"scenario_id"));
+        }
+        public ExecutionAttempt attempt(UUID id) throws SQLException {
+            active();attemptRow=JdbcPaymentStore.this.attempt(tx,id);
+            return attemptValue=attemptRow==null?null:new ExecutionAttempt(uuid(attemptRow,"attempt_id"),uuid(attemptRow,"intent_id"),(int)number(attemptRow,"checkout_revision"),text(attemptRow,"grant_id"),number(attemptRow,"grant_version"),text(attemptRow,"subject_id"));
+        }
+        public ExecutionCheckout checkout(ExecutionIntent intent) throws SQLException {
+            active();if(intent!=intentValue)throw new IllegalArgumentException("Unbound payment transaction facts");
+            var row=quote(tx,intentRow);return new ExecutionCheckout(text(row,"digest"),text(row,"currency"),number(row,"minor_units"),text(row,"credential_reference"));
+        }
+        public ExecutionGrant grant(String id) throws SQLException {
+            active();grantRow=JdbcPaymentStore.this.grant(tx,id);
+            return grantValue=new ExecutionGrant(id,text(grantRow,"subject_id"),text(grantRow,"merchant_id"),text(grantRow,"state"),number(grantRow,"version"),instant(grantRow,"valid_from"),instant(grantRow,"expires_at"));
+        }
+        public Optional<AcceptedCommand> accepted(CommandIdentity id) throws Exception {
+            active();acceptedRow=one(tx.c,"SELECT * FROM commands WHERE tenant_id=? AND run_id=? AND principal_id=? AND route=? AND resource_id=? AND idempotency_key=?",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),id.route(),id.resource(),id.key());
+            acceptedValue=acceptedRow==null?null:new AcceptedCommand(text(acceptedRow,"request_digest"));
+            return Optional.ofNullable(acceptedValue);
+        }
+        public Result replay(AcceptedCommand accepted) throws Exception {
+            active();if(accepted==null||accepted!=acceptedValue)throw new IllegalArgumentException("Unbound accepted command");
+            return new Result((int)number(acceptedRow,"response_status"),json.readValue(text(acceptedRow,"response_body"),new TypeReference<Map<String,Object>>(){}),false);
+        }
+        public void verifyNative(ExecutionIntent intent,ExecutionAttempt attempt,ExecutionGrant grant) throws Exception {
+            active();if(intent!=intentValue||attempt!=attemptValue||grant!=grantValue)throw new IllegalArgumentException("Unbound payment transaction facts");
+            JdbcPaymentStore.this.verifyNative(tx,intentRow,attemptRow,grantRow);nativeVerified=true;
+        }
+        public void prepare(PreparationWrite write) throws SQLException {
+            active();
+            if(intentValue==null||attemptValue==null||!write.intentId().equals(intentValue.id())||write.expectedVersion()!=intentValue.version()
+                    ||!write.attemptId().equals(attemptValue.id())||!write.intentId().equals(attemptValue.intentId())
+                    ||(nativeProfile(intentRow)&&!nativeVerified))throw new IllegalArgumentException("Unbound payment preparation");
+            update(tx.c,"INSERT INTO financial_operations(tenant_id,run_id,operation_id,attempt_id,adapter_key,request_digest) VALUES(?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),write.operationId(),write.attemptId(),write.operationId(),write.requestDigest());
+            work(tx,write.operationId(),"PREPARE");change(tx,write.intentId(),"PREPARING");
+        }
+        public void accept(CommandIdentity id,String requestDigest,Result result) throws SQLException {
+            active();update(tx.c,"INSERT INTO commands VALUES(?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),id.route(),id.resource(),id.key(),requestDigest,result.status(),encode(result.body()));
+        }
     }
     public Result status(Session s,UUID id) {
         role(s,"intent:read"); return read(s,tx->{

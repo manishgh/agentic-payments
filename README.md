@@ -16,6 +16,8 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Durable native AP2/ACP admission, immutable artifact storage, replaceable checkout/authority/crypto/key implementations and atomic replay/grant/reservation checks.
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
 - Shared durable-runtime contract with local SQLite and Temporal implementations, retained workflow identity, cooperative pause, and Temporal timers/activity retries.
+- Standalone external ACP lifecycle contract and HTTP adapter for create/retrieve/update/cancel, with independent local-peer wire/schema checks; see [external checkout](docs/external-checkout.md) for its bounded scope.
+- Application-owned execute-command policy through a typed atomic transaction contract, retaining PostgreSQL locking, command replay and operation/outbox/state atomicity.
 - Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
 Execution currently accepts only explicit synthetic profiles. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.

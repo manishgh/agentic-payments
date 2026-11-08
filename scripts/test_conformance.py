@@ -243,6 +243,9 @@ class ConformanceRunnerTests(unittest.TestCase):
     def test_failed_independent_acp_verification_disqualifies_successful_maven_observations(self):
         self.assert_independent_verifier_failure("acp")
 
+    def test_failed_external_acp_wire_verification_disqualifies_successful_maven_observations(self):
+        self.assert_independent_verifier_failure("external-acp")
+
     def assert_independent_verifier_failure(self, verifier):
         """A zero build exit cannot qualify PASS when the independent verifier fails."""
         environment = {"PAYMENTS_DB_URL": "jdbc:synthetic-review-only", "PAYMENTS_DB_USER": "synthetic",
@@ -253,7 +256,8 @@ class ConformanceRunnerTests(unittest.TestCase):
             invocations.append(command)
             kwargs["stdout"].write(CANARY + "\n")
             success = ("--generate" in command or Path(command[0]).name in {"mvn", "mvn.cmd"}
-                       or (verifier == "acp" and "--verify-java" in command))
+                       or (verifier in {"acp", "external-acp"} and "--verify-java" in command)
+                       or (verifier == "external-acp" and "integrations.verify_native_checkout" in command))
             return subprocess.CompletedProcess(command, 0 if success else 1, stdout=CANARY, stderr=CANARY)
 
         def observed_java_passes(_directory, context):
@@ -270,13 +274,19 @@ class ConformanceRunnerTests(unittest.TestCase):
         collect.assert_called_once()
         java_commands = [command for command in invocations if "--generate" in command
                          or "--verify-java" in command or "integrations.verify_native_checkout" in command
+                         or "integrations.verify_external_checkout" in command
                          or Path(command[0]).name in {"mvn", "mvn.cmd"}]
-        self.assertEqual(4 if verifier == "acp" else 3, len(java_commands))
+        self.assertEqual({"ap2": 3, "acp": 4, "external-acp": 5}[verifier], len(java_commands))
         self.assertIn("--generate", java_commands[0])
         self.assertIn(Path(java_commands[1][0]).name, {"mvn", "mvn.cmd"})
         self.assertIn("--verify-java", java_commands[2])
-        if verifier == "acp":
+        if verifier in {"acp", "external-acp"}:
             self.assertIn("integrations.verify_native_checkout", java_commands[3])
+        if verifier == "external-acp":
+            self.assertIn("integrations.verify_external_checkout", java_commands[4])
+            execution_id = java_commands[4][-1]
+            self.assertRegex(execution_id, r"^[0-9a-f]{32}$")
+            self.assertIn("-Dcheckout.evidenceRun=" + execution_id, java_commands[1])
         report = evidence.validate_bundle(self.root, self.bundle)
         stages = {stage["name"]: stage for stage in report["checks"]}
         self.assertEqual("FAIL", stages["java-postgresql"]["outcome"])

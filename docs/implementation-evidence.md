@@ -169,3 +169,32 @@ There were zero failures, errors, skips, expected failures, unexpected successes
 Contract/schema checks, independent Java ACP/AP2 verification, adapter TCK, replay and real Temporal recovery stages all passed. No schema, dependency, HTTP API or extension port changed. Local build artifact SHA-256 values are reference `16fc94107639f5c2b00ed51bf6eea6c4d7a13df2f997949705a64a88a294af1e`, adapter SDK `ac0afa521a3e619586c5d72bed85f6fa03e73d22de8d1464af4226164789984b` and AP2 engine `4503e36a88eaafd4f45324ac171fa7b0de53e4bee19ecbbfc6a31fefdae3ecc7`.
 
 All 48 selected observations qualify PASS; the new methods add evidence without changing the requirement mapping. Eleven CT rows remain INCOMPLETE, CT-008 remains guarded NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. This is partial IMP-010 progress. JDBC still owns broader financial-use-case coordination; external ACP/providers, additional admission backends and production operation remain separate work. No merge, package release or deployment is part of this checkpoint.
+
+## External checkout and execution-command checkpoint
+
+Date: 2026-11-08. Sol 6.1 High authors implemented the standalone checkout lifecycle adapter and execution-command extraction in parallel after accepted ADRs 0009/0010 and independent Astra design reviews 0025/0026. Astra source reviews 0027/0028 accept the corrected bounded source. The owner independently reproduced the ten-entry external source/tooling/guide manifest `b18ad3a070cc29e89526952d25ba3054b7a902d637431d2807fa60e7df8b0bc2` and seven-entry transaction manifest `2ac875a7a12dff3bbefc33e290579332a7fd085d58a35ffb79c95aa763fa651a`.
+
+The owner ran `python scripts/conformance.py` against the fresh isolated PostgreSQL database `agentic_external_20261108_final`. Run `25c4d21e79d0490ca44d62a49f2abfaa` passed all twelve stages with unchanged 314-file source SHA-256 `504ad2d6d5ef3a358f1dae291a57c2a9428a54338a30fb47a157e5ea8b006a69`. Separate `python -m scripts.requirement_evidence --bundle target/conformance --verify-only` passed. Report SHA-256: `67199452a114994f8dfd7307f28dc7477181b5e7b1796596e7c1fa7bb4fcaf88`. All staged source bytes matched before the aggregate; the staged whitespace check passed.
+
+| Suite | Passing test methods |
+| --- | --- |
+| Java/PostgreSQL | 229 |
+| Evidence tooling and Temporal bootstrap | 51 |
+| HTTP | 11 |
+| Trusted UI | 3 |
+| LangGraph and durable runtime | 32 |
+| Offline lab and independent protocol verification | 36 |
+| Upstream integrity | 6 |
+| Total | 368 |
+
+There were zero failures, errors, skips, expected failures, unexpected successes or duplicate observations. The independent Java-stage verifier validates four actual local-peer ACP lifecycle exchanges against complete locked upstream schemas with the same fresh stage execution ID. Missing/stale/invalid captures disqualify the Java stage even if Maven passes. Independent AP2 vectors, native ACP verification, adapter TCK, recorded replay and retained Temporal recovery checks also pass. Capture bodies and private diagnostics are excluded from the safe published bundle.
+
+Checkout tests cover accepted-response loss and immutable-key replay/conflict, declared JDK GET-repeat behavior, scope refusal, exact version/body/path, hostile/duplicate/absent headers, malformed UTF-8/JSON, bounded bodies, redirects, optional metadata and shutdown/deadline handling. Review corrected credential/shutdown and late-subscription races. The final trickle-cancellation witness observes the target handler end before server cleanup, rather than accidentally observing a completed warmup request. The adapter makes one application send; it does not promise one physical HTTP request across JDK retries.
+
+Execution tests cover independent application policy, historical response/digest ordering, authorization before replay, late-persistence rollback of operation/outbox/state/audit/command writes, serialization retry, actual PostgreSQL blocking in competing commands/revocation, native outages and transaction-scope lifetime. Review restored conflict checking before historical response decoding and strengthened contention proof with `pg_blocking_pids`. Worker dispatch, reservations and UNKNOWN handling retain existing behavior and regression coverage.
+
+Earlier focused runs passed 25 transaction/native methods, 16 frozen checkout methods, 12 runner methods and six verifier methods. An initial Python run encountered Windows temporary-directory permissions; the new verifier tests now use a contained repository-local temporary directory and passed their rerun. These preliminary checks are not substitutes for the final fresh aggregate. No schema, dependency, public payment HTTP contract or existing SDK classifier changed.
+
+Local artifact SHA-256 values are reference `53e2a7759ef9d89c51c220acd06c802d8a5a6da0ceaf559237d4d53ca15eb561`, adapter SDK `82eaf11e77f327163456f5e67fe9a15e3be32f3e152449a3e12f0148e35b3051` and AP2 engine `53e04921084d47c635d4cf287ee453f1f43dc1f23a2f9c5c94abd1049d0c9f43`. They identify this local build, not package releases or cross-platform reproducibility guarantees.
+
+All 48 selected observations qualify PASS. Eleven CT rows remain INCOMPLETE, CT-008 remains guarded NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. The new tests add counts without changing requirement mappings. Real PSP execution, durable platform wiring of external checkout, broader transaction extraction, additional AP2 profiles and production operation remain outstanding. There is no completion method or financial execution in the new checkout adapter. No merge, package release, deployment or live payment is part of this checkpoint.
