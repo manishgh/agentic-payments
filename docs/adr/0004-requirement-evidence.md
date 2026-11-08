@@ -1,7 +1,6 @@
 # ADR 0004: Requirement-level evidence for the local reference
 
-Status: proposed for independent review; not an implementation or certification approval.
-Author: senior plan/design author, GPT-6.1 Sol at high reasoning. Baseline: 9fd7dbbc5cef135007b7f2253aba24c825386954.
+Status: accepted for the bounded reference profile described below.
 Scope: CON-001/002/004 for local-fake-single-tender-0.1. Requirements and case meanings remain in the [extension register](../../specification/0.1.0-draft/README.md) and [CT matrix](../simulator-and-conformance.md).
 
 ## Problem, priority and decision
@@ -119,4 +118,4 @@ All event tests use actual local journal verification or existing privileged in-
 4. Implement the bounded CT-006/010 tests independently of the reporter author; update inventory/mapping with exact names only after source review. Synthetic canary-bearing malformed producer artifacts must either be rejected/quarantined or normalized into safe reason codes; the shareable report/bundle must contain no canary/raw error text.
 5. Run the normal unchanged-source aggregate against PostgreSQL, validate the final report semantically and against its schema, and independently review source/mapping/evidence. Preserve actual counts and remaining gaps. Check that deleting/renaming/skipping an inventoried test or substituting an earlier report cannot preserve a requirement claim.
 
-This ADR specifies the next implementable evidence slice, not the complete certification policy, public release terms or external accreditation. No implementation, build or payment test was executed to author it; repository/test/report source and installed Node help were inspected. Design review and integration-owner gate acceptance precede code.
+This ADR defines source-bound local evidence. Complete certification policy, release terms and external accreditation remain outside its scope.

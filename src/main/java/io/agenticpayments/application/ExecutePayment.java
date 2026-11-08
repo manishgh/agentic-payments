@@ -46,7 +46,7 @@ public final class ExecutePayment {
             if(!"ACTIVE".equals(grant.state())||grant.version()!=attempt.grantVersion()
                     ||tx.now().isBefore(grant.validFrom())||!tx.now().isBefore(grant.expiresAt())
                     ||!Objects.equals(grant.subjectId(),attempt.subjectId())||!Objects.equals(grant.merchantId(),intent.merchantId())) fail(409,"AUTHORITY_REVOKED");
-            if(NATIVE_PROFILE.equals(intent.profile())) tx.verifyNative(intent,attempt,grant);
+            if(NATIVE_PROFILE.equals(intent.profile())||"local-external-ap2-acp-single-tender-0.1".equals(intent.profile())) tx.verifyNative(intent,attempt,grant);
             if(!Objects.equals(command.attemptId(),attempt.id())) fail(422,"AUTHORITY_BINDING_INVALID");
             UUID operation=UUID.randomUUID();
             String binding=new OperationBinding(session.tenantId(),session.runId(),intent.merchantId(),id,attempt.id(),operation,

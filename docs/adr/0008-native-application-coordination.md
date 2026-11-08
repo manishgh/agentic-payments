@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. This is the next bounded IMP-010 slice. Implementation requires independent Astra design review and integration-owner acceptance. [ADR 0006](0006-durable-ap2-admission.md) remains the authority for admission guarantees; this decision changes their code ownership, not their behavior.
+Accepted for the bounded reference profile described below. See the platform guides and executable tests for current implementation limits.
 
 ## Context
 

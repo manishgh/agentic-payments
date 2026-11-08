@@ -1,27 +1,26 @@
-# Sources and compatibility register
+# Protocol and compatibility references
 
-Reviewed during planning on 2026-11-06. Links identify primary documentation, not immutable implementation pins. Before design freeze, record exact upstream revisions/schema digests and resolve conflicting examples versus normative definitions. Do not use an unversioned web page as a reproducible dependency.
+Compatibility is scoped to the implemented profile, not an entire upstream protocol. The [source lock](../integrations/upstream/source-lock.json) records exact commits, artifact paths and digests. Mutable documentation links provide context; they do not replace those pins.
 
-| Source | What it supports | Limit |
+## Pinned protocol sources
+
+| Source | Selected revision | Use |
 | --- | --- | --- |
-| [AP2 specification](https://ap2-protocol.org/ap2/specification/) | v0.2 Checkout/Payment Mandates, actor roles and verification | Does not define our enclosing platform PaymentIntent or ACP bridge |
-| [AP2 implementation considerations](https://ap2-protocol.org/ap2/implementation_considerations/) | Responsibilities for merchants, agents, credential providers and trusted surfaces | Participation and real credentials must be established |
-| [OpenAI checkout](https://developers.openai.com/commerce/specs/checkout) | Session creation/update/completion; merchant payment ownership | Current listed provider values stripe/adyen/braintree, card method, and restricted checkout statuses; broader internal capabilities are not automatically accepted |
-| [OpenAI commerce concepts](https://developers.openai.com/commerce/guides/key-concepts) | Delegated payment and merchant/PSP responsibilities | Open specification does not guarantee access to a hosted product |
-| [UCP AP2 extension](https://ucp.dev/specification/payment/extensions/ap2-mandates/) | Example of explicit mandate transport and capability negotiation | Not a drop-in ACP mapping |
-| [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) | Agent orchestration and persistence | Not transaction authority or payment exactly-once guarantee |
-| [LangGraph interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts) | Pausing/resuming for external input | Resume data must be authenticated and revalidated |
-| [Stripe SDKs](https://docs.stripe.com/sdks) | Official Java, Go and .NET SDK options | Feature-level support and version still need pinning |
-| [Adyen libraries](https://docs.adyen.com/development-resources/libraries/) | Provider SDK options | Merchant account capabilities remain distinct |
-| [Adyen partial payments](https://docs.adyen.com/online-payments/partial-payments) | Gift-card plus other-method example | Cross-provider atomicity is not implied |
-| [Amazon Pay](https://developer.amazon.com/docs/amazon-pay-checkout/introduction.html) | Wallet-specific integration | Merchant onboarding/region eligibility required |
-| [Uber Pay](https://uberpay.uber.com/) | Partner integration and action/status model | Invite-only ecosystem integration, not assumed universal merchant acceptance |
+| [AP2 specification](https://github.com/google-agentic-commerce/AP2/blob/b4587ac1d055888a73b4b21750973cffba961793/docs/ap2/specification.md) | AP2 v0.2.0, commit `b4587ac1d055888a73b4b21750973cffba961793` | Mandates, roles, signatures and checkout/payment binding. |
+| [ACP checkout schema](https://github.com/agentic-commerce-protocol/agentic-commerce-protocol/blob/7fdd78df677a94dce04c770644b0fbbb1401272b/spec/2026-04-17/json-schema/schema.agentic_checkout.json) | ACP `2026-04-17`, commit `7fdd78df677a94dce04c770644b0fbbb1401272b` | Exact checkout response schema and bounded commerce transport compatibility. |
+| [Project extension](../specification/0.1.0-draft/README.md) | `0.1.0-draft` | Platform intent, reservation, action and recovery requirements; includes outstanding obligations. |
+| [Provider execution contract](../specification/provider-execution-1/README.md) | `provider-execution-1` | Provider preparation, submission, reconciliation, events and optional fencing. |
 
-## Evidence levels
+The independently authored engine implements `ap2-v0.2-direct-tap-synthetic-0.1`. It does not use Google's AP2 SDK as its protocol engine. Delegated/User Credential profiles and production trust are outside that scope. See [AP2 requirements](ap2-requirements.md) and the [engine guide](ap2-engine.md).
 
-1. Concept only: design proposal, not executable.
-2. Simulator conformance: synthetic fixtures and local evidence only.
-3. Sandbox integration: named provider/account/API revision with observed evidence.
-4. Live integration: separately authorized operational release with actual access and support ownership.
+Native payment composition uses `local-ap2-acp-single-tender-0.1`. External commerce uses `durable-checkout-lifecycle-0.1`. The opt-in `local-external-ap2-acp-single-tender-0.1` implementation adds a local synthetic attestation of retained HTTP bytes. This is a bounded synthetic reference profile. It does not claim merchant-origin signatures, remote completion or vendor interoperability. See [durable composition](durable-composition.md), [external commerce](durable-external-checkout.md) and [external authority binding](external-checkout-authority.md).
 
-AP2, ACP and payment-provider conformance are separately scoped. Never label a local fake signature as verified upstream AP2 evidence. Preserve provenance when adapting external results.
+## Supporting documentation
+
+- [AP2 implementation considerations](https://ap2-protocol.org/ap2/implementation_considerations/) describes participant responsibilities.
+- [OpenAI checkout specification](https://developers.openai.com/commerce/specs/checkout) and [commerce concepts](https://developers.openai.com/commerce/guides/key-concepts) describe checkout and delegated-payment responsibilities. Hosted access is separate from specification availability.
+- [UCP AP2 extension](https://ucp.dev/specification/payment/extensions/ap2-mandates/) is a separate mandate-transport design, not an implicit ACP mapping.
+- [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) and [interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts) describe orchestration mechanics; checkpoints are not financial authority.
+- [Toolchain](toolchain.md) and component lock files specify the reference runtime/dependency versions.
+
+Local synthetic results, named provider sandbox evidence and live operating readiness are distinct scopes. No project conformance result grants provider access, upstream endorsement or regulatory certification.

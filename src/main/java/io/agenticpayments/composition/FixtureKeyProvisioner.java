@@ -12,8 +12,8 @@ public final class FixtureKeyProvisioner implements KeyProvisioner {
     private final Map<Scope,Provisioning> scopes=new HashMap<>();
     public FixtureKeyProvisioner(JcaSignatureProvider provider) { this.provider=Objects.requireNonNull(provider); }
     @Override public Descriptor describe() {
-        return new Descriptor("key-provisioner",VERSION,"transient-synthetic-keys",Set.of(PROFILE),
-            Set.of("scoped-enrollment","ephemeral-private-keys"),"trusted-fixture-provisioner");
+        return new Descriptor("key-provisioner",VERSION,"transient-synthetic-keys",Set.of(PROFILE,EXTERNAL_PROFILE),
+            Set.of("scoped-enrollment","ephemeral-private-keys",LOCAL_CALLBACKS),"trusted-fixture-provisioner");
     }
     @Override public synchronized Provisioning provision(Scope scope,Instant now) {
         Objects.requireNonNull(scope); Objects.requireNonNull(now);

@@ -1,0 +1,9 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-external-fixture",
+  "error": {
+    "code": "CONFIGURATION_CHANGED",
+    "message": "configuration changed",
+    "retry": "NEVER"
+  }
+}

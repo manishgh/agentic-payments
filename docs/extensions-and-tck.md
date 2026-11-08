@@ -48,4 +48,4 @@ java -cp $classPath io.agenticpayments.infrastructure.tck.TckMain
 
 The CLI runs the four local adapter cases, prints safe JSON and exits nonzero if required cases fail. Its top-level verdict remains `NOT_CERTIFIED`. It neither enables providers nor sends real payments. The aggregate conformance runner invokes this CLI alongside core, HTTP, workflow and schema checks.
 
-Independent evidence: [extension/TCK review](reviews/0008-extension-tck-review.md). The initial focused run passed nine registry tests, ten TCK report/negative tests and one PostgreSQL TCK test exercising all four adapter cases. Later aggregate evidence records the full current source and count.
+Run the adapter TCK and full conformance suite to obtain source-bound results for the current revision.

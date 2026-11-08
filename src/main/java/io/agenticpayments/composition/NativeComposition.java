@@ -24,11 +24,18 @@ public final class NativeComposition {
         var provider=new JcaSignatureProvider(); var nativeProtocols=new NativeComposition(provider);
         return new Ports(nativeProtocols.checkout(),nativeProtocols.issuer(),nativeProtocols.verifier(),new FixtureKeyProvisioner(provider),artifacts);
     }
+    public static Ports externalPorts(SignedArtifactStore artifacts) {
+        var provider=new JcaSignatureProvider(); var protocols=new NativeComposition(provider);
+        return new Ports(protocols.externalCheckout(),protocols.issuer(),protocols.verifier(),new FixtureKeyProvisioner(provider),artifacts);
+    }
     public CheckoutProtocol checkout() { return new ReferenceCheckout(); }
+    public CheckoutProtocol externalCheckout() { return new ObservedCheckoutProtocol(signatures); }
     public AuthorityIssuer issuer() { return new ReferenceIssuer(); }
     public AuthorityVerifier verifier() { return new ReferenceVerifier(); }
     private static Descriptor descriptor(String contract,String... capabilities) {
-        return new Descriptor(contract,VERSION,"independent-synthetic-"+contract,Set.of(PROFILE),Set.of(capabilities),"simulator-core");
+        var offered=new HashSet<>(List.of(capabilities)); offered.add(LOCAL_CALLBACKS);
+        Set<String> profiles="checkout-protocol".equals(contract)?Set.of(PROFILE):Set.of(PROFILE,EXTERNAL_PROFILE);
+        return new Descriptor(contract,VERSION,"independent-synthetic-"+contract,profiles,offered,"simulator-core");
     }
     private static void fixture(CheckoutFacts facts) {
         if(!"merchant-demo".equals(facts.merchantId())||!"fixture-credential-1".equals(facts.credentialReference())
@@ -44,7 +51,7 @@ public final class NativeComposition {
         return new Ap2Claims.PaymentInstrument(facts.credentialReference(),"synthetic-card",null);
     }
     /** Closed supported ACP fixture. Unknown fields/handlers fail by full-tree comparison at validation. */
-    private static ObjectNode acp(CheckoutFacts facts) {
+    static ObjectNode acp(CheckoutFacts facts) {
         fixture(facts);
         ObjectNode root=Ap2Crypto.object().put("id",session(facts));
         root.putObject("protocol").put("version",ACP_VERSION);

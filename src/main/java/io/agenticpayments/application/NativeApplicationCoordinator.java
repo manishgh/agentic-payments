@@ -26,14 +26,58 @@ public final class NativeApplicationCoordinator {
     private final AuthorityIssuer issuer;
     private final AuthorityVerifier verifier;
     private final SignedArtifactStore artifacts;
+    private final String profile;
 
     public NativeApplicationCoordinator(CheckoutProtocol checkout,AuthorityIssuer issuer,
                                         AuthorityVerifier verifier,SignedArtifactStore artifacts) {
+        this(checkout,issuer,verifier,artifacts,PROFILE);
+    }
+    public NativeApplicationCoordinator(CheckoutProtocol checkout,AuthorityIssuer issuer,
+                                        AuthorityVerifier verifier,SignedArtifactStore artifacts,String profile) {
         this.checkout=Objects.requireNonNull(checkout); this.issuer=Objects.requireNonNull(issuer);
         this.verifier=Objects.requireNonNull(verifier); this.artifacts=Objects.requireNonNull(artifacts);
+        this.profile=Objects.requireNonNull(profile);
     }
 
     public FrozenCheckout freezeCheckout(CheckoutRequest request) { return checkout.freeze(request); }
+
+    public ObservedTerms inspectObserved(ObservedCheckout observation,Instant now) {
+        var terms=checkout.inspectObserved(observation,now); var document=observation.document();
+        if(terms==null||!Arrays.equals(observation.bytes(),document.bytes())
+                ||!observation.configuration().binding().equals(document.session().binding())
+                ||!terms.sessionId().equals(document.session().id())
+                ||!terms.currency().toLowerCase(Locale.ROOT).equals(document.session().currency())
+                ||!terms.protocolVersion().equals(document.observedProtocolVersion())||!"ready_for_payment".equals(document.status())) invalid();
+        if(now.isBefore(observation.observedAt())||!now.isBefore(observation.observedAt().plusSeconds(300))||!now.isBefore(terms.expiresAt()))
+            throw new PaymentException(410,"AUTHORITY_EXPIRED");
+        return terms;
+    }
+
+    public FrozenCheckout freezeObserved(ObservedCheckoutRequest request,ObservedTerms terms) {
+        var facts=request.facts(); var observation=request.observation();
+        Instant deadline=Collections.min(List.of(observation.observedAt().plusSeconds(300),terms.expiresAt()));
+        if(!facts.scope().equals(observation.scope())||!facts.merchantId().equals(observation.configuration().binding().merchantId())
+                ||!facts.currency().equals(terms.currency())||facts.minorUnits()!=terms.minorUnits()||!facts.expiresAt().equals(deadline)) invalid();
+        FrozenCheckout frozen=checkout.freezeObserved(request);
+        validateObservedBytes(observation,terms,facts,frozen);
+        return frozen;
+    }
+
+    /** Cross-check replaceable protocol output and retained bytes independently of adapter success. */
+    public void validateObservedBytes(ObservedCheckout observation,ObservedTerms terms,CheckoutFacts facts,FrozenCheckout frozen) {
+        try {
+            String[] jwt=frozen.checkoutJwt().split("\\.",-1);
+            if(jwt.length!=3||!Arrays.equals(observation.bytes(),frozen.acpPayload().getBytes(StandardCharsets.UTF_8))
+                    ||!Arrays.equals(observation.bytes(),Base64.getUrlDecoder().decode(jwt[1]))
+                    ||!ArtifactIntegrity.digest(observation.bytes()).equals(frozen.payloadDigest())
+                    ||!ArtifactIntegrity.digest(frozen.checkoutJwt().getBytes(StandardCharsets.UTF_8)).equals(frozen.checkoutDigest())
+                    ||!Base64.getUrlEncoder().withoutPadding().encodeToString(HexFormat.of().parseHex(frozen.checkoutDigest().substring(7))).equals(frozen.checkoutHash())
+                    ||!terms.sessionId().equals(frozen.sessionId())||!terms.handlerId().equals(frozen.handlerId())
+                    ||!terms.protocolVersion().equals(frozen.protocolVersion())||!terms.currency().equals(facts.currency())
+                    ||terms.minorUnits()!=facts.minorUnits()
+                    ||!Collections.min(List.of(observation.observedAt().plusSeconds(300),terms.expiresAt())).equals(facts.expiresAt())) invalid();
+        } catch(IllegalArgumentException invalidEncoding) { invalid(); }
+    }
 
     /** Bind the transaction's current resolver only after freezing/reloading has completed. */
     public void validateCheckout(CheckoutFacts facts,FrozenCheckout frozen,KeyResolver keys,Instant now) {
@@ -88,11 +132,11 @@ public final class NativeApplicationCoordinator {
 
     private ArtifactReference retain(Scope scope,String value,String mediaType) {
         // Independent immutable staging may leave harmless unreferenced bytes after admission rollback.
-        return artifacts.put(scope,new Artifact(value.getBytes(StandardCharsets.UTF_8),mediaType,PROFILE));
+        return artifacts.put(scope,new Artifact(value.getBytes(StandardCharsets.UTF_8),mediaType,profile));
     }
 
     private String artifact(Scope scope,ArtifactReference reference) {
-        if(!PROFILE.equals(reference.profile())) invalid();
+        if(!profile.equals(reference.profile())) invalid();
         byte[] bytes=ArtifactIntegrity.verify(artifacts.get(scope,reference),reference).bytes();
         try {
             return StandardCharsets.UTF_8.newDecoder()

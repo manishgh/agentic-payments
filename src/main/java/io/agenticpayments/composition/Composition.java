@@ -2,11 +2,15 @@ package io.agenticpayments.composition;
 
 import java.time.Instant;
 import java.util.*;
+import io.agenticpayments.application.CheckoutConfigurationResolver.ConfigurationIdentity;
+import io.agenticpayments.checkout.CheckoutSessions.Document;
 
 /** Versioned responsibility contracts. None of these contracts contains a storage/provider SDK type. */
 public final class Composition {
     private Composition() {}
     public static final String PROFILE = "local-ap2-acp-single-tender-0.1";
+    public static final String EXTERNAL_PROFILE = "local-external-ap2-acp-single-tender-0.1";
+    public static final String LOCAL_CALLBACKS = "bounded-local-callbacks-0.1";
     public static final String AP2_PROFILE = "ap2-v0.2-direct-tap-synthetic-0.1";
     public static final String ACP_VERSION = "2026-04-17";
     public static final String VERSION = "1";
@@ -78,6 +82,30 @@ public final class Composition {
         public CheckoutRequest { Objects.requireNonNull(facts); Objects.requireNonNull(signer); }
         @Override public String toString() { return "CheckoutRequest[redacted]"; }
     }
+    /** Protected retained evidence, never an agent supplied document or an enrollment source. */
+    public record ObservedCheckout(Scope scope, UUID purchaseId, UUID commandId, UUID responseReference,
+                                   int purchaseRevision, ConfigurationIdentity configuration, Instant observedAt,
+                                   Document document, byte[] bytes) {
+        public ObservedCheckout {
+            Objects.requireNonNull(scope); Objects.requireNonNull(purchaseId); Objects.requireNonNull(commandId);
+            Objects.requireNonNull(responseReference); Objects.requireNonNull(configuration); Objects.requireNonNull(observedAt);
+            Objects.requireNonNull(document);
+            if(purchaseRevision<1||bytes==null||bytes.length==0||bytes.length>65536) reject(Failure.INVALID_INPUT);
+            bytes=bytes.clone();
+        }
+        @Override public byte[] bytes() { return bytes.clone(); }
+        @Override public String toString() { return "ObservedCheckout[protected]"; }
+    }
+    public record ObservedTerms(String sessionId,String protocolVersion,String handlerId,String currency,
+                                long minorUnits,Instant expiresAt) {
+        public ObservedTerms { identity(sessionId); identity(protocolVersion); identity(handlerId); Objects.requireNonNull(expiresAt);
+            if(currency==null||!currency.matches("[A-Z]{3}")||minorUnits<1) reject(Failure.INVALID_INPUT); }
+        @Override public String toString() { return "ObservedTerms[protected]"; }
+    }
+    public record ObservedCheckoutRequest(ObservedCheckout observation, CheckoutFacts facts, SigningIdentity signer) {
+        public ObservedCheckoutRequest { Objects.requireNonNull(observation); Objects.requireNonNull(facts); Objects.requireNonNull(signer); }
+        @Override public String toString() { return "ObservedCheckoutRequest[protected]"; }
+    }
     public record AuthorityContext(CheckoutFacts facts, FrozenCheckout checkout, String subjectId, String grantId,
                                     long grantVersion, String issuer, String checkoutAudience, String paymentAudience,
                                     String checkoutNonce, String paymentNonce, Instant issuedAt, Instant expiresAt) {
@@ -125,6 +153,8 @@ public final class Composition {
         Descriptor describe();
         FrozenCheckout freeze(CheckoutRequest request);
         CheckoutFacts validate(CheckoutFacts expected, FrozenCheckout checkout, KeyResolver keys, Instant now);
+        default ObservedTerms inspectObserved(ObservedCheckout observation, Instant now) { throw new CompositionException(Failure.UNSUPPORTED_CAPABILITY); }
+        default FrozenCheckout freezeObserved(ObservedCheckoutRequest request) { throw new CompositionException(Failure.UNSUPPORTED_CAPABILITY); }
     }
     public interface AuthorityIssuer { Descriptor describe(); IssuedAuthority issue(IssuanceRequest request); }
     public interface AuthorityVerifier {
@@ -166,12 +196,28 @@ public final class Composition {
             this(checkout,issuer,verifier,provisioner,artifacts,new EnrolledKeyResolverFactory());
         }
         public void requireSupported() {
+            requireSupported(PROFILE);
+        }
+        public void requireSupported(String profile) {
+            if(EXTERNAL_PROFILE.equals(profile)) {
+                checkout.describe().require("checkout-protocol",profile,"immutable-checkout","exact-money","exact-observed-checkout","local-synthetic-attestation",LOCAL_CALLBACKS);
+                issuer.describe().require("authority-issuer",profile,"closed-mandates",LOCAL_CALLBACKS);
+                verifier.describe().require("authority-verifier",profile,"independent-signatures","role-bound","read-only",LOCAL_CALLBACKS);
+                provisioner.describe().require("key-provisioner",profile,"scoped-enrollment","ephemeral-private-keys",LOCAL_CALLBACKS);
+                artifacts.describe().require("signed-artifact-store",profile,"immutable","digest-verified","scoped","durable-retention",LOCAL_CALLBACKS);
+                keyResolvers.describe().require("key-resolver",profile,"scoped-enrollment","current-trust","transaction-snapshot",LOCAL_CALLBACKS);
+                requireOwners(); return;
+            }
+            if(!PROFILE.equals(profile)) reject(Failure.UNSUPPORTED_CAPABILITY);
             checkout.describe().require("checkout-protocol",PROFILE,"immutable-checkout","exact-money","local-freeze");
             issuer.describe().require("authority-issuer",PROFILE,"closed-mandates");
             verifier.describe().require("authority-verifier",PROFILE,"independent-signatures","role-bound","read-only");
             provisioner.describe().require("key-provisioner",PROFILE,"scoped-enrollment","ephemeral-private-keys");
             artifacts.describe().require("signed-artifact-store",PROFILE,"immutable","digest-verified","scoped","durable-retention");
             keyResolvers.describe().require("key-resolver",PROFILE,"scoped-enrollment","current-trust","transaction-snapshot");
+            requireOwners();
+        }
+        private void requireOwners() {
             requireOwner(checkout.describe(),"simulator-core"); requireOwner(issuer.describe(),"simulator-core");
             requireOwner(verifier.describe(),"simulator-core"); requireOwner(provisioner.describe(),"trusted-fixture-provisioner");
             requireOwner(artifacts.describe(),"artifact-store"); requireOwner(keyResolvers.describe(),"admission-trust");

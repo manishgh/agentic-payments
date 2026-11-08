@@ -84,7 +84,7 @@ Example when the environment is already configured:
 - frozen unknown exposure retaining its hold after contradictory no-effect evidence, expiry and revocation.
 
 `OperationBindingTest` freezes the separate 666-byte synthetic dispatch encoding and verifies that scenario changes alter its digest.
-The full Java suite passed after the safety fixes; the exact current command/count and source identity belong in the integration-owner test report.
+Run the conformance suite to obtain test results and source identity for the current revision.
 Tests use explicit latches for reviewed ordering gaps and virtual time for expiry, rather than timing sleeps.
 
 `DurableBoundaryIntegrationTest` adds executable evidence beyond service-object reconstruction:

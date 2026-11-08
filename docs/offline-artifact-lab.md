@@ -2,7 +2,7 @@
 
 `offline-ap2-acp-artifact-lab-0.1` verifies synthetic merchant checkout JWS signatures, frozen ACP bytes, closed mandate content matching and durable sidecar identities. It is separate from the Java payment core and from the disabled real-bridge candidate. It cannot dispatch a payment, verify native AP2 user/delegation authority, complete 3DS, or establish provider interoperability.
 
-The integration owner authorized the isolated contract from [independent review 0009](reviews/0009-upstream-bridge-review.md). The original [source lock](../integrations/upstream/source-lock.json), upstream schemas and disabled bridge flags remain unchanged. A separate code/security review is required before this implementation is accepted.
+The [source lock](../integrations/upstream/source-lock.json) pins upstream artifacts; the lab does not enable an external financial bridge.
 
 ## Run and verify
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed, 2026-11-07. Independent design review and an exact reviewed source identity are required before implementation. This decision authorizes no dependency installation, service deployment, paid service or external provider. Temporal, Cadence and Azure adapters are not implemented by this document.
+Accepted for the bounded reference profile described below. See the platform guides and executable tests for current implementation limits.
 
 ## Context
 

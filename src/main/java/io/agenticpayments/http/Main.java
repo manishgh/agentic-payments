@@ -22,18 +22,23 @@ public final class Main {
         database.setUser(required("PAYMENTS_DB_USER"));
         database.setPassword(required("PAYMENTS_DB_PASSWORD"));
         DatabaseMigrator.migrate(database);
-        PaymentService service = PaymentServices.local(database);
+        PaymentService seedService = PaymentServices.local(database);
         UUID run = UUID.fromString(required("PAYMENTS_RUN_ID"));
         String tenant = "tenant-local";
         Session runner = new Session(tenant, run, "customer-demo", Set.of("runner:write"), Set.of("merchant-demo"), Set.of("fixture-grant-1", "fixture-grant-usd"));
         Session graph = new Session(tenant, run, "agent-demo", Set.of("intent:write", "intent:read", "execution:write"), Set.of("merchant-demo"), Set.of());
         Session trusted = new Session(tenant, run, "customer-demo", Set.of("intent:read", "approval:write", "action:complete", "authority:revoke"), Set.of("merchant-demo"), Set.of("fixture-grant-1", "fixture-grant-usd"));
         // Seed is idempotent: restart must not replenish authority or reset virtual time.
-        service.seedRun(runner, Instant.parse("2026-11-06T10:00:00Z"), 100_000);
+        seedService.seedRun(runner, Instant.parse("2026-11-06T10:00:00Z"), 100_000);
         int port = Integer.parseInt(System.getenv().getOrDefault("PAYMENTS_PORT", "8080"));
         LocalSessions sessions = new LocalSessions(List.of(new LocalSessions.Entry(required("PAYMENTS_GRAPH_TOKEN"), graph), new LocalSessions.Entry(required("PAYMENTS_UI_TOKEN"), trusted)));
         String checkoutOrigin = System.getenv("PAYMENTS_CHECKOUT_DEMO_ORIGIN");
-        LocalCheckoutRegistration checkout = checkoutOrigin == null ? null : new LocalCheckoutRegistration(database, graph, checkoutOrigin);
+        String financeFlag = System.getenv().getOrDefault("PAYMENTS_EXTERNAL_CHECKOUT_FINANCE", "false");
+        if (!java.util.Set.of("true", "false").contains(financeFlag) || (financeFlag.equals("true") && checkoutOrigin == null))
+            throw new IllegalArgumentException("INVALID_EXTERNAL_CHECKOUT_FINANCE_CONFIGURATION");
+        boolean financial = financeFlag.equals("true");
+        LocalCheckoutRegistration checkout = checkoutOrigin == null ? null : new LocalCheckoutRegistration(database, graph, checkoutOrigin, financial);
+        PaymentService service = financial ? checkout.financialService() : seedService;
         PaymentHttpServer server = new PaymentHttpServer(service, sessions, port, Path.of(System.getenv().getOrDefault("PAYMENTS_UI_DIRECTORY", "ui")),
             checkout == null ? null : checkout.lifecycle());
         var worker = Executors.newSingleThreadScheduledExecutor();

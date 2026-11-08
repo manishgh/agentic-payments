@@ -11,6 +11,7 @@ public final class PaymentService {
     public record CreateCommand(String merchantId,String scenarioId,String profile,List<String> requiredCapabilities) {}
     public record Tender(String provider,String method,String credentialReference) {}
     public record QuoteCommand(int expectedVersion,String cartFixtureId,List<Tender> tenders) {}
+    public record ExternalQuoteCommand(int expectedVersion,UUID purchaseId,int expectedPurchaseRevision,UUID responseReference,List<Tender> tenders) {}
     public record ApproveCommand(int expectedVersion,int checkoutRevision,String checkoutDigest,String authorityReference) {}
     public record ExecuteCommand(int expectedVersion,UUID attemptId) {}
     public record CompleteActionCommand(int expectedVersion,String decision) {}
@@ -19,10 +20,12 @@ public final class PaymentService {
     private final PaymentStore store;
     public PaymentService(PaymentStore store) { this.store=Objects.requireNonNull(store); }
     public Result create(Session s,String k,CreateCommand c) {
-        if(c!=null&&"local-ap2-acp-single-tender-0.1".equals(c.profile())&&!store.admissionCapabilities().contains("atomic-replay-grant-reservation-0.1")) throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
+        if(c!=null&&("local-ap2-acp-single-tender-0.1".equals(c.profile())||"local-external-ap2-acp-single-tender-0.1".equals(c.profile()))&&!store.admissionCapabilities().contains("atomic-replay-grant-reservation-0.1")) throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
+        if(c!=null&&"local-external-ap2-acp-single-tender-0.1".equals(c.profile())&&!store.admissionCapabilities().contains("atomic-external-checkout-binding-0.1")) throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
         return store.create(s,k,c);
     }
     public Result quote(Session s,UUID id,String k,QuoteCommand c) { return store.quote(s,id,k,c); }
+    public Result quoteExternal(Session s,UUID id,String k,ExternalQuoteCommand c) { return store.quoteExternal(s,id,k,c); }
     public Result approve(Session s,UUID id,String k,ApproveCommand c) { return store.approve(s,id,k,c); }
     public Result execute(Session s,UUID id,String k,ExecuteCommand c) { return store.execute(s,id,k,c); }
     public Result status(Session s,UUID id) { return store.status(s,id); }

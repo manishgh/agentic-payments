@@ -1,6 +1,6 @@
 # ADR 0012: Provider-neutral execution contract
 
-Status: proposed for independent design review, 2026-11-08. This document does not enable a provider or change financial dispatch.
+Status: accepted for the bounded reference profile described below.
 
 ## Context and scope
 
@@ -129,11 +129,4 @@ The injected compatibility binding-journal responsibility atomically selects or 
 
 Required base cases cannot be omitted to obtain a pass. Optional event/fence profiles are reported as unsupported when undeclared, and incomplete when declared without executable evidence. Reports name contract/profile/offer digest, suite revision, required/evaluated cases, adapter/fixture identities and exclusions; passing is adapter-only evidence, never whole-platform/provider/AP2/ACP/PCI certification. Broken fixtures/decorators that silently rebind accounts, overclaim fencing, retry uncertain sends or leak errors must make the suite fail. Two genuinely independent synthetic fixture implementations plus the compatibility bridge and forwarding decorator prevent tests from merely mirroring a reference adapter.
 
-## File ownership, sequencing and validation
-
-1. Design owner edits this ADR only, then requests integration-owner and independent Astra acceptance. No SDK code before acceptance.
-2. On acceptance, implementation ownership is limited to `src/main/java/io/agenticpayments/sdk/execution/v1/**`, `src/test/java/io/agenticpayments/sdk/execution/v1/**`, and new `specification/provider-execution-1/README.md`. Freeze this accepted ADR and derive readable normative contract/profile/TCK semantics in that versioned specification; keep existing `0.1.0-draft` schemas/input locks unchanged. Existing SDK/descriptor/TCK files, financial storage/dispatch, checkout files and migrations are outside this ownership. Root owns Maven/classifier/evidence-runner changes if independently required.
-3. Add constructors/canonicalization/selection behavior, then responsibilities/results, independent fixtures/TCK and compatibility tests in focused changes. No commits, pushes or live calls by this owner.
-4. Integration owner runs focused Maven tests and bytecode dependency inspection, docs/link checks and `git diff --check`; after independent source review, integration owner runs the unchanged-source complete PostgreSQL aggregate. The SDK classifier must remain `java.base` only. No test is substituted with an embedded database; this SDK slice itself requires no database.
-
-Risks requiring explicit review are canonical identity completeness, retention of immutable configuration across restart, false certainty from refusal/fencing, fixture independence and action/event trust boundaries. No data migration or operational rollout occurs in this slice. Durable external journals and provider-specific sandbox profiles remain implementation prerequisites before financial wiring.
+The standalone SDK remains dependent only on `java.base`. Provider-specific sandbox profiles and reviewed financial admission wiring are required before external execution.

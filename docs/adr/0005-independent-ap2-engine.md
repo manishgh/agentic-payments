@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed; independent security review and integration-owner acceptance precede implementation. This ADR defines an executable protocol slice, not full AP2 conformance or financial admission.
+Accepted for the bounded reference profile described below. See the platform guides and executable tests for current implementation limits.
 
 ## Context
 

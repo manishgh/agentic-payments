@@ -75,3 +75,5 @@ Migration `V007` adds the explicit profile and native checkout, public trust, ch
 Verification includes concurrent approval/replay races, exact expiry, key revocation/admission ordering, SQL rollback, process restart, malformed artifacts, replacement stores/resolvers and owner conflicts. Java-generated native checkout is independently validated against the pinned ACP schema during the aggregate run. Temporal tests separately cover authentication pause/restart and response-loss recovery; they do not claim those two scenarios were combined into one test.
 
 These checks do not close the full certification matrix. Real PSPs, externally hosted checkout interoperability, delegated/User Credential AP2 profiles, additional crypto profiles, real 3DS and refunds remain separately reviewed work.
+
+The optional [external authority binding profile](external-checkout-authority.md) now joins retained observations to synthetic AP2 approval and financial admission through a permanent atomic seal. It requires separate trusted opt-in, leaves the commerce-only profile unchanged, and does not enable vendor execution or merchant checkout completion.

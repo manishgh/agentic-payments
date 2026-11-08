@@ -11,8 +11,8 @@ public final class JdbcSignedArtifactStore implements SignedArtifactStore {
     private final DataSource dataSource;
     public JdbcSignedArtifactStore(DataSource dataSource) { this.dataSource=Objects.requireNonNull(dataSource); }
     @Override public Descriptor describe() {
-        return new Descriptor("signed-artifact-store",VERSION,"postgresql-artifacts",Set.of(PROFILE),
-            Set.of("immutable","digest-verified","scoped","durable-retention"),"artifact-store");
+        return new Descriptor("signed-artifact-store",VERSION,"postgresql-artifacts",Set.of(PROFILE,EXTERNAL_PROFILE),
+            Set.of("immutable","digest-verified","scoped","durable-retention",LOCAL_CALLBACKS),"artifact-store");
     }
     @Override public ArtifactReference put(Scope scope,Artifact artifact) {
         Objects.requireNonNull(scope); Objects.requireNonNull(artifact);

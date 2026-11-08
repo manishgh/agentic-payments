@@ -5,10 +5,18 @@ import io.agenticpayments.checkout.CheckoutSessions;
 import io.agenticpayments.application.CheckoutConfigurationResolver.ConfigurationIdentity;
 import io.agenticpayments.application.CheckoutLifecycle.*;
 import java.util.UUID;
+import java.util.Set;
 
 /** Atomic scoped lifecycle unit of work. No callback may perform network I/O. */
 public interface CheckoutLifecycleTransactions {
     String CONTRACT_VERSION = "checkout-lifecycle-transactions-0.1";
+    String SEAL_CAPABILITY = "permanent-purchase-seal-0.1";
+    /** Opaque identity shared by a trusted factory only for the very same atomic authority. */
+    final class CoordinationDomain {
+        @Override public String toString() { return "CoordinationDomain[opaque]"; }
+    }
+    default Set<String> bindingCapabilities() { return Set.of(); }
+    default CoordinationDomain coordinationDomain() { return null; }
     <T> T run(PaymentService.Session session, Work<T> work);
     /** Trusted infrastructure enrollment only, never exposed as an application API. */
     void enroll(PaymentService.Session scope, ConfigurationIdentity identity);

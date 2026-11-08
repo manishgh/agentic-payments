@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CheckoutApiProcess:
-    def __init__(self, origin=None):
+    def __init__(self, origin=None, *, financial=False):
         for name in ("PAYMENTS_DB_URL", "PAYMENTS_DB_USER", "PAYMENTS_DB_PASSWORD", "JAVA_HOME"):
             if not os.environ.get(name):
                 raise RuntimeError("Local PostgreSQL and Java configuration is required.")
@@ -21,8 +21,11 @@ class CheckoutApiProcess:
         self.environment = dict(os.environ, PAYMENTS_GRAPH_TOKEN=self.graph_token, PAYMENTS_UI_TOKEN=self.ui_token,
                                 PAYMENTS_RUN_ID=self.run_id, PAYMENTS_PORT="0")
         self.environment.pop("PAYMENTS_CHECKOUT_DEMO_ORIGIN", None)
+        self.environment.pop("PAYMENTS_EXTERNAL_CHECKOUT_FINANCE", None)
         if origin is not None:
             self.environment["PAYMENTS_CHECKOUT_DEMO_ORIGIN"] = origin
+        if financial:
+            self.environment["PAYMENTS_EXTERNAL_CHECKOUT_FINANCE"] = "true"
         self.process = None
         self.start()
 
@@ -71,6 +74,18 @@ class CheckoutApiProcess:
                 return response.status, json.load(response)
         except HTTPError as response:
             return response.status, json.load(response)
+
+    def payment(self, path, body=None, *, raw=None, key=None, token=None):
+        headers = {"Authorization": "Bearer " + (self.graph_token if token is None else token)}
+        payload = json.dumps(body).encode() if body is not None else raw
+        if payload is not None:
+            headers.update({"Content-Type": "application/json", "Idempotency-Key": key or str(uuid4())})
+        request = Request(self.base + "/internal/v0.1" + path, data=payload, headers=headers)
+        try:
+            with urlopen(request, timeout=10) as response:
+                return response.status, json.load(response), dict(response.headers)
+        except HTTPError as response:
+            return response.status, json.load(response), dict(response.headers)
 
     def __enter__(self):
         return self

@@ -1,27 +1,23 @@
 # ADR 0001: Bound the first preview to one synthetic tender
 
-Status: recommended design decision, awaiting independent G2-S review and integration-owner acceptance.
-Date: 2026-11-06. Authors do not self-approve gates. No implementation or conformance result exists yet.
+Status: accepted for the bounded reference profile described below.
+Original decision: 2026-11-06. This records the initial synthetic profile; subsequent ADRs extend protocol and integration support.
 Scope: internal `local-fake-single-tender-0.1` profile against `0.1.0-draft` project requirements.
-The separate [gate record](../reviews/gates.md) is the authority for acceptance against exact reviewed artifact hashes; this document retains proposal status.
 
 ## Context
 
 The product will compose an enclosing AP2-based payment intent with embedded OpenAI ACP checkout and provider authentication.
-The [protocol review](../reviews/0001-protocol-boundaries.md) identifies unresolved signed-byte, trust, continuation and execution-owner boundaries.
+External integrations require explicit signed-byte, trust, continuation and execution-owner contracts.
 Current inspected upstream contracts do not provide a proven general bridge for all internal methods/customer actions.
 Implementing a real connector before resolving those points would turn assumptions into financial and compatibility behavior.
-The user authorized autonomous progress through documentation/design with separate senior plan, design and code reviewers.
-That authorizes bounded design progress; it does not authorize live money, deployment, public licensing or unreviewed compatibility claims.
 
 A simulator can validate local authority/reservation/execution invariants without pretending to verify AP2 signatures or change ACP schemas.
-The proposed language direction is Java core/SDK, Python LangGraph, TypeScript trusted UI and PostgreSQL.
+The reference uses Java core/SDK, Python LangGraph, TypeScript trusted UI and PostgreSQL.
 The first implementation must remain small enough for independent review and failure-driven tests.
 
 ## Recommended decision
 
-Accept the four-language/storage direction for the bounded design, subject to independent review; component framework/patch locks remain open.
-Do not present this recommendation as an accepted ADR until the integration owner records the review outcome below.
+Use the reference stack with versions and dependency locks documented in the [toolchain guide](../toolchain.md).
 Use one modular Java core with domain/application/ports/infrastructure boundaries and one authoritative PostgreSQL store.
 Python LangGraph calls authenticated internal commands and polls status; TypeScript is the trusted local approval/action surface.
 Core/adapter modules have no dependency on graph state or UI. Domain types depend on neither HTTP nor SQL/provider libraries.
@@ -29,10 +25,9 @@ The first slice is local-only, synthetic, single provider, single tender, no ext
 Implement [API contracts](../api-contracts.md) and [transaction model](../data-model.md) after G2-S acceptance.
 
 Recommended core baseline is Temurin Java 21 LTS language/API target, Maven 3.9.16 and PostgreSQL 17.11; a supported baseline, not a latest-version claim.
-The integration owner verified official [Maven maintenance history](https://maven.apache.org/docs/history.html) and [PostgreSQL support table](https://www.postgresql.org/support/versioning/) on 2026-11-06.
+Runtime support references: official [Maven maintenance history](https://maven.apache.org/docs/history.html) and [PostgreSQL support table](https://www.postgresql.org/support/versioning/).
 The official [Adoptium support policy](https://adoptium.net/support) lists Java 21 support through at least December 2029; pin an actual available binary/checksum during bootstrap.
-Exact JDK vendor/patch, wrapper checksum, database image digest and dependency/license lock remain required before implementation bootstrap.
-No working Java/Python/Maven installation has been validated locally. Python/LangGraph and Node/TypeScript versions must be pinned before their own slices.
+The repository contains verified toolchain bootstrap and component dependency locks. See the [toolchain guide](../toolchain.md) for exact versions and setup, and the [verification guide](../requirement-evidence.md) for source-bound checks.
 
 ## Selected profile
 
@@ -72,7 +67,7 @@ No universal exactly-once delivery or atomic distributed rollback claim is made.
 
 ## G2-S: bounded simulator design gate
 
-The following are proposed acceptance criteria for an independent senior design reviewer and integration owner.
+The bounded simulator contract requires the following behaviors.
 Passing G2-S permits only a reviewed design for create/quote/approve/reserve/read; it does not pass G2-P or certify an adapter.
 Dispatch, customer-action execution and recovery remain proposed designs requiring a separate senior review before their implementation slices.
 
@@ -93,7 +88,6 @@ Dispatch, customer-action execution and recovery remain proposed designs requiri
 G2-S has not passed merely because this ADR is written. Exact field/canonical-byte rules and core toolchain targets are documented; independent acceptance is pending.
 DR-004 is separated into mandatory IMP-001 bootstrap evidence: verify actual tool availability, distribution/checksum pins and dependency/license inventory before application source.
 No local runtime/build is claimed. Missing installation does not imply incomplete design, but it blocks source scaffolding until bootstrap checks succeed.
-The integration owner may approve a smaller first slice only by explicitly recording which reviewed contracts it implements.
 The first implementation slice should create/quote/approve/reserve/read using one isolated fixture, before adding dispatch or actions.
 Each later side-effect/recovery slice requires its own design/code review and tests; G2-S is not blanket approval for unreviewed changes.
 
@@ -151,11 +145,3 @@ The initial Java/Python/TypeScript/PostgreSQL split adds toolchain work; impleme
 Runtime versions and dependencies must be checked against official maintained documentation rather than invented “latest” versions.
 Public licensing remains unresolved; no package/spec release or open-source license is silently authorized.
 The confirmed GitHub remote permits reviewed branch pushes; it does not authorize merges, deployment or live execution.
-
-## Review and acceptance record
-
-- Independent design reviewer: separate from this author; final review evidence and decision are recorded in the gate record.
-- Integration owner decision: pending; identify reviewed revision/commit, closed findings, residual limits and exact authorized first slice.
-- Senior plan review: separate responsibility; amend roadmap/backlog after design decisions are reconciled.
-- Senior code review: required after implementation; cannot be substituted by this document review.
-- Next bounded action: independent G2-S design decision; if accepted, complete mandatory IMP-001 bootstrap checks before first-slice application source.

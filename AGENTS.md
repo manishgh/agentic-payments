@@ -43,3 +43,7 @@ Do not select a public license or publish package releases silently. Record lice
 ## Validation and reporting
 
 Run `pwsh -NoProfile -File scripts/Check-Docs.ps1` and `git diff --check`. With an isolated PostgreSQL database and documented environment, run `python scripts/conformance.py` for Java/database, HTTP, UI, schema and LangGraph checks. This produces version-bound evidence, not a certification grant. See README.md for setup. Report checks actually run and preserve all missing conformance obligations. Never substitute an embedded database or silently skip integration tests.
+
+## Documentation discipline
+
+Keep repository documentation focused on platform use, integration, operation, public contracts and significant architecture decisions. Keep independent design/code reviews, but report findings in review discussions rather than committing agent handoffs, research scratchpads, per-step review reports or gate diaries. Preserve executable tests and source-bound CI evidence; do not replace verification with prose.

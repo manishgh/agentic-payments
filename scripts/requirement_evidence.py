@@ -40,17 +40,22 @@ def source_identity(root: Path):
                 continue
             name = file.relative_to(root).as_posix()
             entries[name] = sha(safe_path(root, name).read_bytes())
-    for name in ("pom.xml", "docs/simulator-and-conformance.md", "docs/adr/0004-requirement-evidence.md",
-                 "docs/reviews/0013-evidence-design-review.md", "docs/adr/0005-independent-ap2-engine.md",
-                 "docs/ap2-requirements.md", "docs/reviews/0016-independent-ap2-design-review.md",
-                 "docs/adr/0006-durable-ap2-admission.md", "docs/reviews/0018-durable-ap2-design-review.md",
-                 "docs/adr/0007-durable-workflow-runtime.md", "docs/reviews/0020-durable-runtime-design-review.md",
-                 "docs/adr/0008-native-application-coordination.md", "docs/reviews/0023-native-coordination-design-review.md",
-                 "docs/adr/0009-external-checkout-adapters.md", "docs/reviews/0025-external-adapter-design-review.md",
-                 "docs/adr/0010-payment-transaction-boundary.md", "docs/reviews/0026-transaction-boundary-design-review.md",
-                 "docs/adr/0011-durable-external-checkout.md", "docs/reviews/0029-durable-external-checkout-design-review.md",
-                 "docs/adr/0012-provider-execution-contract.md", "docs/reviews/0030-provider-contract-design-review.md",
-                 "docs/adr/0013-durable-provider-journal.md", "docs/reviews/0033-durable-provider-journal-design-review.md"):
+    for name in (
+        "pom.xml",
+        "docs/simulator-and-conformance.md",
+        "docs/adr/0004-requirement-evidence.md",
+        "docs/adr/0005-independent-ap2-engine.md",
+        "docs/ap2-requirements.md",
+        "docs/adr/0006-durable-ap2-admission.md",
+        "docs/adr/0007-durable-workflow-runtime.md",
+        "docs/adr/0008-native-application-coordination.md",
+        "docs/adr/0009-external-checkout-adapters.md",
+        "docs/adr/0010-payment-transaction-boundary.md",
+        "docs/adr/0011-durable-external-checkout.md",
+        "docs/adr/0012-provider-execution-contract.md",
+        "docs/adr/0013-durable-provider-journal.md",
+        "docs/adr/0014-external-checkout-authority-binding.md",
+    ):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())
     return {"sha256": sha(json.dumps(ordered, separators=(",", ":")).encode()), "files": dict(ordered)}
@@ -133,8 +138,7 @@ def load_inputs(root: Path):
                 ("inventory.json", "mapping.json", "inventory.schema.json", "mapping.schema.json",
                  "producer.schema.json", "receipt.schema.json", "report.schema.json")}
     required.update({"specification/0.1.0-draft/README.md", "docs/simulator-and-conformance.md",
-                     "docs/adr/0004-requirement-evidence.md", "docs/reviews/0013-evidence-design-review.md",
-                     "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java", "pom.xml",
+                     "docs/adr/0004-requirement-evidence.md", "src/main/java/io/agenticpayments/sdk/CapabilityOffer.java", "pom.xml",
                      "workflows/requirements-lock.txt", "integrations/offline_lab/requirements-crypto.lock.txt",
                      "ui/package-lock.json", "scripts/temporal-toolchain-lock.json",
                      "workflows/temporal-dependency-inventory.json"})

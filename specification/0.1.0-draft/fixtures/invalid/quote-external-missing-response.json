@@ -1,0 +1,12 @@
+{
+  "expectedVersion": 1,
+  "purchaseId": "60000000-0000-4000-8000-00000000000a",
+  "expectedPurchaseRevision": 2,
+  "tenders": [
+    {
+      "provider": "simulator",
+      "method": "synthetic-card",
+      "credentialReference": "fixture-credential-1"
+    }
+  ]
+}

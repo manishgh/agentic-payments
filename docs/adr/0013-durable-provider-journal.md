@@ -1,6 +1,6 @@
 # ADR 0013: Durable synthetic provider execution journal
 
-Status: proposed for independent design review, 2026-11-08. Design only until the integration owner records the next implementation gate. Existing aggregate source, accepted specifications and reviews remain frozen.
+Status: accepted for the bounded reference profile described below.
 
 ## Context and bounded decision
 
@@ -149,11 +149,4 @@ Test child arguments contain only nonsecret mode/scope/operation IDs. Database c
 
 The reusable SDK TCK may run against a JDBC-backed in-process fixture, but its `restart()` only reconstructing Java objects must remain labelled `IN_PROCESS_RECONSTRUCTION`. Separate named child-JVM tests provide the actual process evidence. Do not label the entire suite `PROCESS_PERSISTENCE` unless every claimed case actually traverses that boundary. No IPC TCK redesign is required for this slice.
 
-## Ownership and gate sequence
-
-1. Design author edits this new ADR only while the previous aggregate/source is frozen. Independent Astra review and integration-owner acceptance freeze its exact hash before source changes.
-2. Implementation author owns new `src/main/java/io/agenticpayments/infrastructure/provider/**` for journal, strict codec and immutable trusted mapping/configuration helpers; V009; and new `src/test/java/io/agenticpayments/provider/ProviderJournalCodecTest.java` only. Independent test author owns other new `src/test/java/io/agenticpayments/provider/**` integration/process/inspection helpers and the populated-V008-to-V009 migration test. Existing SDK/specification/financial storage/checkout code is outside this ownership. Do not amend accepted earlier ADR/review files.
-3. Root owns `DatabaseMigrator` registration, existing `NativeMigrationUpgradeTest`/`CheckoutMigrationUpgradeTest` latest-version count amendments and aggregate/evidence/docs linkage. Preserve existing V007/V008 prefix/checksum assertions; increasing a latest migration count is not permission to rewrite old migrations. Root owns Maven, classifier checks and the full unchanged-source aggregate. Immediately after the gate, implementation author publishes exact constructor/configuration/codec signatures for parallel independent tests before editing those responsibilities.
-4. Implement codec/journal/migration as one bounded slice, then independent SQL/concurrency/process tests. Review exact source/codec/schema/failure semantics before root aggregate and incremental publication. No package release, merge, deployment or real provider activation follows from a source push.
-
-Open operational work remains production retention/key custody, richer provider profiles, durable preparation resources, authenticated external events, application financial wiring and process/storage failure coverage beyond this bounded synthetic profile. These are not prerequisites for implementing and testing the journal itself.
+Production retention/key custody, broader provider profiles, authenticated external events and application financial wiring remain outstanding.

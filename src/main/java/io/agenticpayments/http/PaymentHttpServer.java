@@ -125,6 +125,7 @@ public final class PaymentHttpServer implements AutoCloseable {
                 UUID intent = id(segments[2]);
                 return switch (segments[3]) {
                     case "quote" -> service.quote(session, intent, key, parse(body, QuoteCommand.class));
+                    case "quote-external" -> service.quoteExternal(session, intent, key, parse(body, ExternalQuoteCommand.class));
                     case "approve" -> service.approve(session, intent, key, parse(body, ApproveCommand.class));
                     case "execute" -> service.execute(session, intent, key, parse(body, ExecuteCommand.class));
                     default -> missing();
@@ -170,7 +171,7 @@ public final class PaymentHttpServer implements AutoCloseable {
             node.properties().forEach(entry -> validateTree(entry.getValue(), entry.getKey()));
         } else if (node.isArray()) {
             node.forEach(value -> validateTree(value, field));
-        } else if (field.equals("attemptId")) {
+        } else if (java.util.Set.of("attemptId", "purchaseId", "responseReference").contains(field)) {
             if (!node.isTextual()) throw new IllegalArgumentException();
             id(node.textValue());
         } else if (field.equals("checkoutDigest")) {

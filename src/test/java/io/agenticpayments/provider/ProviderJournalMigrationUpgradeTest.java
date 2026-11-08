@@ -51,8 +51,9 @@ class ProviderJournalMigrationUpgradeTest {
             var transactions=new JdbcCheckoutLifecycleTransactions(isolated);transactions.enroll(graph,identity);
             try(var transport=new AcpHttpCheckoutSessions(new AcpHttpCheckoutSessions.Configuration(binding,java.net.URI.create("http://127.0.0.1:9"),true,Duration.ofMillis(100),Duration.ofSeconds(1)),"synthetic-migration-credential".toCharArray())){
                 CheckoutLifecycle checkout=new CheckoutLifecycleService(transactions,id->new Resolved(identity,transport));UUID purchase=UUID.randomUUID();
-                var staged=checkout.stage(graph,purchase,"migration-command",new CheckoutLifecycle.StageCommand(CheckoutSessions.Operation.CREATE,0,"merchant-demo","migration-config","usd",List.of("migration-item")));
-                transactions.run(graph,tx->tx.claim(purchase,staged.commandId(),UUID.randomUUID()));var unknown=checkout.recoverClaim(graph,purchase,staged.commandId());assertTrue(unknown.mutationBlocked());
+                // Seed the historical V008 representation directly: current stage/claim correctly require V010 seals.
+                seedHistoricalUnknown(isolated,graph,identity,transport,purchase);
+                var unknown=checkout.status(graph,purchase);assertTrue(unknown.mutationBlocked());
                 Map<String,List<String>> before=snapshot(isolated,schema);assertTrue(before.get("native_artifacts").size()>0);assertEquals(1,before.get("simulator_operation_journal").size());assertEquals(1,before.get("checkout_lifecycle_commands").size());
                 DatabaseMigrator.migrate(isolated);DatabaseMigrator.migrate(isolated);
                 Map<String,List<String>> after=snapshot(isolated,schema);for(var entry:before.entrySet())assertEquals(entry.getValue(),after.get(entry.getKey()),"Historical table changed: "+entry.getKey());
@@ -60,13 +61,36 @@ class ProviderJournalMigrationUpgradeTest {
                 for(String table:List.of("provider_compatibility_bindings","provider_compatibility_evidence","provider_compatibility_conflicts","provider_compatibility_resource_owners"))assertEquals(List.of(),after.get(table));
             }
             Map<Integer,String> history=new TreeMap<>();try(var connection=isolated.getConnection();var statement=connection.createStatement();var rows=statement.executeQuery("SELECT version,digest FROM schema_migrations ORDER BY version")){while(rows.next())history.put(rows.getInt(1),rows.getString(2));}
-            assertEquals(9,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));assertEquals(digest(resource("V009__provider_compatibility_journal.sql")),history.get(9));
+            assertEquals(10,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));assertEquals(digest(resource("V009__provider_compatibility_journal.sql")),history.get(9));
+            assertEquals(digest(resource("V010__external_checkout_authority_binding.sql")),history.get(10));
         }finally{
             // Only this validated, randomly created test schema may be dropped.
             if(created)try(var connection=admin.getConnection();var statement=connection.createStatement()){statement.execute("DROP SCHEMA "+quoted+" CASCADE");}
         }
     }
     private static String key(){return UUID.randomUUID().toString();}
+    private static void seedHistoricalUnknown(DataSource database,PaymentService.Session graph,ConfigurationIdentity identity,
+                                              AcpHttpCheckoutSessions transport,UUID purchase)throws Exception {
+        var mapper=new com.fasterxml.jackson.databind.ObjectMapper(); UUID command=UUID.randomUUID();
+        var input=new CheckoutLifecycle.StageCommand(CheckoutSessions.Operation.CREATE,0,"merchant-demo","migration-config","usd",List.of("migration-item"));
+        var request=new io.agenticpayments.checkout.CheckoutCommandTransport.Request(identity.binding(),CheckoutSessions.Operation.CREATE,
+            null,"usd",List.of(new CheckoutSessions.ItemReference("migration-item")),key(),key());
+        var prepared=transport.prepare(request);
+        var current=new CheckoutLifecycleTransactions.Purchase(purchase,identity,"usd",null,2,null,null,command,true);
+        String payload=mapper.writeValueAsString(Map.of("input",input,"configuration",identity,"prepared",prepared,"stagedRevision",1));
+        try(var connection=database.getConnection()) {
+            connection.setAutoCommit(false);
+            try(var statement=connection.prepareStatement("INSERT INTO checkout_purchases VALUES(?,?,?,?,?,?,?,?)")) {
+                Object[] values={graph.tenantId(),graph.runId(),graph.principalId(),purchase,"merchant-demo","migration-config",identity.configurationVersion(),mapper.writeValueAsString(current)};
+                for(int i=0;i<values.length;i++)statement.setObject(i+1,values[i]);statement.executeUpdate();
+            }
+            try(var statement=connection.prepareStatement("INSERT INTO checkout_lifecycle_commands VALUES(?,?,?,?,?,?,?,?,'UNKNOWN',NULL,'WORKER_INTERRUPTED','UNKNOWN',0,NULL)")) {
+                Object[] values={graph.tenantId(),graph.runId(),graph.principalId(),purchase,command,"migration-command","a".repeat(64),payload};
+                for(int i=0;i<values.length;i++)statement.setObject(i+1,values[i]);statement.executeUpdate();
+            }
+            connection.commit();
+        }
+    }
     private static String resource(String name)throws Exception{try(var input=ProviderJournalMigrationUpgradeTest.class.getResourceAsStream("/db/"+name)){assertNotNull(input);return new String(input.readAllBytes(),StandardCharsets.UTF_8);}}
     private static String digest(String value)throws Exception{return "sha256:"+HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}
     private static Map<String,List<String>> snapshot(DataSource database,String schema)throws SQLException{

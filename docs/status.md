@@ -1,66 +1,32 @@
-# Current status and handoff
+# Platform status
 
-Updated: 2026-11-08, Europe/Berlin.
+The repository provides a runnable synthetic purchasing platform: a Java payment core and SDK, PostgreSQL payment storage, Python LangGraph workflows and a trusted TypeScript approval UI. Execution supports explicit local profiles only. No live merchant or payment provider is enabled.
 
-## Current milestone
+## Current capabilities
 
-Durable external ACP commerce lifecycle integration and the additive provider execution contract are published and validated. The following [PostgreSQL provider binding journal](durable-provider-journal.md) is implemented behind the unchanged interface, independently accepted under reviews 0033/0034 and validated by a fresh 462-test aggregate. It preserves ownership and conflicting evidence across process restarts. A local merchant or synthetic provider remains distinct from vendor sandbox evidence.
+| Area | Available behavior |
+| --- | --- |
+| Payment coordination | Exact money, scoped command replay, atomic budget reservations, one execution owner, trusted synthetic challenges and retained unknown outcomes. |
+| AP2 and embedded ACP | Independently authored direct TAP authority, exact signed checkout binding, current key/grant verification and atomic replay/admission checks. |
+| Replaceable components | Versioned checkout, authority, crypto, key, artifact, admission, provider and workflow responsibilities; implementations can be direct, adapted or delegated. |
+| Durable workflows | Payment workflows use SQLite or Temporal. The separate commerce workflow uses LangGraph/SQLite and explicit restart/resume. |
+| External commerce | ACP create, retrieve, update and cancel; committed dispatch claims, protected outcomes and a permanent uncertain-mutation barrier. |
+| Provider SDK | Separate preparation, submission, reconciliation and event contracts, optional true fencing, a synthetic bridge and a PostgreSQL binding journal. This SDK is separate from financial-core admission. |
+| Local verification | PostgreSQL, HTTP, schema, UI, workflow, replacement-adapter and process-recovery checks, with versioned requirement reports. |
 
-IMP-010's native application-coordination slice is implemented and independently accepted. It moves protocol/artifact policy behind the existing composition ports while retaining PostgreSQL transaction ownership, stored JSON compatibility and trust-snapshot ordering. Broader financial-use-case extraction remains outstanding.
+The opt-in `local-external-ap2-acp-single-tender-0.1` implementation adds exact external-response binding, a permanent purchase seal, trusted approval and synthetic AP2 execution. Its signature is a local synthetic attestation, not an external merchant signature. See the [external checkout authority guide](external-checkout-authority.md).
 
-The local synthetic reference implementation is runnable: versioned contracts, extensible Java adapter SDK and reusable TCK, Java payment core, normalized PostgreSQL migrations and durable simulator, loopback HTTP API, trusted TypeScript UI, LangGraph/SQLite workflow and repeatable evidence runner. Implementation branch: `codex/reference-platform` in [manishgh/agentic-payments](https://github.com/manishgh/agentic-payments).
+## Limits
 
-The product direction remains an AP2-based intent enclosing embedded ACP checkout and provider authentication. The independently authored Java AP2 direct TAP engine binds native synthetic authority and an exact embedded ACP checkout to durable financial admission. Checkout, authority, crypto, key and artifact implementations are injectable. Payment workflow decisions run through a shared local SQLite/Temporal runtime contract. The separate [external commerce lifecycle](durable-external-checkout.md) now has durable stage/claim/outcome storage and LangGraph/SQLite restart support. External ACP financial/authority binding, vendor execution, Cadence/Azure adapters and broader AP2 profiles remain outstanding. See [durable composition](durable-composition.md) and [runtime guide](durable-runtime.md).
+- Real PSPs, live instruments, real 3DS, delegated/User Credential AP2 profiles and production merchant trust are unsupported.
+- External checkout completion is not sent. The external financial handoff currently uses authenticated HTTP and the existing UI; the payment workflow template does not yet accept that profile.
+- Uncertain commerce mutations remain blocked, even after a later observation. Financial seals have no automatic release or requote path.
+- Additional methods, wallets, split tender, refunds, managed identity and operations require separate implementations and explicit profiles.
+- Selected conformance checks exist, but the complete adversarial/privacy/crash matrix and certification policy remain unfinished. The aggregate verdict remains `NOT_CERTIFIED`.
+- Public licensing, package distribution and managed-service operation remain open decisions. Synthetic results establish no provider, upstream protocol, PCI, regulatory or network certification.
 
-## Validation and review
+## Next work
 
-The durable provider journal passes fresh-database run `25606c1bbe8045c096fb896060a1d5e0`: all twelve stages and 462 methods, unchanged 384-file source SHA-256 `f3ba1f778d246a90249667a35df7624eb73b5d53f75390511a51527212328fb1`, zero failures/errors/skips and separate bundle verification. The packaged SDK remains `java.base` only. Independent child-JVM/SQL evidence covers process loss, contention, rollback, commit acknowledgment loss, cache expiry and migration from populated V008. All 48 selected observations pass; eleven CT rows remain incomplete and the verdict remains `NOT_CERTIFIED`. Exact identities and limits are recorded in [implementation evidence](implementation-evidence.md).
+Implement the accepted [DI, logging, metrics and application-failure design](adr/0015-service-composition-observability-errors.md). The external profile also needs a durable workflow handoff with immutable source registration. Continue application/transaction separation, complete missing conformance scenarios and prepare clean developer onboarding. Provider sandbox work requires an explicitly selected account, method, region and verified recovery behavior.
 
-Durable checkout/provider-contract checkpoint `fcb6feb46e7b8aeda037e41af6c9f77ce5f6dbc5` passed fresh-database run `d058b1d4c0d44bbfa17ed0b0e0e2f386`: twelve stages and 424 methods, unchanged 371-file source SHA-256 `4c469b09c74a2596567fafb73ab9ac34f7c39a97b5ba34f8fcd727838f674747`, zero failures/errors/skips and independent bundle verification. SDK bytecode depends only on `java.base`. Astra reviews 0029..0032 cover design and source. External checkout uncertainty barriers, actual JVM/graph restart and replacement interfaces are tested; provider TCK fixtures remain in-process reconstruction evidence. All 48 selected observations pass, eleven CT rows remain incomplete and the verdict remains `NOT_CERTIFIED`. Exact evidence is in [implementation evidence](implementation-evidence.md).
-
-The external-checkout/execution-boundary slice passed fresh-database run `25c4d21e79d0490ca44d62a49f2abfaa`: all twelve stages and 368 methods, zero failures/errors/skips, unchanged 314-file source SHA-256 `504ad2d6d5ef3a358f1dae291a57c2a9428a54338a30fb47a157e5ea8b006a69`, and separate semantic bundle verification. Astra reviews 0025..0028 accept the bounded designs and source. Actual four-operation HTTP captures pass the complete pinned ACP schema under the current execution identity. PostgreSQL evidence proves rollback, replay compatibility and real lock contention; retained LangGraph/Temporal tests pass. All 48 selected observations qualify PASS, eleven CT rows remain incomplete, and the verdict remains `NOT_CERTIFIED`. See [implementation evidence](implementation-evidence.md).
-
-The coordination slice passed fresh-database run `ee1b4a75992f4ee788ed2cab4376516f`: twelve stages and 326 methods, zero failures/errors/skips, unchanged 299-file source identity, and separate semantic bundle verification. Astra reviews 0023/0024 accept the design/source. Nine new methods exercise database-independent application policy, fresh enrollment snapshots, historical persisted JSON and rollback after provisional writes; the existing crypto-outage tests now also check the dispatch fence. All 48 selected observations qualify PASS; eleven CT rows remain incomplete and the verdict remains `NOT_CERTIFIED`. See [implementation evidence](implementation-evidence.md).
-
-The durable AP2/ACP and runtime slice passed fresh run `ac79d0a17b14434e8f6e23995ce00cf9`: twelve stages and 317 methods, zero failures/errors/skips, unchanged 294-file source identity, and separate semantic bundle verification. Independent Astra reviews 0019 and 0021 accept the bounded source after ten findings were resolved. Evidence covers native financial admission/recovery, populated-schema migration, replacement adapters, actual Temporal worker/server restarts, history replay, bounded history and decoded-payload privacy checks. All 48 selected requirement observations pass; certification remains incomplete. See [implementation evidence](implementation-evidence.md) for exact identities and limits.
-
-The published SDK/TCK checkpoint `0f60d93` passed an isolated unchanged-source aggregate: 67 Java tests, eight HTTP tests, three UI regressions, 12 LangGraph tests, four upstream integrity tests and 12 structural probes. Schema validation covered 21 schemas, 17 positive fixtures, 27 schema-negative fixtures, six binding-negative fixtures and one raw-parser negative. SDK bytecode inspection found only `java.base`. Desktop/mobile UI rendering and the trusted approval flow were inspected in headless Edge.
-
-Separate Astra [core review](reviews/0006-reference-code-review.md) and Sol 6.1 High [client/tooling review](reviews/0007-client-tooling-review.md) accepted the bounded source after identified defects were corrected. [Gate records](reviews/gates.md) distinguish the original reservation design from the later execution/client scope.
-
-The integrated replay/lab checkpoint passed all 11 stages against a fresh database: 99 Java, eight HTTP, three UI, 12 LangGraph, 26 lab and five upstream-integrity tests, plus structural/schema fixtures and CLI checks. Source stayed unchanged across the run. Independent reviews 0010, 0011 and 0012 are accepted; exact identities and evidence are recorded in [implementation evidence](implementation-evidence.md).
-
-The requirement-evidence follow-on passed a fresh twelve-stage aggregate with 204 test methods, zero failures/errors/skips and unchanged source. All 48 selected named observations qualify PASS. Reviews 0013..0015 accept the bounded design, event/privacy tests and evidence pipeline after corrections. The report recomputes coverage from pinned definitions and current-run artifacts; eleven CT rows still retain explicit incomplete gaps, and CT-008's optional exclusion requires its baseline refusal evidence. See [requirement evidence](requirement-evidence.md) for verification and publication rules.
-
-The independent AP2 milestone passed a fresh twelve-stage aggregate with 249 test methods, including 37 new AP2 Java methods and four independent Python verifier methods. The Java tests evaluate 74 Python-generated vectors; Python independently verifies five Java signatures and two receipt references. Reviews 0016/0017 are accepted, all six source findings are resolved, source stayed unchanged and separate bundle verification passed. The AP2 JAR is separately packaged and hashed. Exact run/source identities and the corrected earlier report-generation failure are in [implementation evidence](implementation-evidence.md).
-
-The aggregate evidence runner returns `NOT_CERTIFIED`, even when preview checks pass. Exhaustive adversarial/privacy evidence, broader conflict-normalization replay and certification policy are unfinished. The earlier offline lab verifies merchant signatures/content only. Native composition separately gates financial admission through durable authority/replay checks; synthetic identities and UI fixtures do not prove real-world human consent.
-
-## Publication
-
-Durable checkout/provider-contract source `fcb6feb46e7b8aeda037e41af6c9f77ce5f6dbc5` and accepted provider-journal design checkpoint `805f92d3b7ef9b0ce642368be4fe7145bbb563ac` are pushed on `codex/reference-platform`. Their exact hosted run outcomes and subsequent journal implementation evidence are recorded separately; a design push does not validate later code.
-
-For `fcb6feb`, hosted [Linux reference checks](https://github.com/manishgh/agentic-payments/actions/runs/42433040403) and [documentation checks](https://github.com/manishgh/agentic-payments/actions/runs/42433040342) passed. The safe `reference-evidence-fcb6feb46e7b8aeda037e41af6c9f77ce5f6dbc5` artifact is preserved. These results cover the published checkout/provider-contract source, not the following provider-journal implementation.
-
-Earlier milestones: documentation `15f0776a2fa1628ac8e77999885cd86811380204` on main, reviewed design `65c39dd0d8fe80a2a8d72fc5680471d414288448` and handoff `a82973df705df4d7f937f92a07e3d18b4579b3f4` on `codex/simulator-design`. Their documentation CI passed.
-
-Reference milestone `314bd2f` and SDK/TCK checkpoint `0f60d93` are published on the implementation branch. Hosted [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42307004050) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42307004092) passed for `0f60d93`. The GitHub connector previously denied PR creation with HTTP 403 `Resource not accessible by integration`; authenticated native pushes work. No merge, package release or deployment was performed.
-
-Replay/artifact checkpoint `9fd7dbbc5cef135007b7f2253aba24c825386954` is also published. Its [Linux reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571643) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42309571661) passed. The requirement-evidence follow-on has its own source review and local aggregate record above; earlier hosted runs do not validate later source. It does not enable providers or grant certification.
-
-Requirement-evidence checkpoint `95b5ac8276601f41c5f9d8e0380eb57c9892e9c7` is published. Its [reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42333495260) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42333495344) passed and the safe bundle was preserved. The independent AP2 milestone has separate design/source review and fresh validation.
-
-Repository-local Git author remains `Agentic Payments Automation <automation@agentic-payments.invalid>` because no author was configured initially. Global settings were not changed. Binaries, database data, credentials, checkpoints, screenshots and generated reports remain ignored.
-
-Durable composition/runtime checkpoint `5e9d6329b0d8d67d92937c00034b888934e12b07` is published. Its [Linux reference CI](https://github.com/manishgh/agentic-payments/actions/runs/42369138669) and [documentation CI](https://github.com/manishgh/agentic-payments/actions/runs/42369138732) passed, with the safe evidence artifact preserved. These results cover that commit, not subsequent implementation changes.
-
-## Remaining work
-
-1. Complete conflict-normalization replay and the remaining adversarial/privacy and process-crash matrix, then review the certification policy.
-2. Extract finer application/domain transaction coordination from the JDBC implementation; current claim fences are not a full timed lease scheduler.
-3. Extend the generic metadata/TCK with reviewed executable profiles and broader third-party adapter evidence. Split the SDK publication POM from reference dependencies before package release.
-4. Extend native authority to delegated/User Credential profiles only after their own design and adversarial evidence. Establish wire interoperability with real peers separately from independent Python vectors. Add separately reviewed Cadence/Azure runtime adapters and distributed registration/production identity.
-5. Implement provider-specific sandbox connectors with authorized accounts and verified idempotency/event/recovery behavior.
-6. Add separately designed split tender, refunds/compensation and managed identity, visibility, operations and support.
-
-External dependencies are provider/partner access, public licensing/contribution terms and later regional/live operating decisions. These do not block further local development. No scheduled unattended task is established by this file.
+Use the [README](../README.md) for setup and checks, the [roadmap](roadmap.md) for sequencing and the [backlog](backlog.md) for stable work identifiers.

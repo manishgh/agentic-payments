@@ -1,6 +1,6 @@
 # Internal simulator API design
 
-Status: implemented for bounded synthetic profiles; reviewed execution clarifications are in ADR 0002, ADR 0006 and gate records. Revision: `simulator-api-0.1-draft`. Earlier review hashes identify their reviewed source; native profile selection is an additive draft revision.
+Status: implemented for bounded synthetic profiles. Execution contracts are defined in ADR 0002 and ADR 0006. Revision: `simulator-api-0.1-draft`; native and external profile selection are additive draft features.
 Targets [EXT-001..012](../specification/0.1.0-draft/README.md) and [CT cases](simulator-and-conformance.md).
 These are project-internal endpoints, not AP2/ACP wire schemas. The native profile embeds signed AP2/ACP artifacts internally; external merchant/provider transport remains disabled.
 
@@ -219,3 +219,9 @@ The additive commerce routes use a separate `checkout-lifecycle-0.1` success DTO
 Error responses have exactly common top-level fields plus `error`, containing exactly `code,message,retry`; no resource version is present.
 Errors contain safe fixed messages and correlation references, never stack traces, session strings or provider payloads (CT-010).
 Executable schema/error/golden-byte fixtures are in the versioned specification. The TypeScript review surface renders money and approves the digest/version from the same trusted checkout response. The local catalog also supplies `fixture-grant-usd` for its separate USD budget; `fixture-grant-1` authorizes EUR. Neither fixture is a real AP2 mandate.
+
+## External checkout financial binding
+
+`POST /internal/v0.1/intents/{intentId}/quote-external` binds the current retained checkout observation to an external-profile DRAFT intent. It requires `intent:write`, an `Idempotency-Key`, and separate trusted financial registration. Its exact body contains `expectedVersion`, `purchaseId`, `expectedPurchaseRevision`, `responseReference` and `tenders`; callers cannot supply amounts, source principals, raw bodies or signer configuration.
+
+See the [external authority guide](external-checkout-authority.md) for the request example and configuration. Binding, quote and command replay result commit atomically. A bound purchase rejects all new lifecycle commands, including GET staging, with `CHECKOUT_ALREADY_BOUND`; status and exact accepted replay remain available. The original observation deadline and configuration are rechecked before new financial admission. Invalid timestamp syntax yields `AUTHORITY_BINDING_INVALID`; otherwise valid submicrosecond precision yields `UNSUPPORTED_CAPABILITY` before sealing. Existing trusted approval, execute and action routes apply without remote merchant completion.

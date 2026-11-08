@@ -51,7 +51,7 @@ class CheckoutMigrationUpgradeTest {
             assertEquals(oldIntent,row(isolated,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=?",tenant,run));
             assertArrayEquals(oldContent,(byte[])row(isolated,"SELECT * FROM native_artifacts WHERE tenant_id=? AND run_id=?",tenant,run).get("content"));
             try(var connection=isolated.getConnection();var statement=connection.createStatement();var rows=statement.executeQuery("SELECT version,digest FROM schema_migrations ORDER BY version")){
-                int count=0;while(rows.next()){count++;if(count<=7)assertEquals(checksums.get(count),rows.getString(2));}assertEquals(9,count);
+                int count=0;while(rows.next()){count++;if(count<=7)assertEquals(checksums.get(count),rows.getString(2));}assertEquals(10,count);
             }
             for(String table:List.of("checkout_configurations","checkout_current_configurations","checkout_purchases","checkout_lifecycle_commands","checkout_lifecycle_outcomes"))
                 assertEquals(0,scalar(isolated,"SELECT count(*) FROM "+table));

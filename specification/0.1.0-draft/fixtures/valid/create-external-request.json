@@ -1,0 +1,10 @@
+{
+  "merchantId": "merchant-demo",
+  "scenarioId": "challenge-then-success",
+  "profile": "local-external-ap2-acp-single-tender-0.1",
+  "requiredCapabilities": [
+    "single-tender",
+    "exact-money",
+    "customer-action"
+  ]
+}

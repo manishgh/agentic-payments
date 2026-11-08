@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. This is a bounded follow-on to IMP-010 and [ADR 0008](0008-native-application-coordination.md). Implementation requires independent Astra design review and integration-owner acceptance. [ADR 0006](0006-durable-ap2-admission.md) remains authoritative for financial admission. No API, schema, dependency, native profile or admission capability changes are proposed.
+Accepted for the bounded reference profile described below. See the platform guides and executable tests for current implementation limits.
 
 ## Context and scope
 

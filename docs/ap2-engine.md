@@ -1,6 +1,6 @@
 # Independently implemented AP2 direct engine
 
-The Java package `io.agenticpayments.ap2` implements the bounded `ap2-v0.2-direct-tap-synthetic-0.1` profile against AP2 v0.2.0 commit `b4587ac1d055888a73b4b21750973cffba961793`. It is independently authored from pinned specifications. It does not import, wrap, translate or copy Google's SDK implementation. Standard JDK JCA primitives perform cryptography; Jackson handles JSON. [ADR 0005](adr/0005-independent-ap2-engine.md), [requirements](ap2-requirements.md) and [design review 0016](reviews/0016-independent-ap2-design-review.md) define its scope and accepted decisions.
+The Java package `io.agenticpayments.ap2` implements the bounded `ap2-v0.2-direct-tap-synthetic-0.1` profile against AP2 v0.2.0 commit `b4587ac1d055888a73b4b21750973cffba961793`. It is independently authored from pinned specifications. It does not import, wrap, translate or copy Google's SDK implementation. Standard JDK JCA primitives perform cryptography; Jackson handles JSON. [ADR 0005](adr/0005-independent-ap2-engine.md), [requirements](ap2-requirements.md) define its scope and accepted decisions.
 
 ## Implemented components
 

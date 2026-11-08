@@ -1,6 +1,6 @@
 # Durable workflow runtime reference
 
-The shared LangGraph decision graph runs through two concrete runtime adapters: local SQLite and Temporal. Both coordinate the Java payment core through narrow authenticated HTTP activities. PostgreSQL owns payment authority, reservations, attempts, operations and outcomes; runtime histories and checkpoints record orchestration progress only. [ADR 0007](adr/0007-durable-workflow-runtime.md) and [review 0020](reviews/0020-durable-runtime-design-review.md) define the accepted design.
+The shared LangGraph decision graph runs through two concrete runtime adapters: local SQLite and Temporal. Both coordinate the Java payment core through narrow authenticated HTTP activities. PostgreSQL owns payment authority, reservations, attempts, operations and outcomes; runtime histories and checkpoints record orchestration progress only. [ADR 0007](adr/0007-durable-workflow-runtime.md) define the accepted design.
 
 ## Responsibilities and replacement
 

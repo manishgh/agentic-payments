@@ -273,6 +273,126 @@
       "schema": "../schemas/adapter-descriptor.schema.json",
       "valid": false,
       "reason": "Identifier patterns require absolute end, rejecting a final line break."
+    },
+    {
+      "file": "valid/create-external-request.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": true,
+      "reason": "Explicit external synthetic profile; trusted registration and authorization remain application checks."
+    },
+    {
+      "file": "valid/get-external-intent-response.json",
+      "schema": "../schemas/get-intent-response.schema.json",
+      "valid": true,
+      "reason": "External-profile status retains the existing closed graph-safe projection."
+    },
+    {
+      "file": "valid/quote-external-request.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": true,
+      "reason": "Selects only retained purchase/response identities and one synthetic tender; includes no caller amount or artifact."
+    },
+    {
+      "file": "invalid/create-unknown-profile.json",
+      "schema": "../schemas/create-request.schema.json",
+      "valid": false,
+      "reason": "Adding the bounded external profile does not permit arbitrary profiles."
+    },
+    {
+      "file": "invalid/quote-external-zero-version.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Intent version remains positive."
+    },
+    {
+      "file": "invalid/quote-external-zero-revision.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Source purchase revision must be positive."
+    },
+    {
+      "file": "invalid/quote-external-revision-type.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Revision is an integer, never a numeric string."
+    },
+    {
+      "file": "invalid/quote-external-uppercase-purchase.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Source purchase selectors require canonical lowercase UUIDs."
+    },
+    {
+      "file": "invalid/quote-external-uppercase-response.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Retained response selectors require canonical lowercase UUIDs."
+    },
+    {
+      "file": "invalid/quote-external-short-response.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "UUID shorthand cannot select protected responses."
+    },
+    {
+      "file": "invalid/quote-external-price-injection.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Money is derived from retained bytes, not caller input."
+    },
+    {
+      "file": "invalid/quote-external-artifact-injection.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Caller-supplied signed artifacts are forbidden."
+    },
+    {
+      "file": "invalid/quote-external-principal-injection.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "Source principal is authenticated, never selected by request input."
+    },
+    {
+      "file": "invalid/quote-external-missing-response.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "A retained response selector is mandatory."
+    },
+    {
+      "file": "invalid/quote-external-split-tender.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "External binding retains exactly one full-total tender."
+    },
+    {
+      "file": "invalid/quote-external-live-provider.json",
+      "schema": "../schemas/quote-external-request.schema.json",
+      "valid": false,
+      "reason": "External commerce does not enable a live payment provider."
+    },
+    {
+      "file": "valid/configuration-changed-error.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": true,
+      "reason": "External binding refusal retains the fixed safe error envelope and NEVER retry advice."
+    },
+    {
+      "file": "valid/checkout-already-bound-error.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": true,
+      "reason": "External binding refusal retains the fixed safe error envelope and NEVER retry advice."
+    },
+    {
+      "file": "valid/checkout-command-in-flight-error.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": true,
+      "reason": "External binding refusal retains the fixed safe error envelope and NEVER retry advice."
+    },
+    {
+      "file": "valid/checkout-mutation-blocked-error.json",
+      "schema": "../schemas/error-response.schema.json",
+      "valid": true,
+      "reason": "External binding refusal retains the fixed safe error envelope and NEVER retry advice."
     }
   ],
   "bindingFixtures": [
@@ -329,6 +449,11 @@
       "file": "invalid/create-duplicate-keys.json",
       "expectedParseAccepted": false,
       "reason": "Duplicate JSON object member names must reject before request materialization and schema evaluation."
+    },
+    {
+      "file": "invalid/quote-external-duplicate-keys.json",
+      "expectedParseAccepted": false,
+      "reason": "External quote duplicate members reject before materialization and schema validation."
     }
   ]
 }

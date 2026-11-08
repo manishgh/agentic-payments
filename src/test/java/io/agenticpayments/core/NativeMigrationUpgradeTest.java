@@ -100,11 +100,12 @@ class NativeMigrationUpgradeTest {
             DatabaseMigrator.migrate(isolated);
             DatabaseMigrator.migrate(isolated); // Reopening an upgraded store must be idempotent.
 
-            Map<Integer,String> after=migrationHistory(isolated);assertEquals(9,after.size());
+            Map<Integer,String> after=migrationHistory(isolated);assertEquals(10,after.size());
             for(var original:originalChecksums.entrySet()) assertEquals(original.getValue(),after.get(original.getKey()));
             assertEquals(checksum(resource(NATIVE)),after.get(7));
             assertEquals(checksum(resource("/db/V008__durable_checkout_lifecycle.sql")),after.get(8));
             assertEquals(checksum(resource("/db/V009__provider_compatibility_journal.sql")),after.get(9));
+            assertEquals(checksum(resource("/db/V010__external_checkout_authority_binding.sql")),after.get(10));
             Map<String,Object> upgradedIntent=row(isolated,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND intent_id=?",tenant,run,intent);
             assertEquals("local-fake-single-tender-0.1",upgradedIntent.remove("profile"));assertEquals(priorIntent,upgradedIntent);
             for(String table:retainedTables) assertEquals(before.get(table),row(isolated,"SELECT * FROM "+table+" WHERE tenant_id=? AND run_id=?",tenant,run),"Historical row changed in "+table);

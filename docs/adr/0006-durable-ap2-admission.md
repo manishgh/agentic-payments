@@ -1,6 +1,6 @@
 # ADR 0006: Durable native AP2 authority for embedded ACP admission
 
-Status: proposed for independent review, 2026-11-07. This decision extends [ADR 0005](0005-independent-ap2-engine.md) with a bounded local synthetic composition. Acceptance requires the implementation and evidence below; this document alone does not enable an external bridge.
+Status: accepted for the bounded reference profile described below.
 
 ## Context and scope
 

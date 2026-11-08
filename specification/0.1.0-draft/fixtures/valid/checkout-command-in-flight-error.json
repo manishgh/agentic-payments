@@ -1,0 +1,9 @@
+{
+  "contractVersion": "simulator-api-0.1-draft",
+  "correlationId": "corr-external-fixture",
+  "error": {
+    "code": "CHECKOUT_COMMAND_IN_FLIGHT",
+    "message": "checkout command in flight",
+    "retry": "NEVER"
+  }
+}

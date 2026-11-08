@@ -10,6 +10,8 @@ import io.agenticpayments.application.PaymentCommandTransactions;
 import io.agenticpayments.application.PaymentCommandTransactions.*;
 import io.agenticpayments.application.PaymentStore;
 import io.agenticpayments.application.WorkerReceipt;
+import io.agenticpayments.application.ExternalCheckoutRegistration;
+import io.agenticpayments.application.CheckoutLifecycleTransactions.CoordinationDomain;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.domain.PaymentRules;
 import io.agenticpayments.sdk.*;
@@ -23,22 +25,39 @@ import static io.agenticpayments.infrastructure.Sql.*;
 /** Run-serialized normalized transaction repository and local application unit of work. */
 public final class JdbcPaymentStore implements PaymentStore {
     public static final String NATIVE_PROFILE="local-ap2-acp-single-tender-0.1";
+    public static final String EXTERNAL_PROFILE="local-external-ap2-acp-single-tender-0.1";
     private final DataSource ds;
     private final PaymentAdapter adapter;
     private final UUID replayOwner;
     private final Ports composition;
     private final NativeApplicationCoordinator nativeCoordinator;
+    private final Ports externalComposition;
+    private final NativeApplicationCoordinator externalCoordinator;
+    private final ExternalCheckoutRegistration externalRegistration;
+    private final JdbcObservedCheckoutSource externalSource=new JdbcObservedCheckoutSource();
     private final ExecutePayment execution;
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
     private record Dispatch(ChargeOperation operation,String kind,long fence) {}
-    @Override public Set<String> admissionCapabilities() { return Set.of("atomic-replay-grant-reservation-0.1"); }
+    @Override public Set<String> admissionCapabilities() {
+        return externalRegistration==null?Set.of("atomic-replay-grant-reservation-0.1"):
+                Set.of("atomic-replay-grant-reservation-0.1","atomic-external-checkout-binding-0.1");
+    }
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter) { this(ds,adapter,(UUID)null); }
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner) { this(ds,adapter,replayOwner,null); }
     public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition) {
+        this(ds,adapter,replayOwner,composition,null,null,null);
+    }
+    public JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition,Ports externalComposition,
+                            ExternalCheckoutRegistration externalRegistration,CoordinationDomain coordinationDomain) {
         this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
         this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
+        if((externalComposition==null)!=(externalRegistration==null)
+                ||externalRegistration!=null&&externalRegistration.coordinationDomain()!=coordinationDomain) fail(422,"UNSUPPORTED_CAPABILITY");
+        this.externalComposition=externalComposition; this.externalRegistration=externalRegistration;
+        this.externalCoordinator=externalComposition==null?null:new NativeApplicationCoordinator(externalComposition.checkout(),externalComposition.issuer(),externalComposition.verifier(),externalComposition.artifacts(),EXTERNAL_PROFILE);
+        if(externalComposition!=null) externalCapabilities();
         this.execution=new ExecutePayment(new PaymentCommandTransactions() {
             private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
             public String requestDigest(ExecuteCommand command){return PaymentRules.sha256(encode(command));}
@@ -71,8 +90,9 @@ public final class JdbcPaymentStore implements PaymentStore {
     public Result create(Session s,String key,CreateCommand cmd) {
         role(s,"intent:write");
         capabilities();
-        if(cmd==null||cmd.requiredCapabilities()==null||!Set.of(PaymentRules.PROFILE,NATIVE_PROFILE).contains(cmd.profile())) fail(422,"UNSUPPORTED_PROFILE");
+        if(cmd==null||cmd.requiredCapabilities()==null||cmd.profile()==null||!Set.of(PaymentRules.PROFILE,NATIVE_PROFILE,EXTERNAL_PROFILE).contains(cmd.profile())) fail(422,"UNSUPPORTED_PROFILE");
         if(NATIVE_PROFILE.equals(cmd.profile())) nativeCapabilities();
+        if(EXTERNAL_PROFILE.equals(cmd.profile())) externalCapabilities();
         merchant(s,cmd.merchantId());
         if(!PaymentRules.SCENARIOS.contains(cmd.scenarioId())) fail(400,"INVALID_REQUEST");
         if(cmd.requiredCapabilities().size()>16||new HashSet<>(cmd.requiredCapabilities()).size()!=cmd.requiredCapabilities().size()||!PaymentRules.CAPABILITIES.containsAll(cmd.requiredCapabilities())) fail(422,"UNSUPPORTED_CAPABILITY");
@@ -91,6 +111,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(!Set.of("cart-1250-eur","cart-1250-usd").contains(cmd.cartFixtureId())) fail(400,"INVALID_REQUEST");
         return command(s,key,"POST /intents/{id}/quote",id.toString(),cmd,tx->{
             var i=intent(tx,id); version(i,cmd.expectedVersion()); state(i,"DRAFT","QUOTED");
+            if(externalProfile(i)) fail(422,"UNSUPPORTED_PROFILE");
             int revision=(int)number(i,"checkout_revision")+1; String currency=cmd.cartFixtureId().endsWith("usd")?"USD":"EUR";
             String bytes=PaymentRules.checkout(text(i,"merchant_id"),revision,cmd.cartFixtureId(),currency,t.credentialReference()), digest=PaymentRules.sha256(bytes);
             Instant expiry=tx.now.plusSeconds(900);
@@ -108,6 +129,44 @@ public final class JdbcPaymentStore implements PaymentStore {
             if(nativeCheckout!=null) update(tx.c,"INSERT INTO native_checkouts VALUES(?,?,?,?,?)",s.tenantId(),s.runId(),id,revision,encode(nativeCheckout));
             update(tx.c,"UPDATE payment_intents SET checkout_revision=? WHERE tenant_id=? AND run_id=? AND intent_id=?",revision,s.tenantId(),s.runId(),id);
             change(tx,id,"QUOTED"); return result(200,map("intentId",id,"state","QUOTED","version",cmd.expectedVersion()+1,"checkoutRevision",revision,"checkoutDigest",digest,"money",money(currency,1250),"quoteExpiresAt",expiry.toString()));
+        });
+    }
+    public Result quoteExternal(Session s,UUID id,String key,ExternalQuoteCommand cmd) {
+        role(s,"intent:write");
+        if(id==null||cmd==null||cmd.expectedVersion()<1||cmd.purchaseId()==null||cmd.expectedPurchaseRevision()<1||cmd.responseReference()==null) fail(400,"INVALID_REQUEST");
+        return command(s,key,"POST /intents/{id}/quote-external",id.toString(),cmd,tx->{
+            var i=intent(tx,id); version(i,cmd.expectedVersion());
+            if(!externalProfile(i)) fail(422,"UNSUPPORTED_PROFILE"); state(i,"DRAFT");
+            capabilities(); externalCapabilities();
+            if(cmd.tenders()==null||cmd.tenders().size()!=1) fail(422,"UNSUPPORTED_TENDER");
+            var tender=cmd.tenders().getFirst();
+            if(tender==null||!"simulator".equals(tender.provider())||!"synthetic-card".equals(tender.method())
+                    ||!"fixture-credential-1".equals(tender.credentialReference())) fail(422,"UNSUPPORTED_TENDER");
+            if(one(tx.c,"SELECT intent_id FROM external_checkout_bindings WHERE tenant_id=? AND run_id=? AND (intent_id=? OR (principal_id=? AND purchase_id=?))",
+                    s.tenantId(),s.runId(),id,s.principalId(),cmd.purchaseId())!=null) fail(409,"CHECKOUT_ALREADY_BOUND");
+            var observation=externalSource.load(tx.c,scope(tx),s.principalId(),cmd.purchaseId(),cmd.expectedPurchaseRevision(),cmd.responseReference());
+            validateRegistration(tx,observation);
+            if(!observation.configuration().binding().merchantId().equals(text(i,"merchant_id"))) fail(422,"AUTHORITY_BINDING_INVALID");
+            var terms=externalCoordinator.inspectObserved(observation,tx.now);
+            Instant expiry=Collections.min(List.of(observation.observedAt().plusSeconds(300),terms.expiresAt()));
+            int revision=(int)number(i,"checkout_revision")+1;
+            var facts=new CheckoutFacts(scope(tx),id,text(i,"merchant_id"),revision,terms.currency(),terms.minorUnits(),tender.credentialReference(),expiry);
+            var provision=provision(tx,externalComposition);
+            var frozen=externalCoordinator.freezeObserved(new ObservedCheckoutRequest(observation,facts,provision.merchantSigner()),terms);
+            var stored=externalCoordinator.retainCheckout(scope(tx),frozen);
+            var reloaded=externalCoordinator.reloadCheckout(scope(tx),stored,frozen.checkoutDigest());
+            externalCoordinator.validateObservedBytes(observation,terms,facts,reloaded);
+            externalCoordinator.validateCheckout(facts,reloaded,keyResolver(tx,externalComposition),tx.now);
+            update(tx.c,"INSERT INTO checkout_snapshots(tenant_id,run_id,intent_id,revision,digest,canonical_bytes,currency,minor_units,credential_reference,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    s.tenantId(),s.runId(),id,revision,frozen.checkoutDigest(),"native-artifact:"+stored.checkoutJwt().id(),terms.currency(),terms.minorUnits(),tender.credentialReference(),expiry);
+            update(tx.c,"INSERT INTO native_checkouts VALUES(?,?,?,?,?)",s.tenantId(),s.runId(),id,revision,encode(stored));
+            update(tx.c,"INSERT INTO external_checkout_bindings VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'local-synthetic-attestation-0.1')",
+                    s.tenantId(),s.runId(),s.principalId(),cmd.purchaseId(),id,observation.commandId(),cmd.responseReference(),cmd.expectedPurchaseRevision(),encode(observation.configuration()),
+                    observation.observedAt(),io.agenticpayments.composition.ArtifactIntegrity.digest(observation.bytes()),expiry);
+            update(tx.c,"UPDATE payment_intents SET checkout_revision=? WHERE tenant_id=? AND run_id=? AND intent_id=?",revision,s.tenantId(),s.runId(),id);
+            change(tx,id,"QUOTED");
+            return result(200,map("intentId",id,"state","QUOTED","version",cmd.expectedVersion()+1,"checkoutRevision",revision,
+                    "checkoutDigest",frozen.checkoutDigest(),"money",money(terms.currency(),terms.minorUnits()),"quoteExpiresAt",expiry.toString()));
         });
     }
     public Result approve(Session s,UUID id,String key,ApproveCommand cmd) {
@@ -474,14 +533,38 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(text(g,"state").equals("REVOKED")) fail(409,"AUTHORITY_REVOKED");
         if(tx.now.isBefore(instant(g,"valid_from"))||!tx.now.isBefore(instant(g,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
     }
-    private static boolean nativeProfile(Map<String,Object> intent) { return NATIVE_PROFILE.equals(intent.get("profile")); }
+    private static boolean externalProfile(Map<String,Object> intent) { return EXTERNAL_PROFILE.equals(intent.get("profile")); }
+    private static boolean nativeProfile(Map<String,Object> intent) { return NATIVE_PROFILE.equals(intent.get("profile"))||externalProfile(intent); }
+    private Ports protocols(Map<String,Object> intent) { return externalProfile(intent)?externalComposition:composition; }
+    private NativeApplicationCoordinator coordinator(Map<String,Object> intent) { return externalProfile(intent)?externalCoordinator:nativeCoordinator; }
     private Scope scope(Tx tx) { return new Scope(tx.s.tenantId(),tx.s.runId()); }
     private void nativeCapabilities() {
         if(composition==null) fail(422,"UNSUPPORTED_CAPABILITY");
         try { composition.requireSupported(); } catch(CompositionException e) { throw compositionFailure(e); }
     }
+    private void externalCapabilities() {
+        if(externalComposition==null||externalRegistration==null) fail(422,"UNSUPPORTED_CAPABILITY");
+        try { externalComposition.requireSupported(EXTERNAL_PROFILE); }
+        catch(CompositionException error) { throw compositionFailure(error); }
+    }
+    private void nativeCapabilities(Map<String,Object> intent) { if(externalProfile(intent)) externalCapabilities(); else nativeCapabilities(); }
+    private void validateRegistration(Tx tx,ObservedCheckout observation) {
+        externalCapabilities();
+        if(!externalRegistration.scope().equals(scope(tx))
+                ||!externalRegistration.sourcePrincipalId().equals(observation.configuration().binding().principalId())
+                ||!externalRegistration.configuration().equals(observation.configuration())) fail(422,"UNSUPPORTED_CAPABILITY");
+        try {
+            var resolved=externalRegistration.resolver().resolve(observation.configuration());
+            if(resolved==null||!observation.configuration().equals(resolved.identity())) fail(422,"UNSUPPORTED_CAPABILITY");
+            resolved.transport().describe().require(observation.configuration().transportProfile(),Set.of());
+            if(!observation.configuration().encodingVersion().equals(resolved.transport().encodingVersion())) fail(422,"UNSUPPORTED_CAPABILITY");
+        } catch(RuntimeException error) { throw new PaymentException(422,"UNSUPPORTED_CAPABILITY"); }
+    }
     private Provisioning provision(Tx tx) throws SQLException {
-        var provision=composition.provisioner().provision(scope(tx),tx.now);
+        return provision(tx,composition);
+    }
+    private Provisioning provision(Tx tx,Ports ports) throws SQLException {
+        var provision=ports.provisioner().provision(scope(tx),tx.now);
         for(var key:provision.enrollments()) {
             if(!key.scope().equals(scope(tx))||key.revoked()) fail(422,"AUTHORITY_BINDING_INVALID");
             var old=one(tx.c,"SELECT * FROM native_trust_keys WHERE tenant_id=? AND run_id=? AND issuer=? AND kid=? AND purpose=?",tx.s.tenantId(),tx.s.runId(),key.issuer(),key.kid(),key.purpose());
@@ -494,6 +577,9 @@ public final class JdbcPaymentStore implements PaymentStore {
         return provision;
     }
     private KeyResolver keyResolver(Tx tx) {
+        return keyResolver(tx,composition);
+    }
+    private KeyResolver keyResolver(Tx tx,Ports ports) {
         // Enrollment is payment authority data, read under the same run lock as revocation/admission.
         var enrolled=new ArrayList<TrustKey>();
         try {
@@ -503,7 +589,7 @@ public final class JdbcPaymentStore implements PaymentStore {
                     instant(key,"valid_from"),instant(key,"expires_at"),number(key,"version"),Boolean.TRUE.equals(key.get("revoked"))));
         } catch(SQLException e) { unavailable(); }
         var snapshot=new EnrollmentSnapshot(scope(tx),tx.now,enrolled);
-        KeyResolver selected=composition.keyResolvers().bind(snapshot);
+        KeyResolver selected=ports.keyResolvers().bind(snapshot);
         if(selected==null) fail(422,"AUTHORITY_BINDING_INVALID");
         return (requestedScope,issuer,kid,purpose,now)->{
             if(!scope(tx).equals(requestedScope)||!tx.now.equals(now)) fail(422,"AUTHORITY_BINDING_INVALID");
@@ -529,30 +615,33 @@ public final class JdbcPaymentStore implements PaymentStore {
         var row=one(tx.c,"SELECT checkout_json FROM native_checkouts WHERE tenant_id=? AND run_id=? AND intent_id=? AND revision=?",tx.s.tenantId(),tx.s.runId(),i.get("intent_id"),q.get("revision"));
         if(row==null) fail(422,"AUTHORITY_BINDING_INVALID");
         var stored=json.readValue(text(row,"checkout_json"),StoredCheckout.class);
-        return nativeCoordinator.reloadCheckout(scope(tx),stored,text(q,"digest"));
+        return coordinator(i).reloadCheckout(scope(tx),stored,text(q,"digest"));
     }
     private void approveNative(Tx tx,Map<String,Object> i,Map<String,Object> q,Map<String,Object> g,UUID attempt) throws Exception {
-        nativeCapabilities();
+        nativeCapabilities(i);
+        var coordinator=coordinator(i); var ports=protocols(i);
         var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
-        nativeCoordinator.validateCheckout(facts,checkout,keyResolver(tx),tx.now);
-        var provision=provision(tx);
+        if(externalProfile(i)) verifyExternalBinding(tx,i,q,checkout);
+        coordinator.validateCheckout(facts,checkout,keyResolver(tx,ports),tx.now);
+        var provision=provision(tx,ports);
         Instant deadline=Collections.min(List.of(tx.now.plusSeconds(300),instant(g,"expires_at"),facts.expiresAt()));
         var context=new AuthorityContext(facts,checkout,tx.s.principalId(),text(g,"grant_id"),number(g,"version"),provision.tapSigner().issuer(),"merchant-demo","processor-demo",UUID.randomUUID().toString(),UUID.randomUUID().toString(),tx.now,deadline);
-        var stored=nativeCoordinator.issueAndRetainAuthority(new IssuanceRequest(context,provision.tapSigner()));
-        String digest=nativeCoordinator.authorityDigest(stored);
+        var stored=coordinator.issueAndRetainAuthority(new IssuanceRequest(context,provision.tapSigner()));
+        String digest=coordinator.authorityDigest(stored);
         update(tx.c,"INSERT INTO native_authorities VALUES(?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),attempt,i.get("intent_id"),q.get("revision"),tx.s.principalId(),g.get("grant_id"),g.get("version"),encode(stored),digest,deadline);
         for(String role:List.of("MERCHANT","CREDENTIAL_PROVIDER","PAYMENT_PROCESSOR")) {
             boolean merchant=role.equals("MERCHANT");
             update(tx.c,"INSERT INTO native_challenges VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),role,merchant?context.checkoutNonce():context.paymentNonce(),i.get("intent_id"),q.get("revision"),tx.s.principalId(),g.get("grant_id"),g.get("version"),context.issuer(),merchant?context.checkoutAudience():context.paymentAudience(),q.get("digest"),deadline,attempt);
         }
         // Reload exact staged bytes. Signing/issuer success never substitutes for independent verification.
-        var reloaded=nativeCoordinator.reloadAuthority(scope(tx),stored);
-        var verified=nativeCoordinator.verifyAuthority(context,reloaded,keyResolver(tx),tx.now);
+        var reloaded=coordinator.reloadAuthority(scope(tx),stored);
+        var verified=coordinator.verifyAuthority(context,reloaded,keyResolver(tx,ports),tx.now);
         for(var role:verified.authorizations()) update(tx.c,"INSERT INTO native_replay_identities VALUES(?,?,?,?,?,?)",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId(),tx.s.runId(),attempt);
         update(tx.c,"UPDATE native_authorities SET expires_at=? WHERE tenant_id=? AND run_id=? AND attempt_id=?",verified.expiresAt(),tx.s.tenantId(),tx.s.runId(),attempt);
     }
     private void verifyNative(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
-        nativeCapabilities();
+        nativeCapabilities(i);
+        var coordinator=coordinator(i); var ports=protocols(i);
         if(!eligible(tx,g,a,i)) fail(409,"AUTHORITY_REVOKED");
         var q=quote(tx,i);
         if(number(a,"checkout_revision")!=number(q,"revision")) fail(422,"AUTHORITY_BINDING_INVALID");
@@ -561,11 +650,12 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(!tx.now.isBefore(instant(row,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
         var stored=json.readValue(text(row,"authority_json"),StoredAuthority.class);
         var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
-        nativeCoordinator.validateCheckout(facts,checkout,keyResolver(tx),tx.now);
+        if(externalProfile(i)) verifyExternalBinding(tx,i,q,checkout);
+        coordinator.validateCheckout(facts,checkout,keyResolver(tx,ports),tx.now);
         var context=new AuthorityContext(facts,checkout,text(a,"subject_id"),text(a,"grant_id"),number(a,"grant_version"),stored.issuer(),stored.checkoutAudience(),stored.paymentAudience(),stored.checkoutNonce(),stored.paymentNonce(),Instant.parse(stored.issuedAt()),Instant.parse(stored.expiresAt()));
-        var issued=nativeCoordinator.reloadAuthority(scope(tx),stored);
-        nativeCoordinator.validateAuthorityDigest(stored,text(row,"authority_digest"));
-        var verified=nativeCoordinator.verifyAuthority(context,issued,keyResolver(tx),tx.now);
+        var issued=coordinator.reloadAuthority(scope(tx),stored);
+        coordinator.validateAuthorityDigest(stored,text(row,"authority_digest"));
+        var verified=coordinator.verifyAuthority(context,issued,keyResolver(tx,ports),tx.now);
         if(!verified.expiresAt().equals(instant(row,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
         for(var role:verified.authorizations()) {
             var used=one(tx.c,"SELECT * FROM native_replay_identities WHERE tenant_id=? AND role=? AND issuer=? AND jti=?",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId());
@@ -573,6 +663,19 @@ public final class JdbcPaymentStore implements PaymentStore {
             var challenge=one(tx.c,"SELECT * FROM native_challenges WHERE tenant_id=? AND run_id=? AND role=? AND nonce=?",tx.s.tenantId(),tx.s.runId(),role.role(),merchant?context.checkoutNonce():context.paymentNonce());
             if(used==null||!Objects.equals(used.get("run_id"),tx.s.runId())||!Objects.equals(used.get("attempt_id"),a.get("attempt_id"))||challenge==null||!Objects.equals(challenge.get("attempt_id"),a.get("attempt_id"))||!Objects.equals(challenge.get("intent_id"),i.get("intent_id"))||number(challenge,"revision")!=number(q,"revision")||!Objects.equals(challenge.get("subject_id"),a.get("subject_id"))||!Objects.equals(challenge.get("grant_id"),a.get("grant_id"))||number(challenge,"grant_version")!=number(a,"grant_version")||!Objects.equals(challenge.get("issuer"),context.issuer())||!Objects.equals(challenge.get("audience"),merchant?context.checkoutAudience():context.paymentAudience())||!Objects.equals(challenge.get("checkout_digest"),q.get("digest"))||!tx.now.isBefore(instant(challenge,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
         }
+    }
+    private void verifyExternalBinding(Tx tx,Map<String,Object> intent,Map<String,Object> quote,FrozenCheckout checkout) throws Exception {
+        var binding=one(tx.c,"SELECT * FROM external_checkout_bindings WHERE tenant_id=? AND run_id=? AND intent_id=?",tx.s.tenantId(),tx.s.runId(),intent.get("intent_id"));
+        if(binding==null||!"local-synthetic-attestation-0.1".equals(text(binding,"attestation_provenance"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        var observation=externalSource.load(tx.c,scope(tx),text(binding,"principal_id"),uuid(binding,"purchase_id"),(int)number(binding,"purchase_revision"),uuid(binding,"response_reference"));
+        validateRegistration(tx,observation);
+        if(!observation.commandId().equals(uuid(binding,"command_id"))||!observation.observedAt().equals(instant(binding,"observed_at"))
+                ||!observation.configuration().equals(json.readValue(text(binding,"configuration_json"),io.agenticpayments.application.CheckoutConfigurationResolver.ConfigurationIdentity.class))
+                ||!io.agenticpayments.composition.ArtifactIntegrity.digest(observation.bytes()).equals(text(binding,"raw_digest"))
+                ||!instant(binding,"expires_at").equals(instant(quote,"expires_at"))
+                ||!observation.configuration().binding().merchantId().equals(text(intent,"merchant_id"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        var terms=externalCoordinator.inspectObserved(observation,tx.now);
+        externalCoordinator.validateObservedBytes(observation,terms,checkoutFacts(tx,intent,quote),checkout);
     }
     private boolean nativeGate(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
         try { verifyNative(tx,i,a,g); return true; }

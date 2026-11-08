@@ -6,7 +6,7 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 
 ## Implemented
 
-- Versioned extension requirements, 21 JSON Schema contracts and canonical positive/negative fixtures.
+- Versioned extension requirements, JSON Schema contracts and canonical positive/negative fixtures.
 - Java SDK with local execution ports, extensible provider/method/action descriptors and a reusable adapter TCK.
 - Atomic reservations, scoped idempotency, one execution owner and normalized PostgreSQL persistence.
 - Durable simulator journal, trusted challenges, revocation, unknown-outcome recovery and conflicting-evidence handling.
@@ -18,6 +18,7 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Shared durable-runtime contract with local SQLite and Temporal implementations, retained workflow identity, cooperative pause, and Temporal timers/activity retries.
 - Standalone external ACP lifecycle contract and HTTP adapter for create/retrieve/update/cancel, with independent local-peer wire/schema checks; see [external checkout](docs/external-checkout.md) for its bounded scope.
 - Durable external checkout staging, exclusive dispatch claims, protected outcomes, authenticated API and a separate LangGraph/SQLite restart workflow; see the [runnable checkout demo](docs/durable-external-checkout.md).
+- Opt-in `local-external-ap2-acp-single-tender-0.1` binding of exact retained checkout bytes to trusted approval and synthetic AP2 execution; see [external checkout authority](docs/external-checkout-authority.md). The signature is a local synthetic attestation, not a merchant-origin signature.
 - Additive [provider-execution-1 specification and SDK](specification/provider-execution-1/README.md), separate preparation/submission/reconciliation/event ports, optional true fencing, synthetic compatibility bridge and reusable behavioral TCK.
 - A [PostgreSQL provider binding journal](docs/durable-provider-journal.md) behind the unchanged journal interface, with immutable submission ownership, retained conflicting evidence and independent JVM crash/recovery checks over the durable synthetic peer.
 - Application-owned execute-command policy through a typed atomic transaction contract, retaining PostgreSQL locking, command replay and operation/outbox/state atomicity.
@@ -25,7 +26,7 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 
 Execution currently accepts only explicit synthetic profiles. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
 
-External checkout is a separate commerce lifecycle: it does not complete a payment or turn remote checkout responses into AP2 authority. Its conservative recovery preserves unknown mutations across restarts. The provider contract remains adapter-only. Its original TCK fixtures demonstrate in-process reconstruction; separate PostgreSQL journal tests exercise actual JVM recovery. Vendor integration, production operation and financial admission wiring remain outstanding.
+External commerce remains separate from financial authority. The opt-in binding profile reloads exact protected observations, permanently seals one purchase to one intent and still requires trusted approval and independent AP2 verification. It never sends merchant checkout completion and makes no production merchant-trust claim. The provider-execution contract and journal remain separate from core admission. Vendor integration and production operation remain outstanding.
 
 ## Use cases
 
@@ -49,7 +50,7 @@ Real 3DS/wallet/bank integrations, scheduled or conditional purchasing policy, m
 
 ### Bring your own implementation
 
-Replaceability applies to every component boundary. Intended compositions include our AP2 implementation with an external ACP implementation, or our AP2 and ACP implementations with the ACP layer wrapping/delegating to a third-party checkout implementation such as Stripe's. These examples describe extension paths, not existing vendor integrations.
+Replaceability applies to every component boundary. The external synthetic profile composes our AP2 engine with retained HTTP ACP observations. A checkout implementation may also wrap or delegate to another merchant implementation through the same responsibility contract. No vendor connector is currently enabled.
 
 The native application coordinator applies artifact and verification policy through those same ports, independently of JDBC. Transactional admission remains owned by the payment store. See [application coordination and adapter boundaries](docs/durable-composition.md#application-coordination-and-transaction-ownership) when integrating an implementation.
 
@@ -108,10 +109,11 @@ The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/pri
 - [Status and remaining work](docs/status.md), [roadmap](docs/roadmap.md), [backlog](docs/backlog.md)
 - [Independent AP2 engine](docs/ap2-engine.md), [native requirements](docs/ap2-requirements.md), [independent vectors](integrations/ap2_vectors/README.md)
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
+- [Service DI, logging, metrics and application-error design](docs/adr/0015-service-composition-observability-errors.md) (accepted design; implementation outstanding)
 - [Durable AP2/ACP composition and replacement ports](docs/durable-composition.md), [durable runtime and Temporal setup](docs/durable-runtime.md)
+- [External commerce lifecycle](docs/durable-external-checkout.md), [external checkout authority](docs/external-checkout-authority.md), [provider journal](docs/durable-provider-journal.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)
 - [Generic extensions and adapter TCK](docs/extensions-and-tck.md), [pinned upstream bridge design](docs/ap2-acp-bridge-design.md)
 - [Recorded simulator replay](docs/replay.md), [offline artifact lab](docs/offline-artifact-lab.md)
-- [Independent core review](docs/reviews/0006-reference-code-review.md), [client/tooling review](docs/reviews/0007-client-tooling-review.md), [gate decisions](docs/reviews/gates.md)
 
-Public licensing and package distribution remain explicit release decisions; no open-source license has been selected. Reviewed source is pushed to milestone branches. No automatic merge, package release, deployment or live-money execution is performed.
+Public licensing and package distribution remain explicit release decisions; no open-source license has been selected. The local reference does not enable live-money execution or establish production readiness.

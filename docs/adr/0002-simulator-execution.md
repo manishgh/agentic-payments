@@ -1,12 +1,11 @@
 # ADR 0002: Durable execution for the local simulator
 
-Status: proposed implementation clarification; integration-owner acceptance required in [gate records](../reviews/gates.md).
+Status: accepted for the bounded reference profile described below.
 Date: 2026-11-06. Scope: `0.1.0-draft`, `local-fake-single-tender-0.1`, `simulator-api-0.1-draft`.
-Authorship: execution architect. The same architect independently reviews the earlier Sol-authored API/data design in [review 0005](../reviews/0005-execution-design-review.md); that review does not independently approve new decisions authored here.
 
 ## Context and bounded decision
 
-[ADR 0001](0001-simulator-preview.md) and [review 0003](../reviews/0003-design-review.md) accepted only create/quote/approve/reserve/read.
+[ADR 0001](0001-simulator-preview.md) accepted only create/quote/approve/reserve/read.
 The existing [API contract](../api-contracts.md) and [data model](../data-model.md) already propose later dispatch, challenge, journal and reconciliation behavior.
 Extend implementation scope to those synthetic operations after the integration owner accepts this clarification and the independent review recommendation.
 The mandatory bootstrap gate still applies. Code acceptance additionally requires PostgreSQL, failure-recovery and independent code-review evidence.

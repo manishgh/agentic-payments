@@ -1,8 +1,6 @@
 # ADR 0003: Deterministic replay and reusable adapter conformance
 
-Status: authored design accepted in principle by the integration owner on 2026-11-06; exact final hash acceptance belongs in [gate records](../reviews/gates.md).
-Author: execution architect. This is new design work, not an independent approval of this author's decisions.
-Baseline: published reference source `314bd2f`; [ADR 0002](0002-simulator-execution.md), [source review 0006](../reviews/0006-reference-code-review.md), and [core implementation](../core-implementation.md).
+Status: accepted for the bounded reference profile described below.
 Scope: local simulation and reusable SDK metadata/test contracts. Existing HTTP schemas, live connectivity and G2-P are unchanged.
 
 ## Context and decision

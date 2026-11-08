@@ -7,8 +7,8 @@ import static io.agenticpayments.composition.Composition.*;
 public final class EnrolledKeyResolverFactory implements KeyResolverFactory {
     private record Identity(String issuer,String kid,String purpose) {}
     @Override public Descriptor describe() {
-        return new Descriptor("key-resolver",VERSION,"enrolled-snapshot-keys",Set.of(PROFILE),
-            Set.of("scoped-enrollment","current-trust","transaction-snapshot"),"admission-trust");
+        return new Descriptor("key-resolver",VERSION,"enrolled-snapshot-keys",Set.of(PROFILE,EXTERNAL_PROFILE),
+            Set.of("scoped-enrollment","current-trust","transaction-snapshot",LOCAL_CALLBACKS),"admission-trust");
     }
     @Override public KeyResolver bind(EnrollmentSnapshot snapshot) {
         Objects.requireNonNull(snapshot); Map<Identity,TrustKey> enrolled=new HashMap<>();

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for independent design review. This file specifies the next bounded slice; it does not claim implementation or acceptance. Base: `709d0a0901b9b0fcb0b85688d4caabd2b06b5dc5`. The integration owner records acceptance separately before implementation. Once handed off, changes to this document require an explicit amendment and renewed review of affected decisions.
+Accepted for the bounded reference profile described below. See the platform guides and executable tests for current implementation limits.
 
 ## Context
 
@@ -61,6 +61,8 @@ Compute artifact SHA-256 over raw response bytes. Separately recompute the exist
 
 ## Clock, freshness and current trust
 
+The bounded timestamp format is a four-digit-year RFC3339 UTC `Z` value with hours 00–23, minutes/seconds 00–59 and optional one to nine fractional digits. Invalid calendar dates and lexical forms, including leap-second/midnight normalization, fail as `AUTHORITY_BINDING_INVALID`. Valid timestamps with nonzero precision below a microsecond fail as `UNSUPPORTED_CAPABILITY` before quote publication or sealing. PostgreSQL stores microsecond precision; accepted source bytes are never rounded or rewritten.
+
 The new migration records non-null `observed_at` from the locked run's trusted virtual clock only for a current OK response promoted to the purchase projection; all other retained outcomes leave it null; it must never be supplied by HTTP Date, peer metadata or quote input. Historical outcomes lacking this field are ineligible. A valid later observation may supply time only when no uncertainty barrier exists. Recording a late/stale outcome does not refresh eligibility.
 
 This synthetic profile explicitly uses the same reference virtual-clock domain for peer `expires_at`, trusted observation time and financial authority. The demo defaults to the existing run origin `2026-11-06T10:00:00Z` and peer expiry `2026-11-06T10:15:00Z`; independently injected test fixtures declare their common clock/expiry. It does not interpret real merchant wall-clock expiry against a frozen simulator clock. A future wall-clock profile requires separately reviewed clock/freshness policy.
@@ -90,21 +92,9 @@ Approval reuses the current native atomic attempt/challenge/replay/grant/reserva
 
 Use existing sanitized envelope and retry conventions. Invalid request/types are 400; missing scope/access follows existing 403/404 behavior. Unsupported profile/port/handler/registration is 422 UNSUPPORTED_CAPABILITY. Invalid source bytes/terms/artifacts are 422 AUTHORITY_BINDING_INVALID. Revision/current-response drift is 409 CHECKOUT_CHANGED; configuration drift is 409 CONFIGURATION_CHANGED; uncertainty is 409 CHECKOUT_MUTATION_BLOCKED; active command is 409 CHECKOUT_COMMAND_IN_FLIGHT; sealed/already-owned purchase is 409 CHECKOUT_ALREADY_BOUND. Expiry uses 410 AUTHORITY_EXPIRED. Accepted-key input drift uses 409 IDEMPOTENCY_CONFLICT. Existing revoked/replay failures retain their names. Temporary precommit storage/crypto availability uses sanitized 503/SAME_COMMAND. Never map an expected purchase-ownership conflict to AUTHORITY_REPLAY through a generic unique-constraint handler.
 
-## Executable rollout and ownership
+## Executable integration
 
 The executable path is opt-in synthetic commerce HTTP create/retrieve -> external quote HTTP -> existing trusted UI approval -> existing synthetic execute/challenge/recovery HTTP. The commerce LangGraph/SQLite workflow can produce the selected safe observation, but the generic payment workflow must not silently accept this new profile: durable graph handoff needs immutable external-reference registration and is deferred. The HTTP journey plus existing UI is the end-to-end slice. No new framework/dependency or Google AP2 implementation is introduced.
-
-Implementation ownership is disjoint:
-
-| Owner | Files / responsibilities |
-| --- | --- |
-| Design author | This ADR only; freeze before implementation |
-| Core implementer | Composition/NativeComposition and external checkout adapter, native application coordinator, PaymentService/PaymentStore/ExecutePayment, JdbcPaymentStore/JdbcCheckoutLifecycleTransactions, CheckoutLifecycleTransactions capability default, FixtureKeyProvisioner/EnrolledKeyResolverFactory/JdbcSignedArtifactStore and test artifact-store descriptors, V010 SQL, directly related protocol/application unit tests |
-| Independent test implementer | New external-binding PostgreSQL integration, JVM restart/crash and V010 upgrade test files; no production code |
-| Integration owner | PaymentServices/LocalCheckoutRegistration/Main/PaymentHttpServer wiring, explicit peer financial fixture and Python HTTP tests, launcher/docs/evidence and DatabaseMigrator registration/old migration test latest-count compatibility; aggregate verification and commits |
-| Independent reviewer | Separate design/source reports and acceptance recommendation; no implementation changes |
-
-The owner assigns exact new class/test filenames before parallel editing and records constructor/API refinements that do not weaken the frozen semantic contract. Semantic changes require an explicit amendment/review, not an implementation-side reinterpretation. Push only reviewed milestones; do not merge, deploy or release packages.
 
 ## Testable acceptance
 
@@ -119,7 +109,7 @@ The independent acceptance plan must demonstrate these behaviors, beyond success
 7. Real PostgreSQL upgrade from V009 preserves old payment/lifecycle/provider history and migration checksums; old observations remain ineligible. Fresh/repeated migration works. A fresh-JVM reconstruction proves durable source/binding/authority preservation rather than merely reusing objects.
 8. HTTP rejects unauthorized roles/merchants, altered idempotent input, unknown fields and raw/credential injection. Responses, logs, workflow state and evidence contain no protected bytes, keys, credentials or remote identifiers. Independent pinned-schema validation covers the financial-ready fixture.
 
-Root runs targeted checks followed by the documented PostgreSQL-backed aggregate conformance runner, documentation checks and whitespace check. Evidence names the exact profile and tested scope; NOT_CERTIFIED and remaining external/production obligations remain visible. No disabled/skipped integration checks may substitute for required evidence.
+Validation includes targeted checks and the documented PostgreSQL-backed aggregate conformance runner, documentation checks and whitespace check. Evidence names the exact profile and tested scope; NOT_CERTIFIED and remaining external/production obligations remain visible. No disabled/skipped integration checks may substitute for required evidence.
 
 ## Alternatives considered and consequences
 

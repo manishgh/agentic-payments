@@ -1,6 +1,6 @@
 # Architecture concept
 
-Status: platform composition brief, updated 2026-11-08. Bounded reference and independent AP2 designs have separate accepted [gate records](reviews/gates.md). The broader real-provider and managed-platform design gates in the [roadmap](roadmap.md) remain open.
+Status: platform composition brief, updated 2026-11-08. The broader real-provider and managed-platform design gates in the [roadmap](roadmap.md) remain open.
 
 ## Composition
 
@@ -70,7 +70,7 @@ In particular, this platform must support its AP2 implementation paired with an 
 
 Provider, method, credential format, customer action and checkout allocation are separate extension axes. Capabilities are intersected with the merchant account, currency, country, channel, authorization profile and provider support. Mandatory unknown capabilities reject; no silent downgrade.
 
-The ACP boundary remains pinned to the selected external contract. Current documentation has restricted provider/method/status enums. Broader internal capabilities need a separately negotiated extension/hosted continuation contract; do not invent accepted ACP fields or collapse pending into success. See [sources](references.md) and [review](reviews/0001-protocol-boundaries.md).
+The ACP boundary remains pinned to the selected external contract. Current documentation has restricted provider/method/status enums. Broader internal capabilities need a separately negotiated extension/hosted continuation contract; do not invent accepted ACP fields or collapse pending into success. See [sources](references.md).
 
 ## Trust and persistence
 
@@ -85,3 +85,9 @@ The ACP boundary remains pinned to the selected external contract. Current docum
 ## Design gate
 
 Resolve signed-byte mapping, AP2 actor/trust matrix, external ACP continuation, execution ownership, unknown-outcome state transitions, revocation linearization and split-tender compensation before implementing payment execution. The initial review identifies evidence required to close each issue.
+
+## External checkout authority boundary
+
+The optional [external authority profile](external-checkout-authority.md) connects retained ACP observations to the existing AP2 coordinator and financial admission. A trusted local signer attests exact retained bytes; a remote HTTP response alone grants no financial authority. The same transaction permanently seals the purchase and publishes its quote. The original principal, configuration, expiry and authority are revalidated before admission, while already admitted uncertainty remains attached to its original operation for reconciliation.
+
+Checkout, authority, signing, artifact storage and admission remain independent replaceable interfaces. The reference financial and lifecycle stores share a database and opaque coordination identity through trusted composition. Replacements must preserve atomicity and required capabilities. LangGraph can produce a durable commerce observation; automatic financial handoff for this external profile remains future work.

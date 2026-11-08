@@ -1,6 +1,6 @@
 # Native AP2 direct authorization requirements
 
-Status: requirements for a bounded independent Java implementation, 2026-11-07. This is a project profile of AP2 v0.2, with offline synthetic identities and explicit trust configuration. It is not an AP2 certification, Google SDK implementation, live payment connector, or evidence of interoperability with another implementation. Implementation begins only after the integration owner's design acceptance.
+Status: requirements for a bounded independent Java implementation, 2026-11-07. This is a project profile of AP2 v0.2, with offline synthetic identities and explicit trust configuration. It is not an AP2 certification, Google SDK implementation, live payment connector, or evidence of interoperability with another implementation.
 
 ## Source authority
 

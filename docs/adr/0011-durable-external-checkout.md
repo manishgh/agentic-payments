@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed, 2026-11-08. Implementation requires integration-owner and independent design acceptance. This extends the standalone lifecycle adapter from ADR 0009; it does not revise the frozen prior design or enable financial execution.
+Accepted for the bounded reference profile described below. See the platform guides and executable tests for current implementation limits.
 
 ## Context
 
@@ -136,7 +136,7 @@ Required tests use real PostgreSQL and an independently authored loopback HTTP m
 - A replacement transaction adapter/test double and decorated transport meet the same service contract; secret/request/response canaries stay out of safe DTOs, exceptions, representations and graph checkpoints.
 - HTTP authorization/replay/concurrency plus a real LangGraph local-peer journey and process restart. Existing synthetic payment, native authority, provider SDK and durable runtime checks remain intact.
 
-The integration owner runs Maven and the full unchanged-source conformance aggregate, documentation checks and whitespace checks. Evidence names exact profile, source and run; local-peer success is not a vendor sandbox exchange or certification. Existing certification gaps remain open.
+Validation includes Maven, the full unchanged-source conformance aggregate and documentation checks. Evidence names exact profile, source and run; local-peer success is not a vendor sandbox exchange or certification. Existing certification gaps remain open.
 
 ## Consequences and alternatives
 

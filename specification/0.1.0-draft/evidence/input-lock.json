@@ -1,9 +1,8 @@
 {
   "formatVersion": "evidence-input-lock-0.1",
   "files": {
-    "docs/adr/0004-requirement-evidence.md": "2466075b822ef5d410ae9b5daf96a8d3a945df2d88b14b4f1b6d77e27df23a67",
-    "docs/reviews/0013-evidence-design-review.md": "2a63397b75039f7c5c6f8a2bd9a4489a2e98f238e2aff4067add83440f7546ac",
-    "docs/simulator-and-conformance.md": "18b5719968c39f652052af6065453bea2ca2c458a7070bc1291a37107ec3ffd6",
+    "docs/adr/0004-requirement-evidence.md": "b2414ba28ae3ce43f271f7711fcf8b164ed4827a6f9f896f1fed57fba7d29471",
+    "docs/simulator-and-conformance.md": "2a9d7a88671a723b540f7fb3beeb1c9a564bf54e61e06b2e4264473927fd1a82",
     "integrations/offline_lab/requirements-crypto.lock.txt": "16b2e11a0b9b963c7238f3199bf9d2fc570954b245740c60ad1634738dabf292",
     "pom.xml": "d7215ce68ad53cd5103435eb51f8c38a7b03cd85e90fa5a02230a3f87da97b5a",
     "scripts/temporal-toolchain-lock.json": "84e717fc61992f916debc06e6cc78e5c329570bf8074ab7ffda51a76a862ef59",

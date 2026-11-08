@@ -38,7 +38,7 @@
       "pattern": "^[1-9][0-9]{0,11}$"
     },
     "profile": {
-      "enum": ["local-fake-single-tender-0.1", "local-ap2-acp-single-tender-0.1"]
+      "enum": ["local-fake-single-tender-0.1", "local-ap2-acp-single-tender-0.1", "local-external-ap2-acp-single-tender-0.1"]
     },
     "capability": {
       "enum": [
@@ -173,6 +173,46 @@
       "required": [
         "expectedVersion",
         "cartFixtureId",
+        "tenders"
+      ],
+      "additionalProperties": false
+    },
+    "quoteExternalRequest": {
+      "type": "object",
+      "properties": {
+        "expectedVersion": {
+          "$ref": "#/$defs/version"
+        },
+        "purchaseId": {
+          "allOf": [
+            { "$ref": "#/$defs/uuid" },
+            { "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$(?![\\s\\S])" }
+          ]
+        },
+        "expectedPurchaseRevision": {
+          "$ref": "#/$defs/version"
+        },
+        "responseReference": {
+          "allOf": [
+            { "$ref": "#/$defs/uuid" },
+            { "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$(?![\\s\\S])" }
+          ]
+        },
+        "tenders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tender"
+          },
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "expectedVersion",
+        "purchaseId",
+        "expectedPurchaseRevision",
+        "responseReference",
         "tenders"
       ],
       "additionalProperties": false
@@ -714,6 +754,10 @@
                 "IDEMPOTENCY_CONFLICT",
                 "INVALID_STATE",
                 "CHECKOUT_CHANGED",
+                "CONFIGURATION_CHANGED",
+                "CHECKOUT_ALREADY_BOUND",
+                "CHECKOUT_COMMAND_IN_FLIGHT",
+                "CHECKOUT_MUTATION_BLOCKED",
                 "BUDGET_EXCEEDED",
                 "AUTHORITY_REVOKED",
                 "AUTHORITY_REPLAY",

@@ -11,6 +11,7 @@ public interface PaymentStore {
     default Set<String> admissionCapabilities() { return Set.of(); }
     Result create(Session session,String key,CreateCommand command);
     Result quote(Session session,UUID id,String key,QuoteCommand command);
+    default Result quoteExternal(Session session,UUID id,String key,ExternalQuoteCommand command) { throw new PaymentException(422,"UNSUPPORTED_CAPABILITY"); }
     Result approve(Session session,UUID id,String key,ApproveCommand command);
     Result execute(Session session,UUID id,String key,ExecuteCommand command);
     Result status(Session session,UUID id);
