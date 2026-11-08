@@ -13,7 +13,7 @@ public final class DatabaseMigrator {
             try(var st=c.createStatement()) {
                 st.execute("SELECT pg_advisory_xact_lock(719420012)");
                 st.execute("CREATE TABLE IF NOT EXISTS schema_migrations(version int PRIMARY KEY,digest text NOT NULL)");
-                String[] resources={"/db/V001__simulator.sql","/db/V002__conflict_evidence.sql","/db/V003__accepted_evidence.sql","/db/V004__recorded_replay.sql","/db/V005__admission_evidence.sql","/db/V006__recorded_run_constraints.sql","/db/V007__durable_ap2_admission.sql","/db/V008__durable_checkout_lifecycle.sql","/db/V009__provider_compatibility_journal.sql","/db/V010__external_checkout_authority_binding.sql"};
+                String[] resources={"/db/V001__simulator.sql","/db/V002__conflict_evidence.sql","/db/V003__accepted_evidence.sql","/db/V004__recorded_replay.sql","/db/V005__admission_evidence.sql","/db/V006__recorded_run_constraints.sql","/db/V007__durable_ap2_admission.sql","/db/V008__durable_checkout_lifecycle.sql","/db/V009__provider_compatibility_journal.sql","/db/V010__external_checkout_authority_binding.sql","/db/V011__provider_admission_routes.sql"};
                 for(int index=0;index<resources.length;index++) {
                     try(var input=DatabaseMigrator.class.getResourceAsStream(resources[index])) {
                         if(input==null) throw new IllegalStateException("Migration resource is missing");

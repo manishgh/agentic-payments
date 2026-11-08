@@ -49,7 +49,7 @@ class ExternalBindingMigrationUpgradeTest {
             Result original=nativePayment.create(customer,key(),new CreateCommand("merchant-demo","success",JdbcPaymentStore.NATIVE_PROFILE,List.of()));UUID nativeIntent=uuid(original.body().get("intentId"));
             Result quote=nativePayment.quote(customer,nativeIntent,key(),new QuoteCommand(1,"cart-1250-eur",TENDER));
             Result approved=nativePayment.approve(customer,nativeIntent,key(),approval(quote,"eur"));
-            nativePayment.execute(customer,nativeIntent,key(),new ExecuteCommand(version(approved),uuid(approved.body().get("attemptId"))));nativePayment.runNext(customer);nativePayment.runNext(customer);
+            io.agenticpayments.core.HistoricalPaymentRows.completeApproved(isolated,customer,nativeIntent,uuid(approved.body().get("attemptId")));
             assertEquals("SUCCEEDED",nativePayment.status(customer,nativeIntent).body().get("state"));
 
             ConfigurationIdentity identity=identity(graph);UUID purchase=UUID.randomUUID(),command=UUID.randomUUID(),response=UUID.randomUUID(),claim=UUID.randomUUID();
@@ -75,6 +75,7 @@ class ExternalBindingMigrationUpgradeTest {
             assertEquals(1,before.get("checkout_lifecycle_outcomes").size());assertEquals(1,before.get("provider_compatibility_bindings").size());
             assertEquals(1,before.get("provider_compatibility_evidence").size());assertFalse(before.get("native_authorities").isEmpty());
             DatabaseMigrator.migrate(isolated);DatabaseMigrator.migrate(isolated);
+            nativePayment.reconcile(customer,nativeIntent,false); // No false conflict after legacy-route backfill.
             Map<String,List<String>> after=snapshot(isolated,schema);
             for(var retained:before.entrySet())assertEquals(retained.getValue(),after.get(retained.getKey()),"Historical rows changed: "+retained.getKey());
             assertEquals(List.of(),after.get(BINDINGS));assertEquals(0,scalar(isolated,"SELECT count(*) FROM checkout_lifecycle_outcomes WHERE observed_at IS NOT NULL"));
@@ -82,8 +83,10 @@ class ExternalBindingMigrationUpgradeTest {
             try(var connection=isolated.getConnection();var statement=connection.createStatement();var rows=statement.executeQuery("SELECT version,digest FROM schema_migrations ORDER BY version")){
                 while(rows.next())history.put(rows.getInt(1),rows.getString(2));
             }
-            assertEquals(10,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));
+            assertEquals(11,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));
             assertEquals(PaymentRules.sha256(resource("V010__external_checkout_authority_binding.sql")),history.get(10));
+            assertEquals(PaymentRules.sha256(resource("V011__provider_admission_routes.sql")),history.get(11));
+            io.agenticpayments.core.HistoricalPaymentRows.assertLegacyRoutes(isolated,1);
             assertEquals("SUCCEEDED",PaymentServices.local(isolated).status(customer,nativeIntent).body().get("state"));
             var domain=new CoordinationDomain();
             try(var transport=new AcpHttpCheckoutSessions(new AcpHttpCheckoutSessions.Configuration(identity.binding(),java.net.URI.create("http://127.0.0.1:9"),true,Duration.ofMillis(100),Duration.ofSeconds(1)),SECRET.toCharArray())){

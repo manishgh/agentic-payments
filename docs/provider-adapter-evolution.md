@@ -1,6 +1,6 @@
 # Provider execution adapter roadmap
 
-Status: provider-neutral contract implemented; external adapters and financial wiring remain next steps, 2026-11-08. The additive [provider-execution-1 specification](../specification/provider-execution-1/README.md) and `sdk.execution.v1` supply the reviewed responsibility interfaces, synthetic compatibility bridge and adapter-only behavioral suite. The current payment execution flow remains explicitly synthetic; a merchant checkout transport does not by itself implement Stripe, Adyen or another PSP.
+Status: provider-neutral contract and opt-in synthetic financial integration implemented; external adapters and broader profiles remain next steps. The additive [provider-execution-1 specification](../specification/provider-execution-1/README.md) and `sdk.execution.v1` supply the reviewed responsibility interfaces, synthetic compatibility bridge and adapter-only behavioral suite. The current payment execution flow remains explicitly synthetic; a merchant checkout transport does not by itself implement Stripe, Adyen or another PSP.
 
 ## Existing boundary and required evolution
 
@@ -30,7 +30,7 @@ Stripe's ordinary payment APIs, Stripe's checkout products and a merchant's ACP 
 
 ## Delivery sequence
 
-1. The provider-neutral contract, local simulator compatibility adapter and shared behavioral TCK are implemented under [ADR 0012](adr/0012-provider-execution-contract.md). The [PostgreSQL compatibility journal](durable-provider-journal.md) adds separate actual process-recovery evidence under ADR 0013. Original TCK fixtures still claim retained-memory reconstruction; financial integration remains separate.
+1. The provider-neutral contract, local simulator compatibility adapter and shared behavioral TCK are implemented under [ADR 0012](adr/0012-provider-execution-contract.md). The [PostgreSQL compatibility journal](durable-provider-journal.md) adds separate actual process-recovery evidence under ADR 0013. Original TCK fixtures still claim retained-memory reconstruction. The opt-in synthetic admission route adds core integration under [ADR 0020](adr/0020-provider-journal-admission.md), with separate real PostgreSQL/process evidence; it does not establish real-provider readiness.
 2. Implement one provider adapter against a separately authored local HTTP contract peer using a pinned vendor API contract. Include accepted-response loss, restart, duplicate send, idempotency mismatch, account/region mismatch and unavailable lookup tests. This proves local behavior only.
 3. Connect an explicitly configured provider sandbox and record the real API/version/account/method evidence. Keep credential loading inside trusted infrastructure, with no credentials in the repository or model context. Actual access is verified at this step, not inferred from a public documentation page.
 4. Review the financial integration profile and wire the adapter to durable admission/outbox/reconciliation. Exercise the same fault matrix with real PostgreSQL before advertising that combination.

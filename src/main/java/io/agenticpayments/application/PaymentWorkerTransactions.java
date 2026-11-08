@@ -33,6 +33,10 @@ public interface PaymentWorkerTransactions {
         void markUnknown(Claim claim,Snapshot snapshot) throws Exception;
         /** Caller must use the configured verifier; stale counters do not invalidate evidence. */
         void applyVerifiedFact(ChargeOperation expected,Fact fact) throws Exception;
+        /** Durable dispute, including after settlement; unavailable storage must not claim success. */
+        default void quarantineProvider(ChargeOperation expected) throws Exception {
+            throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+        }
         WorkerReceipt receipt(Activity before,Selection selection) throws Exception;
     }
 

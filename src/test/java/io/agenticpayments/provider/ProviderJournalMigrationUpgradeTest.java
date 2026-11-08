@@ -43,8 +43,8 @@ class ProviderJournalMigrationUpgradeTest {
             UUID intent=UUID.fromString(createdIntent.body().get("intentId").toString());
             var quote=payment.quote(customer,intent,key(),new PaymentService.QuoteCommand(1,"cart-1250-eur",List.of(new PaymentService.Tender("simulator","synthetic-card","fixture-credential-1"))));
             var approved=payment.approve(customer,intent,key(),new PaymentService.ApproveCommand(((Number)quote.body().get("version")).intValue(),((Number)quote.body().get("checkoutRevision")).intValue(),quote.body().get("checkoutDigest").toString(),"fixture-grant-1"));
-            payment.execute(customer,intent,key(),new PaymentService.ExecuteCommand(((Number)approved.body().get("version")).intValue(),UUID.fromString(approved.body().get("attemptId").toString())));
-            payment.runNext(customer);payment.runNext(customer);assertEquals("SUCCEEDED",payment.status(customer,intent).body().get("state"));
+            io.agenticpayments.core.HistoricalPaymentRows.completeApproved(isolated,customer,intent,UUID.fromString(approved.body().get("attemptId").toString()));
+            assertEquals("SUCCEEDED",payment.status(customer,intent).body().get("state"));
             var graph=new PaymentService.Session(customer.tenantId(),run,"agent-demo",Set.of("intent:write","intent:read"),customer.allowedMerchants(),Set.of());
             var binding=new CheckoutSessions.Binding(graph.tenantId(),graph.principalId(),"merchant-demo","migration-config");
             var identity=new ConfigurationIdentity(binding,"version1","credential1",AcpHttpCheckoutSessions.PROFILE,AcpHttpCheckoutSessions.ENCODING_VERSION,"f".repeat(64));
@@ -56,13 +56,16 @@ class ProviderJournalMigrationUpgradeTest {
                 var unknown=checkout.status(graph,purchase);assertTrue(unknown.mutationBlocked());
                 Map<String,List<String>> before=snapshot(isolated,schema);assertTrue(before.get("native_artifacts").size()>0);assertEquals(1,before.get("simulator_operation_journal").size());assertEquals(1,before.get("checkout_lifecycle_commands").size());
                 DatabaseMigrator.migrate(isolated);DatabaseMigrator.migrate(isolated);
+                payment.reconcile(customer,intent,false); // The historical canonical evidence must replay without quarantine.
                 Map<String,List<String>> after=snapshot(isolated,schema);for(var entry:before.entrySet())assertEquals(entry.getValue(),after.get(entry.getKey()),"Historical table changed: "+entry.getKey());
                 assertEquals(unknown,checkout.status(graph,purchase));assertEquals("SUCCEEDED",payment.status(customer,intent).body().get("state"));
                 for(String table:List.of("provider_compatibility_bindings","provider_compatibility_evidence","provider_compatibility_conflicts","provider_compatibility_resource_owners"))assertEquals(List.of(),after.get(table));
             }
             Map<Integer,String> history=new TreeMap<>();try(var connection=isolated.getConnection();var statement=connection.createStatement();var rows=statement.executeQuery("SELECT version,digest FROM schema_migrations ORDER BY version")){while(rows.next())history.put(rows.getInt(1),rows.getString(2));}
-            assertEquals(10,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));assertEquals(digest(resource("V009__provider_compatibility_journal.sql")),history.get(9));
+            assertEquals(11,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));assertEquals(digest(resource("V009__provider_compatibility_journal.sql")),history.get(9));
             assertEquals(digest(resource("V010__external_checkout_authority_binding.sql")),history.get(10));
+            assertEquals(digest(resource("V011__provider_admission_routes.sql")),history.get(11));
+            io.agenticpayments.core.HistoricalPaymentRows.assertLegacyRoutes(isolated,1);
         }finally{
             // Only this validated, randomly created test schema may be dropped.
             if(created)try(var connection=admin.getConnection();var statement=connection.createStatement()){statement.execute("DROP SCHEMA "+quoted+" CASCADE");}

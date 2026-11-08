@@ -162,3 +162,7 @@ G2-S tests must cover CT-001..007 and CT-009..012; CT-008 is explicitly unsuppor
 Required fault interleavings: competing budgets, revoke-before/after admission, stale claim completion, acceptance-response loss, core crash and late/duplicate facts.
 Add clock-advance races at quote/authority/action expiry: whichever run-row transaction commits first determines eligibility, never wall-clock timing.
 Evidence must include normalized state/reservation/journal digests and demonstrate identical replay from pinned clock/schedule/configuration.
+
+## Provider execution routes
+
+V011 adds `payment_operation_routes`, one immutable route per financial operation. Existing operations are backfilled as `legacy-local-fake-1` without changing their financial rows. Newly opted-in operations retain the complete `local-provider-journal-admission-1` association, including the original core operation and request digest, approved credential, full provider selection/binding and mapping policy. Route enrollment shares the operation/PREPARE transaction; missing or mismatched routes reject worker activity rather than reconstructing ownership. See [provider admission](durable-provider-journal.md#opt-in-to-core-admission) for recovery and replacement requirements.

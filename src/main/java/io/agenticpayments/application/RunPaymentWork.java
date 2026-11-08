@@ -55,30 +55,34 @@ public final class RunPaymentWork {
         });
         if(step.ticket()!=null) {
             var ticket=step.ticket();
-            if(ticket.claim().kind()==WorkKind.PREPARE) {
-                Preparation preparation=adapter.prepare(ticket.operation());
-                transactions.run(session,tx->{
-                    var snapshot=tx.load(ticket.claim().operationId());
-                    if(!"PREPARING".equals(snapshot.state())||!tx.isCurrent(ticket.claim()))return null;
-                    if(!eligible(snapshot,tx.now())) {tx.terminateBeforeAdmission(snapshot,authorityTermination(snapshot));return null;}
-                    if(nativeProfile(snapshot)&&!tx.nativeGate(snapshot))return null;
-                    if((preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE)!=needsAction(snapshot)) {
-                        tx.terminateBeforeAdmission(snapshot,Termination.FAILED);return null;
-                    }
-                    tx.completePreparation(ticket.claim(),snapshot,preparation.actionType());return null;
-                });
-            } else if(ticket.claim().kind()==WorkKind.DISPATCH) {
-                try { accept(session,ticket.operation(),adapter.execute(ticket.operation())); }
-                catch(AdapterUnavailableException unavailable) { unknown(session,ticket); }
-            } else {
-                try {
-                    var lookup=adapter.lookup(ticket.operation().identity());
-                    if(lookup.status()==LookupResult.Status.FOUND) {
-                        var fact=lookup.fact().orElseThrow();
-                        if(fact.outcome()==Outcome.PENDING)fact=progression.progress(ticket.operation(),fact);
-                        accept(session,ticket.operation(),fact);
-                    } else unknown(session,ticket);
-                } catch(AdapterUnavailableException unavailable) { unknown(session,ticket); }
+            try {
+                if(ticket.claim().kind()==WorkKind.PREPARE) {
+                    Preparation preparation=adapter.prepare(ticket.operation());
+                    transactions.run(session,tx->{
+                        var snapshot=tx.load(ticket.claim().operationId());
+                        if(!"PREPARING".equals(snapshot.state())||!tx.isCurrent(ticket.claim()))return null;
+                        if(!eligible(snapshot,tx.now())) {tx.terminateBeforeAdmission(snapshot,authorityTermination(snapshot));return null;}
+                        if(nativeProfile(snapshot)&&!tx.nativeGate(snapshot))return null;
+                        if((preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE)!=needsAction(snapshot)) {
+                            tx.terminateBeforeAdmission(snapshot,Termination.FAILED);return null;
+                        }
+                        tx.completePreparation(ticket.claim(),snapshot,preparation.actionType());return null;
+                    });
+                } else if(ticket.claim().kind()==WorkKind.DISPATCH) {
+                    try { accept(session,ticket.operation(),adapter.execute(ticket.operation())); }
+                    catch(AdapterUnavailableException unavailable) { unknown(session,ticket); }
+                } else {
+                    try {
+                        var lookup=adapter.lookup(ticket.operation().identity());
+                        if(lookup.status()==LookupResult.Status.FOUND) {
+                            var fact=lookup.fact().orElseThrow();
+                            if(fact.outcome()==Outcome.PENDING)fact=progression.progress(ticket.operation(),fact);
+                            accept(session,ticket.operation(),fact);
+                        } else unknown(session,ticket);
+                    } catch(AdapterUnavailableException unavailable) { unknown(session,ticket); }
+                }
+            } catch(ProviderEvidenceConflict conflict) {
+                quarantine(session,ticket.operation());throw conflict;
             }
         }
         return transactions.run(session,tx->tx.receipt(step.before(),step.selection()));
@@ -94,6 +98,10 @@ public final class RunPaymentWork {
             else if(lookup.status()==LookupResult.Status.NOT_FOUND&&sealIfAbsent)accept(session,ticket.operation(),adapter.sealNoEffect(ticket.operation()));
             else unknown(session,ticket);
         } catch(AdapterUnavailableException unavailable) {unknown(session,ticket);}
+        catch(ProviderEvidenceConflict conflict) {quarantine(session,ticket.operation());throw conflict;}
+    }
+    private void quarantine(Session session,ChargeOperation operation) {
+        transactions.run(session,tx->{tx.quarantineProvider(operation);return null;});
     }
     private void accept(Session session,ChargeOperation expected,Fact delivered) {
         Fact verified=verifier.verify(expected,delivered);

@@ -3,6 +3,7 @@ package io.agenticpayments.infrastructure.provider;
 import io.agenticpayments.sdk.ChargeOperation;
 import io.agenticpayments.sdk.execution.v1.*;
 import io.agenticpayments.sdk.execution.v1.compat.CompatibilityBindingJournal;
+import io.agenticpayments.application.ProviderEvidenceVerifier;
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
@@ -10,7 +11,7 @@ import static io.agenticpayments.sdk.execution.v1.ExecutionFailure.Code.*;
 import static io.agenticpayments.sdk.execution.v1.ExecutionFailure.Certainty.*;
 
 /** Short independent PostgreSQL transactions; no provider I/O or resettable ownership leases. */
-public final class JdbcCompatibilityBindingJournal implements CompatibilityBindingJournal {
+public final class JdbcCompatibilityBindingJournal implements CompatibilityBindingJournal,ProviderEvidenceVerifier {
     private static final String SCOPE = "tenant_id=? AND merchant_id=? AND run_id=? AND caller_key=?";
     private final DataSource database;
     private final ProviderJournalConfiguration configuration;
@@ -120,6 +121,31 @@ public final class JdbcCompatibilityBindingJournal implements CompatibilityBindi
             var loaded = load(c, operation, expected, null);
             return loaded.failure != null ? Decision.failure(loaded.failure)
                     : Decision.success(loaded.stored == null ? Optional.empty() : Optional.ofNullable(loaded.stored.projection));
+        });
+    }
+    @Override public ExecutionEvidence verify(ExecutionOperation expected,ExecutionEvidence received) {
+        if(!expected.equals(received.operation()))throw failure(IDENTITY_CONFLICT,NOT_STARTED);
+        record(received);
+        var legacy=configuration.expectedLegacy(expected);
+        return transaction(MAY_HAVE_OCCURRED,c->{
+            var loaded=load(c,expected,legacy,null);
+            if(loaded.failure!=null)return Decision.failure(loaded.failure);
+            if(loaded.stored==null)return Decision.failure(IDENTITY_CONFLICT,NOT_STARTED);
+            var row=query(c,"SELECT * FROM provider_compatibility_evidence WHERE "+SCOPE+" AND evidence_id=?",suffixed(expected,received.evidenceId()));
+            try {if(row==null||!decodeEvidence(row,expected).equals(received))return corrupt(c,expected,loaded.stored.row);}
+            catch(RuntimeException corrupt){return corrupt(c,expected,loaded.stored.row);}
+            return Decision.success(received);
+        });
+    }
+    @Override public ExecutionEvidence retained(ExecutionOperation expected,ExecutionEvidence.State state) {
+        var legacy=configuration.expectedLegacy(expected);
+        return transaction(MAY_HAVE_OCCURRED,c->{
+            var loaded=load(c,expected,legacy,null);
+            if(loaded.failure!=null)return Decision.failure(loaded.failure);
+            if(loaded.stored==null)return Decision.failure(IDENTITY_CONFLICT,NOT_STARTED);
+            var row=query(c,"SELECT * FROM provider_compatibility_evidence WHERE "+SCOPE+" AND state=? ORDER BY evidence_id LIMIT 1",suffixed(expected,state.name()));
+            if(row==null)return Decision.failure(INVALID_EVENT,NOT_STARTED);
+            try{return Decision.success(decodeEvidence(row,expected));}catch(RuntimeException corrupt){return corrupt(c,expected,loaded.stored.row);}
         });
     }
     private static boolean excludes(ExecutionEvidence.State first, ExecutionEvidence.State second) {

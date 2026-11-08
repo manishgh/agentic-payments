@@ -17,6 +17,7 @@ Stable identifiers are retained for platform capabilities and unfinished work. I
 | INT-008 | Provider execution contract and TCK | Versioned preparation/submission/reconciliation/event responsibilities, uncertainty and optional true fencing. |
 | INT-009 | Durable external commerce wiring | Scoped immutable commands, committed claims, protected outcomes, uncertainty barrier and separate LangGraph/SQLite workflow. |
 | INT-010 | Durable synthetic provider binding journal | PostgreSQL ownership, strict persisted identity, retained conflicting evidence and process recovery behind the existing journal interface. |
+| INT-012 | Provider-journal admission integration | Implemented for the opt-in synthetic route: atomic immutable route binding, independently replaceable provider ports, canonical state projection, quarantine propagation and process recovery. Broader provider authentication, preparation and event profiles remain outstanding. |
 
 ## Composition and runtime work
 
