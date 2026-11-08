@@ -41,6 +41,8 @@ This review grants no implementation pass, production suitability, live merchant
 
 ## Reviewed identity and handoff
 
-The reviewer independently recomputed SHA-256 of the frozen LF working bytes of [ADR 0014](../adr/0014-external-checkout-authority-binding.md): `0635b5dd8747dd8b32b0a93079a450eab42e0b8847c2f811a2c218d403d5938d`. This is the reviewed design identity. Semantic changes require an explicit amendment and renewed review; capability/API refinements may not weaken its guarantees.
+The initial reviewed working-byte SHA-256 of [ADR 0014](../adr/0014-external-checkout-authority-binding.md) was `0635b5dd8747dd8b32b0a93079a450eab42e0b8847c2f811a2c218d403d5938d`. The initial report incorrectly described those bytes as entirely LF: they contained one CRLF and 127 LF line endings. Before design acceptance or implementation, the integration owner authorized a formatting-only normalization. The reviewer verified the original hash, replaced CRLF with LF, and verified exact text equality after that sole replacement, with no remaining carriage returns and no semantic changes.
+
+The mandatory LF publication SHA-256 is `d696eed1c533e01a69b2b899beff374f5c3850c48119d8f677447a48447f98d8`. This normalized identity supersedes the original working-byte identity for the design gate and subsequent implementation. Semantic changes require an explicit amendment and renewed review; capability/API refinements may not weaken its guarantees.
 
 `git diff --check` passed during design assessment. No other executable verification is claimed. This report is frozen at handoff; the integration owner records acceptance separately.
