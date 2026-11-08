@@ -40,3 +40,17 @@ The implementation ownership is bounded to new infrastructure provider classes, 
 | [ADR 0013](../adr/0013-durable-provider-journal.md) | `56af386a4602652a730d17b6cd30b4dc5f7c2ec0508cb4bfa0013c3f310b749a` |
 
 The reviewed ADR has UTF-8/LF bytes. Accept this exact bounded design for implementation followed by independent source review. Changed design identities require further review; financial-core wiring, richer provider profiles, external authenticity and live-provider activation remain separate work.
+
+## Pre-implementation identity amendment
+
+After the initial review, the author applied a final ownership and migration clarification before implementation authorization. The historical `56af386a4602652a730d17b6cd30b4dc5f7c2ec0508cb4bfa0013c3f310b749a` acceptance above is retained as the original review event. The current accepted design identity is the amended hash below; the integration owner must record its corrected gate against that identity.
+
+The reviewer independently reconstructed the exact original hash by reversing only four declared text changes: selecting the already permitted restricted SQL update path, adding the simple-SQL migration constraint, and replacing the two ownership paragraphs. This proves the amendment contains no other text changes. The existing migrator splits statements on semicolons. Choosing insert-only identity fields and explicit locked, once-only submission updates avoids introducing procedural SQL or an unrelated parser rewrite. Replays still reject immutable changes, with independent tests checking unchanged stored columns; the design makes no database-administrator tamper guarantee.
+
+Production provider infrastructure, V009 and `ProviderJournalCodecTest` belong to the implementation author. The independent test author owns the other new provider integration/process/inspection helpers and populated migration test. Root owns migrator registration, existing migration latest-count amendments and aggregate linkage. Exact construction/codec signatures are published after the gate before parallel implementation. These changes preserve the accepted responsibility, financial, conflict and recovery semantics and improve concrete ownership. No new blocking finding remains.
+
+| Amended reviewed artifact | SHA-256 |
+| --- | --- |
+| [ADR 0013](../adr/0013-durable-provider-journal.md), final frozen UTF-8/LF bytes | `492fe2fc404eed26cb8aa5ae81f5e4cefc893cdab9a06c3fcc1524988ebb5739` |
+
+Recommend integration-owner acceptance of this amended identity for bounded implementation. No source or test files were changed by this reviewer and no build was run for the amendment.
