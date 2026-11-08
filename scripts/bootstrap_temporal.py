@@ -7,11 +7,15 @@ import json
 from pathlib import Path, PurePosixPath
 import platform
 import tarfile
+from time import sleep
+from urllib.error import HTTPError
 from urllib.request import urlopen
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 300_000_000
+RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+HTTP_RETRY_DELAYS = (1, 2)
 
 
 def local_path(path: Path) -> None:
@@ -24,8 +28,16 @@ def verified_download(url: str, digest: str, cache: Path) -> bytes:
     if cache.is_file():
         content = cache.read_bytes()
     else:
-        with urlopen(url, timeout=90) as response:
-            content = response.read(LIMIT + 1)
+        for attempt in range(len(HTTP_RETRY_DELAYS) + 1):
+            try:
+                with urlopen(url, timeout=90) as response:
+                    content = response.read(LIMIT + 1)
+                break
+            except HTTPError as error:
+                error.close()
+                if error.code not in RETRYABLE_HTTP_STATUSES or attempt == len(HTTP_RETRY_DELAYS):
+                    raise
+                sleep(HTTP_RETRY_DELAYS[attempt])
     if len(content) > LIMIT or hashlib.sha256(content).hexdigest() != digest:
         raise ValueError("TEMPORAL_DISTRIBUTION_HASH_MISMATCH")
     cache.parent.mkdir(parents=True, exist_ok=True)
