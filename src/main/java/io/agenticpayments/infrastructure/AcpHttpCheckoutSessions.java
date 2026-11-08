@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.agenticpayments.checkout.CheckoutSessions;
+import io.agenticpayments.checkout.CheckoutCommandTransport;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.Proxy;
@@ -44,9 +45,10 @@ import static io.agenticpayments.checkout.CheckoutSessions.*;
  * initialization. The current-property check cannot establish an earlier cached JDK setting.
  * No process-global configuration is changed. Caller owns durable command/outcome persistence.
  */
-public final class AcpHttpCheckoutSessions implements CheckoutSessions, AutoCloseable {
+public final class AcpHttpCheckoutSessions implements CheckoutSessions, CheckoutCommandTransport, AutoCloseable {
     public static final String PROFILE = "acp-2026-04-17-lifecycle-envelope-0.1";
     public static final String ACP_VERSION = "2026-04-17";
+    public static final String ENCODING_VERSION = "acp-lifecycle-json-0.1";
     private static final int MAX_BODY = 131072;
     private static final Set<String> STATUSES = Set.of("incomplete", "not_ready_for_payment", "requires_escalation",
             "authentication_required", "ready_for_payment", "pending_approval", "complete_in_progress", "completed",
@@ -102,7 +104,38 @@ public final class AcpHttpCheckoutSessions implements CheckoutSessions, AutoClos
     }
 
     @Override public Descriptor describe() {
-        return new Descriptor(CONTRACT_VERSION, "independent-acp-http", Set.of(PROFILE), Set.of(Operation.values()));
+        return new Descriptor(CheckoutSessions.CONTRACT_VERSION, "independent-acp-http", Set.of(PROFILE), Set.of(Operation.values()));
+    }
+
+    @Override public String encodingVersion() { return ENCODING_VERSION; }
+    @Override public Set<String> observedProtocolVersions() { return Set.of(ACP_VERSION); }
+    @Override public CheckoutCommandTransport.Prepared prepare(CheckoutCommandTransport.Request request) {
+        if (!configuration.binding().equals(request.binding())) throw new IllegalArgumentException("INVALID_CHECKOUT_INPUT");
+        ObjectNode body = null;
+        if (request.operation() == Operation.CREATE) {
+            body = itemBody(request.items()); body.put("currency", request.currency()); body.putObject("capabilities");
+        } else if (request.operation() == Operation.UPDATE) body = itemBody(request.items());
+        try {
+            String path = "/checkout_sessions" + (request.sessionId() == null ? "" : "/" + request.sessionId())
+                    + (request.operation() == Operation.CANCEL ? "/cancel" : "");
+            return new CheckoutCommandTransport.Prepared(request, PROFILE, ENCODING_VERSION,
+                    request.operation() == Operation.RETRIEVE ? "GET" : "POST", path,
+                    body == null ? null : "application/json", body == null ? null : json.writeValueAsBytes(body));
+        } catch (IOException failure) { throw new IllegalArgumentException("INVALID_CHECKOUT_INPUT"); }
+    }
+    @Override public Result send(CheckoutCommandTransport.Prepared prepared) {
+        if (prepared == null) return Result.notSent(Code.INVALID_INPUT);
+        try {
+            var expected = prepare(prepared.request());
+            if (!expected.profile().equals(prepared.profile()) || !expected.encodingVersion().equals(prepared.encodingVersion())
+                    || !expected.method().equals(prepared.method()) || !expected.path().equals(prepared.path())
+                    || !java.util.Objects.equals(expected.contentType(), prepared.contentType())
+                    || !Arrays.equals(expected.body(), prepared.body())) return Result.notSent(Code.INVALID_INPUT);
+        } catch (RuntimeException failure) { return Result.notSent(Code.INVALID_INPUT); }
+        var r = prepared.request();
+        // Preflight is complete. A failure from this point cannot establish that nothing was sent.
+        return sendBytes(r.binding(), r.sessionId(), r.currency(), r.operation(), r.idempotencyKey(),
+                r.requestId(), prepared.body());
     }
 
     @Override public Result create(Binding binding, Command command, Create request) {
@@ -133,6 +166,12 @@ public final class AcpHttpCheckoutSessions implements CheckoutSessions, AutoClos
 
     private Result send(Binding binding, String sessionId, String currency, Operation operation,
                         String key, String requestId, ObjectNode body) {
+        try { return sendBytes(binding, sessionId, currency, operation, key, requestId,
+                body == null ? null : json.writeValueAsBytes(body)); }
+        catch (IOException failure) { return Result.notSent(Code.INVALID_INPUT); }
+    }
+    private Result sendBytes(Binding binding, String sessionId, String currency, Operation operation,
+                             String key, String requestId, byte[] body) {
         if (!configuration.binding().equals(binding)) return Result.notSent(Code.ACCESS_REFUSED);
         if (closed) return Result.notSent(Code.ACCESS_REFUSED);
         long deadline = System.nanoTime() + configuration.totalTimeout().toNanos();
@@ -145,7 +184,7 @@ public final class AcpHttpCheckoutSessions implements CheckoutSessions, AutoClos
             String path = "/checkout_sessions" + (sessionId == null ? "" : "/" + sessionId)
                     + (operation == Operation.CANCEL ? "/cancel" : "");
             URI destination = configuration.origin().resolve(path);
-            byte[] requestBytes = body == null ? new byte[0] : json.writeValueAsBytes(body);
+            byte[] requestBytes = body == null ? new byte[0] : body;
             var builder = HttpRequest.newBuilder(destination).timeout(configuration.totalTimeout())
                     .header("API-Version", ACP_VERSION)
                     .header("User-Agent", "agentic-payments-lifecycle/0.1").header("Accept", "application/json");
@@ -191,6 +230,8 @@ public final class AcpHttpCheckoutSessions implements CheckoutSessions, AutoClos
             return failure(status.get(), Code.TRANSPORT_UNCERTAIN, headers.get(), key, requestId);
         } catch (IOException | IllegalArgumentException error) {
             return failure(status.get(), Code.INVALID_RESPONSE, headers.get(), key, requestId);
+        } catch (RuntimeException error) {
+            return failure(status.get(), Code.TRANSPORT_UNCERTAIN, headers.get(), key, requestId);
         } finally {
             cancelled.set(true);
             BoundedBody subscriber = activeBody.get();

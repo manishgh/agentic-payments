@@ -2,7 +2,7 @@
 
 This slice introduces `CheckoutSessions`, a responsibility-based Java contract for create, retrieve, update and cancel, and `AcpHttpCheckoutSessions`, its outbound ACP implementation. Consumers can implement the same interface, adapt an external checkout service, or wrap an implementation for policy and instrumentation. The standalone client is not registered in the reference payment workflow.
 
-The bounded profile is `acp-2026-04-17-lifecycle-envelope-0.1`, using the [locked ACP revision](../integrations/upstream/source-lock.json). It has no completion operation, financial execution owner or provider capability. The current executable payment SDK remains synthetic; [provider adapter evolution](provider-adapter-evolution.md) describes the next contract work.
+The bounded profile is `acp-2026-04-17-lifecycle-envelope-0.1`, using the [locked ACP revision](../integrations/upstream/source-lock.json). It has no completion operation, financial execution owner or provider capability. The current executable payment flow remains synthetic; the additive [provider execution contract](../specification/provider-execution-1/README.md) is separately specified and tested.
 
 ## Supported contract
 
@@ -27,10 +27,10 @@ The deadline bounds connection, headers and the full body. Fixed byte/structure 
 
 After a mutating request loses its response, receives a server error or returns invalid success data, its commerce effect is uncertain. Preserve the original command/key and reconcile that identity. An HTTP failure cannot authorize a replacement charge, another execution owner or release of financial exposure.
 
-This client has no durable request journal. Before integrating it into LangGraph-driven purchasing, the application must persist the immutable command, dispatch outside the database transaction, then recheck current scope and checkout revision while recording the correlated result. LangGraph coordinates that workflow through the durable runtime; payment state remains authoritative in the transaction layer. Existing native freeze/validate calls run under the payment transaction, so injecting remote HTTP there is not supported. See [ADR 0009](adr/0009-external-checkout-adapters.md).
+The standalone client has no durable request journal. The separate [durable checkout integration](durable-external-checkout.md) now persists immutable commands through `CheckoutLifecycleTransactions`, sends through `CheckoutCommandTransport` outside transactions, and rechecks configuration/revision/provenance before promoting a result. It supplies authenticated commerce routes and a LangGraph/SQLite local-restart workflow. The existing native freeze/validate calls run under the payment transaction, so injecting remote HTTP there remains unsupported. See [ADR 0009](adr/0009-external-checkout-adapters.md) for the transport and [ADR 0011](adr/0011-durable-external-checkout.md) for the separate commerce aggregate.
 
 ## Evidence and scope
 
 Java tests use an independently authored local HTTP peer and record actual synthetic create/retrieve/update/cancel traffic. The independent Python verifier checks those fresh captures against hash-verified upstream schema bytes without network schema resolution. The aggregate passes the same execution identity to Java and Python, rejecting missing or stale captures. The capture excludes headers, credentials and negative-test canaries and is not published in the safe evidence bundle.
 
-This is local wire/schema evidence, not a successful Stripe, Adyen or merchant sandbox exchange. External completion, financial delegation, real customer authentication, verified provider events and recoverable platform wiring require their own reviewed profiles and evidence. The existing certification gaps remain open.
+This is local wire/schema evidence, not a successful Stripe, Adyen or merchant sandbox exchange. External completion, financial delegation, real customer authentication, verified provider events and external-checkout financial admission require their own reviewed profiles and evidence. The existing certification gaps remain open.

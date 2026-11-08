@@ -204,6 +204,8 @@ Late matching success resolves UNKNOWN; late stale pending cannot overwrite succ
 
 ## Error envelope and HTTP mapping
 
+The additive commerce routes use a separate `checkout-lifecycle-0.1` success DTO and the existing error envelope. See [durable external checkout HTTP surface](durable-external-checkout.md#http-surface) for stage/status/dispatch/recover-claim, exact inputs and safe output. No financial completion or raw-document endpoint is added.
+
 ```json
 {"contractVersion":"simulator-api-0.1-draft","correlationId":"corr-8","error":{"code":"OUTCOME_UNRESOLVED","message":"The existing operation requires reconciliation.","retry":"READ_STATUS"}}
 ```

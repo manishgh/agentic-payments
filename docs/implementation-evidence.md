@@ -198,3 +198,30 @@ Earlier focused runs passed 25 transaction/native methods, 16 frozen checkout me
 Local artifact SHA-256 values are reference `53e2a7759ef9d89c51c220acd06c802d8a5a6da0ceaf559237d4d53ca15eb561`, adapter SDK `82eaf11e77f327163456f5e67fe9a15e3be32f3e152449a3e12f0148e35b3051` and AP2 engine `53e04921084d47c635d4cf287ee453f1f43dc1f23a2f9c5c94abd1049d0c9f43`. They identify this local build, not package releases or cross-platform reproducibility guarantees.
 
 All 48 selected observations qualify PASS. Eleven CT rows remain INCOMPLETE, CT-008 remains guarded NOT_APPLICABLE, and the verdict remains **preview PASS, evidence VALID, NOT_CERTIFIED**. The new tests add counts without changing requirement mappings. Real PSP execution, durable platform wiring of external checkout, broader transaction extraction, additional AP2 profiles and production operation remain outstanding. There is no completion method or financial execution in the new checkout adapter. No merge, package release, deployment or live payment is part of this checkpoint.
+
+## Durable external checkout and provider contract checkpoint
+
+Date: 2026-11-08. Parallel Sol 6.1 High authors implemented ADRs 0011/0012 after independent Astra design reviews 0029/0030 and owner acceptance. Astra source reviews 0031/0032 accept the final bounded implementation after five checkout and three provider findings were corrected. Root independently verified all 68 reviewed source/document file identities and both report hashes. The accepted manifests and focused-run details are recorded in [the gate log](reviews/gates.md).
+
+Root ran `python scripts/conformance.py` against fresh isolated PostgreSQL database `agentic_durable_checkout_20261108_final`. Run `d058b1d4c0d44bbfa17ed0b0e0e2f386` passed all twelve stages with unchanged 371-file source SHA-256 `4c469b09c74a2596567fafb73ab9ac34f7c39a97b5ba34f8fcd727838f674747`. Every source file matched its staged bytes. Independent `python -m scripts.requirement_evidence --bundle target/conformance --verify-only` passed. Report SHA-256: `2a37772531334f3f034e5243c2c59f44f5c8355882b0044053e94153dfc6e45f`.
+
+| Suite | Passing test methods |
+| --- | --- |
+| Java/PostgreSQL | 266 |
+| Evidence tooling and Temporal bootstrap | 51 |
+| HTTP | 16 |
+| Trusted UI | 3 |
+| LangGraph and durable runtime | 46 |
+| Offline lab and independent protocol verification | 36 |
+| Upstream integrity | 6 |
+| Total | 424 |
+
+There were zero failures, errors, skips, expected failures, unexpected successes or duplicate observations. The retained independent ACP wire/schema and AP2 vector checks, old adapter TCK, recorded replay, UI and actual Temporal payment-runtime checks all passed. New Java provider-contract methods execute the additive pinned TCK against two independently authored synthetic peers, the old-SDK compatibility bridge, a forwarding wrapper and deliberately broken adapters. The supplied provider fixtures claim in-process reconstruction only.
+
+New checkout evidence covers real PostgreSQL stage/outcome rollback, immutable request bytes, scope/configuration replay, exclusive claims, actual child-JVM halt after staged/claimed commits, late recovered workers, blocked sends outside database locks, protected response retention and persistent mutation uncertainty through subsequent GET/404/expiry. Independent memory storage and a non-ACP transport exercise the same application policy. Actual HTTP and separate Python processes exercise create/retrieve/update/cancel, API restart, response loss, stable command identity and graph privacy. Concurrent conflicting workflow starts select one template before effects. Replacement-port and registration exceptions are sanitized before graph error persistence.
+
+Review corrected post-send runtime errors previously classified as NOT_SENT, mutable workflow-client identity, injected backend exception leakage, insufficient independent storage/rollback evidence, and sequential-only registration evidence. Provider review strengthened delayed-sender fencing against actual send counts, non-first/AUTHORIZE-only capability selection, and original resource association after preparation response loss. These changes were rerun in the full aggregate, not inferred from source review.
+
+The packaged adapter SDK passes `jdeps --multi-release 21 --print-module-deps` with `java.base` only. Local artifact SHA-256 values: reference `3b8ff21402ea876a64025b4923ecb88b67adca11d6757a466cf6b8b08cdd23d6`, adapter SDK `2a83d5f15a5363535b68ab418687921f80a0600f8fc197add2c7108a54dbcc99`, AP2 engine `c6fdc81564008ab87da62977ec3c8dab295f3b91d39f15b554fcbccd2c317a3e`. These identify local build artifacts; no package release is implied.
+
+All 48 selected observations remain PASS; eleven CT gaps remain INCOMPLETE and CT-008 remains guarded NOT_APPLICABLE. The verdict is **preview PASS, evidence VALID, NOT_CERTIFIED**. No requirement mappings, existing schema locks or dependencies changed. External checkout is a separate commerce aggregate with deliberate conservative recovery, not external AP2 authority/financial admission or completion. The provider contract remains adapter-only; durable provider journals, vendor implementations and financial wiring remain follow-on work. The new commerce workflow claims SQLite restart/manual resume, not a Temporal/Cadence/Azure commerce adapter. No merge, deployment or live payment is part of this checkpoint.

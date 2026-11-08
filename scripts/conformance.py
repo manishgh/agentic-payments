@@ -21,8 +21,9 @@ PYTHON_MODULES = {
     "evidence-tooling": ["scripts.test_evidence_collectors", "scripts.test_requirement_evidence", "scripts.test_conformance", "scripts.test_bootstrap_temporal"],
     "upstream-integrity": ["integrations.upstream.test_probes"],
     "offline-artifacts": ["integrations.offline_lab.tests.test_lab", "integrations.ap2_vectors.test_verifier", "integrations.test_external_checkout"],
-    "http": ["scripts.test_http"],
-    "langgraph": ["workflows.test_payment_workflow", "workflows.test_live", "workflows.test_runtime", "workflows.test_temporal_runtime"],
+    "http": ["scripts.test_http", "scripts.test_checkout_http"],
+    "langgraph": ["workflows.test_payment_workflow", "workflows.test_live", "workflows.test_runtime", "workflows.test_temporal_runtime",
+                  "workflows.test_checkout_workflow", "workflows.test_checkout_live"],
 }
 DB_ENV = ("PAYMENTS_DB_URL", "PAYMENTS_DB_USER", "PAYMENTS_DB_PASSWORD")
 

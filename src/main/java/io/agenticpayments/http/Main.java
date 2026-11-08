@@ -4,6 +4,7 @@ import io.agenticpayments.application.PaymentService;
 import io.agenticpayments.application.PaymentService.Session;
 import io.agenticpayments.infrastructure.DatabaseMigrator;
 import io.agenticpayments.infrastructure.PaymentServices;
+import io.agenticpayments.infrastructure.LocalCheckoutRegistration;
 import org.postgresql.ds.PGSimpleDataSource;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -31,13 +32,16 @@ public final class Main {
         service.seedRun(runner, Instant.parse("2026-11-06T10:00:00Z"), 100_000);
         int port = Integer.parseInt(System.getenv().getOrDefault("PAYMENTS_PORT", "8080"));
         LocalSessions sessions = new LocalSessions(List.of(new LocalSessions.Entry(required("PAYMENTS_GRAPH_TOKEN"), graph), new LocalSessions.Entry(required("PAYMENTS_UI_TOKEN"), trusted)));
-        PaymentHttpServer server = new PaymentHttpServer(service, sessions, port, Path.of(System.getenv().getOrDefault("PAYMENTS_UI_DIRECTORY", "ui")));
+        String checkoutOrigin = System.getenv("PAYMENTS_CHECKOUT_DEMO_ORIGIN");
+        LocalCheckoutRegistration checkout = checkoutOrigin == null ? null : new LocalCheckoutRegistration(database, graph, checkoutOrigin);
+        PaymentHttpServer server = new PaymentHttpServer(service, sessions, port, Path.of(System.getenv().getOrDefault("PAYMENTS_UI_DIRECTORY", "ui")),
+            checkout == null ? null : checkout.lifecycle());
         var worker = Executors.newSingleThreadScheduledExecutor();
         worker.scheduleWithFixedDelay(() -> {
             try { service.runNext(runner); }
             catch (RuntimeException failure) { System.err.println("Local worker could not complete its step; durable work remains available."); }
         }, 0, 200, TimeUnit.MILLISECONDS);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> { worker.shutdownNow(); server.close(); }));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> { worker.shutdownNow(); server.close(); if (checkout != null) checkout.close(); }));
         server.start();
         System.out.println("Local-fake payments reference running at http://127.0.0.1:" + server.port());
     }

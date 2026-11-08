@@ -17,10 +17,14 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Loopback HTTP API, trusted checkout UI and real LangGraph workflow with SQLite restart/resume.
 - Shared durable-runtime contract with local SQLite and Temporal implementations, retained workflow identity, cooperative pause, and Temporal timers/activity retries.
 - Standalone external ACP lifecycle contract and HTTP adapter for create/retrieve/update/cancel, with independent local-peer wire/schema checks; see [external checkout](docs/external-checkout.md) for its bounded scope.
+- Durable external checkout staging, exclusive dispatch claims, protected outcomes, authenticated API and a separate LangGraph/SQLite restart workflow; see the [runnable checkout demo](docs/durable-external-checkout.md).
+- Additive [provider-execution-1 specification and SDK](specification/provider-execution-1/README.md), separate preparation/submission/reconciliation/event ports, optional true fencing, synthetic compatibility bridge and reusable behavioral TCK.
 - Application-owned execute-command policy through a typed atomic transaction contract, retaining PostgreSQL locking, command replay and operation/outbox/state atomicity.
 - Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
 Execution currently accepts only explicit synthetic profiles. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
+
+External checkout is a separate commerce lifecycle: it does not complete a payment or turn remote checkout responses into AP2 authority. Its conservative recovery preserves unknown mutations across restarts. The provider contract is adapter-only; its supplied fixtures demonstrate in-process reconstruction, not a production durable provider journal or financial integration.
 
 ## Use cases
 

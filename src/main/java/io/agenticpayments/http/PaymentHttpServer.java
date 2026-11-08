@@ -9,6 +9,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.agenticpayments.application.PaymentException;
 import io.agenticpayments.application.PaymentService;
+import io.agenticpayments.application.CheckoutLifecycle;
 import io.agenticpayments.application.PaymentService.*;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -25,6 +26,7 @@ public final class PaymentHttpServer implements AutoCloseable {
     private static final String PREFIX = "/internal/v0.1";
     private static final int MAX_BODY = 16 * 1024;
     private final PaymentService service;
+    private final CheckoutLifecycle checkout;
     private final LocalSessions sessions;
     private final HttpServer server;
     private final ExecutorService executor = Executors.newFixedThreadPool(8);
@@ -40,7 +42,11 @@ public final class PaymentHttpServer implements AutoCloseable {
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS).build();
 
     public PaymentHttpServer(PaymentService service, LocalSessions sessions, int port, Path uiDirectory) throws IOException {
+        this(service, sessions, port, uiDirectory, null);
+    }
+    public PaymentHttpServer(PaymentService service, LocalSessions sessions, int port, Path uiDirectory, CheckoutLifecycle checkout) throws IOException {
         this.service = service;
+        this.checkout = checkout;
         this.sessions = sessions;
         this.uiDirectory = uiDirectory;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 64);
@@ -90,6 +96,8 @@ public final class PaymentHttpServer implements AutoCloseable {
         String method = exchange.getRequestMethod();
         String[] segments = path.split("/", -1);
         if (method.equals("GET") && segments.length >= 3) {
+            if (segments[1].equals("checkout-purchases") && segments.length == 3)
+                return checkoutResult(checkout().status(session, id(segments[2])));
             if (segments[1].equals("intents") && segments.length == 3) return service.status(session, id(segments[2]));
             if (segments[1].equals("intents") && segments.length == 4 && segments[3].equals("checkout")) return service.checkout(session, id(segments[2]));
             if (segments[1].equals("actions") && segments.length == 3) return service.action(session, id(segments[2]));
@@ -101,6 +109,17 @@ public final class PaymentHttpServer implements AutoCloseable {
             if (type == null || !type.toLowerCase(java.util.Locale.ROOT).matches("application/json(?:\\s*;\\s*charset=utf-8)?")) throw new IllegalArgumentException();
             byte[] body = exchange.getRequestBody().readNBytes(MAX_BODY + 1);
             if (body.length > MAX_BODY || body.length == 0) throw new IllegalArgumentException();
+            if (segments.length == 4 && segments[1].equals("checkout-purchases") && segments[3].equals("commands"))
+                return checkoutResult(checkout().stage(session, id(segments[2]), key, parse(body, CheckoutLifecycle.StageCommand.class)));
+            if (segments.length == 6 && segments[1].equals("checkout-purchases") && segments[3].equals("commands")) {
+                parse(body, CheckoutSignal.class);
+                UUID purchase = id(segments[2]), command = id(segments[4]);
+                return switch (segments[5]) {
+                    case "dispatch" -> checkoutResult(checkout().dispatch(session, purchase, command));
+                    case "recover-claim" -> checkoutResult(checkout().recoverClaim(session, purchase, command));
+                    default -> missing();
+                };
+            }
             if (path.equals("/intents")) return service.create(session, key, parse(body, CreateCommand.class));
             if (segments.length == 4 && segments[1].equals("intents")) {
                 UUID intent = id(segments[2]);
@@ -115,6 +134,15 @@ public final class PaymentHttpServer implements AutoCloseable {
             if (segments.length == 4 && segments[1].equals("authorities") && segments[3].equals("revoke") && segments[2].matches("[a-z0-9][a-z0-9-]{0,63}")) return service.revoke(session, segments[2], key, parse(body, RevokeCommand.class));
         }
         return missing();
+    }
+    private record CheckoutSignal() {}
+    private CheckoutLifecycle checkout() {
+        if (checkout == null) throw new PaymentException(422, "UNSUPPORTED_CAPABILITY");
+        return checkout;
+    }
+    private Result checkoutResult(CheckoutLifecycle.SafeView view) {
+        Map<String,Object> body = json.convertValue(view, new com.fasterxml.jackson.core.type.TypeReference<Map<String,Object>>() {});
+        return new Result(200, body, false);
     }
     private static UUID id(String value) {
         UUID id = UUID.fromString(value);
