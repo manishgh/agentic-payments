@@ -1,5 +1,7 @@
 package io.agenticpayments.externalbinding;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.CheckoutConfigurationResolver.*;
 import io.agenticpayments.application.CheckoutLifecycle.*;
@@ -247,7 +249,7 @@ class ExternalCheckoutBindingIntegrationTest {
             UUID purchase=UUID.randomUUID();var observed=f.observed(purchase,"eur","demo-item");var created=f.create("success");UUID intent=uuid(created.body().get("intentId"));
             assertEquals(CommandState.RECORDED,observed.commandState());
             var rejected=assertThrows(PaymentException.class,()->f.quote(created,purchase,observed,key()));
-            assertEquals("UNSUPPORTED_CAPABILITY",rejected.code());assertEquals(422,rejected.status());
+            assertEquals("UNSUPPORTED_CAPABILITY",rejected.code());assertEquals(422,HttpFailureMapper.map(rejected).status());
             assertEquals("DRAFT",f.payment.status(f.graph,intent).body().get("state"));assertEquals(0,f.count(BINDINGS));assertEquals(0,f.count("checkout_snapshots"));assertEquals(0,f.count("native_checkouts"));f.noAdmission();
 
             Instant supported=NOW.plusSeconds(120).plusNanos(123456000);f.peer.response=document("eur",1250,"demo-item",supported);

@@ -20,12 +20,12 @@ public final class ExecutePayment {
     }
 
     public Result execute(Session session,UUID id,String key,ExecuteCommand command) {
-        if(session==null) fail(401,"UNAUTHENTICATED");
-        if(!session.roles().contains("execution:write")) fail(403,"FORBIDDEN");
-        if(command==null||command.expectedVersion()<1) fail(400,"INVALID_REQUEST");
-        if(!CapabilityOffer.localFake().equals(capabilities.get())) fail(422,"UNSUPPORTED_CAPABILITY");
+        if(session==null) fail(ApplicationFailure.UNAUTHENTICATED);
+        if(!session.roles().contains("execution:write")) fail(ApplicationFailure.FORBIDDEN);
+        if(command==null||command.expectedVersion()<1) fail(ApplicationFailure.INVALID_REQUEST);
+        if(!CapabilityOffer.localFake().equals(capabilities.get())) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         String resource=id.toString();
-        if(key==null||!key.matches("[\\x20-\\x7E]{16,128}")) fail(400,"INVALID_REQUEST");
+        if(key==null||!key.matches("[\\x20-\\x7E]{16,128}")) fail(ApplicationFailure.INVALID_REQUEST);
         String digest=transactions.requestDigest(command);
         var identity=new CommandIdentity(ROUTE,resource,key);
         return transactions.run(session,tx->{
@@ -33,21 +33,21 @@ public final class ExecutePayment {
             var accepted=tx.accepted(identity);
             if(accepted.isPresent()) {
                 var previous=accepted.orElseThrow();
-                if(!digest.equals(previous.requestDigest())) fail(409,"IDEMPOTENCY_CONFLICT");
+                if(!digest.equals(previous.requestDigest())) fail(ApplicationFailure.IDEMPOTENCY_CONFLICT);
                 var replay=tx.replay(previous);return new Result(replay.status(),replay.body(),true);
             }
             var intent=tx.intent(id);authorize(session,intent);
-            if(intent.version()!=command.expectedVersion()) fail(409,"VERSION_CONFLICT");
-            if(!"APPROVED".equals(intent.state())) fail(409,"INVALID_STATE");
+            if(intent.version()!=command.expectedVersion()) fail(ApplicationFailure.VERSION_CONFLICT);
+            if(!"APPROVED".equals(intent.state())) fail(ApplicationFailure.INVALID_STATE);
             var attempt=tx.attempt(id);var checkout=tx.checkout(intent);var grant=tx.grant(attempt.grantId());
-            if(!Objects.equals(grant.subjectId(),attempt.subjectId())||!Objects.equals(grant.merchantId(),intent.merchantId())) fail(422,"AUTHORITY_BINDING_INVALID");
-            if("REVOKED".equals(grant.state())) fail(409,"AUTHORITY_REVOKED");
-            if(tx.now().isBefore(grant.validFrom())||!tx.now().isBefore(grant.expiresAt())) fail(410,"AUTHORITY_EXPIRED");
+            if(!Objects.equals(grant.subjectId(),attempt.subjectId())||!Objects.equals(grant.merchantId(),intent.merchantId())) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            if("REVOKED".equals(grant.state())) fail(ApplicationFailure.AUTHORITY_REVOKED);
+            if(tx.now().isBefore(grant.validFrom())||!tx.now().isBefore(grant.expiresAt())) fail(ApplicationFailure.AUTHORITY_EXPIRED);
             if(!"ACTIVE".equals(grant.state())||grant.version()!=attempt.grantVersion()
                     ||tx.now().isBefore(grant.validFrom())||!tx.now().isBefore(grant.expiresAt())
-                    ||!Objects.equals(grant.subjectId(),attempt.subjectId())||!Objects.equals(grant.merchantId(),intent.merchantId())) fail(409,"AUTHORITY_REVOKED");
+                    ||!Objects.equals(grant.subjectId(),attempt.subjectId())||!Objects.equals(grant.merchantId(),intent.merchantId())) fail(ApplicationFailure.AUTHORITY_REVOKED);
             if(NATIVE_PROFILE.equals(intent.profile())||"local-external-ap2-acp-single-tender-0.1".equals(intent.profile())) tx.verifyNative(intent,attempt,grant);
-            if(!Objects.equals(command.attemptId(),attempt.id())) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(!Objects.equals(command.attemptId(),attempt.id())) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             UUID operation=UUID.randomUUID();
             String binding=new OperationBinding(session.tenantId(),session.runId(),intent.merchantId(),id,attempt.id(),operation,
                 checkout.digest(),checkout.currency(),checkout.minorUnits(),attempt.grantId(),attempt.grantVersion(),attempt.subjectId(),
@@ -62,7 +62,7 @@ public final class ExecutePayment {
     }
 
     private static void authorize(Session session,ExecutionIntent intent) {
-        if(!session.allowedMerchants().contains(intent.merchantId())||!"merchant-demo".equals(intent.merchantId())) fail(404,"RESOURCE_NOT_FOUND");
+        if(!session.allowedMerchants().contains(intent.merchantId())||!"merchant-demo".equals(intent.merchantId())) fail(ApplicationFailure.RESOURCE_NOT_FOUND);
     }
-    private static void fail(int status,String code){throw new PaymentException(status,code);}
+    private static void fail(ApplicationFailure failure){throw new PaymentException(failure);}
 }

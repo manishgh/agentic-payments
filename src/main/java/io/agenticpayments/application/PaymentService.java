@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.*;
 
 /** Authenticated application facade; callers cannot directly set payment state. */
-public final class PaymentService {
+public final class PaymentService implements PaymentOperations {
     public record Session(String tenantId, UUID runId, String principalId, Set<String> roles, Set<String> allowedMerchants, Set<String> allowedGrants) {
         public Session { Objects.requireNonNull(tenantId); Objects.requireNonNull(runId); Objects.requireNonNull(principalId); roles=Set.copyOf(roles); allowedMerchants=Set.copyOf(allowedMerchants); allowedGrants=Set.copyOf(allowedGrants); }
     }
@@ -20,8 +20,8 @@ public final class PaymentService {
     private final PaymentStore store;
     public PaymentService(PaymentStore store) { this.store=Objects.requireNonNull(store); }
     public Result create(Session s,String k,CreateCommand c) {
-        if(c!=null&&("local-ap2-acp-single-tender-0.1".equals(c.profile())||"local-external-ap2-acp-single-tender-0.1".equals(c.profile()))&&!store.admissionCapabilities().contains("atomic-replay-grant-reservation-0.1")) throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
-        if(c!=null&&"local-external-ap2-acp-single-tender-0.1".equals(c.profile())&&!store.admissionCapabilities().contains("atomic-external-checkout-binding-0.1")) throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
+        if(c!=null&&("local-ap2-acp-single-tender-0.1".equals(c.profile())||"local-external-ap2-acp-single-tender-0.1".equals(c.profile()))&&!store.admissionCapabilities().contains("atomic-replay-grant-reservation-0.1")) throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+        if(c!=null&&"local-external-ap2-acp-single-tender-0.1".equals(c.profile())&&!store.admissionCapabilities().contains("atomic-external-checkout-binding-0.1")) throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         return store.create(s,k,c);
     }
     public Result quote(Session s,UUID id,String k,QuoteCommand c) { return store.quote(s,id,k,c); }

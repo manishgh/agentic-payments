@@ -22,6 +22,7 @@ An extensible purchasing platform designed to embed OpenAI ACP checkout inside a
 - Additive [provider-execution-1 specification and SDK](specification/provider-execution-1/README.md), separate preparation/submission/reconciliation/event ports, optional true fencing, synthetic compatibility bridge and reusable behavioral TCK.
 - A [PostgreSQL provider binding journal](docs/durable-provider-journal.md) behind the unchanged journal interface, with immutable submission ownership, retained conflicting evidence and independent JVM crash/recovery checks over the durable synthetic peer.
 - Application-owned execute-command policy through a typed atomic transaction contract, retaining PostgreSQL locking, command replay and operation/outbox/state atomicity.
+- Explicit constructor DI and ordered service decorators, bounded replaceable logging/metrics providers, and transport-independent typed application failures; see [service composition](docs/service-composition.md).
 - Automated database, HTTP, UI, schema and workflow checks with named requirement observations, recomputable evidence and CI.
 
 Execution currently accepts only explicit synthetic profiles. Generic descriptors can negotiate additional methods and actions without enabling a provider. Stripe, Adyen, wallets, bank methods, vouchers/split tender, real 3DS, refunds and managed-service operation remain on the [backlog](docs/backlog.md). New providers need explicit profiles and verified semantics; naming a method does not implement it.
@@ -89,6 +90,8 @@ Enter the returned intent UUID in the UI and approve its checkout. Resume using 
 
 The virtual clock is fixed unless the private runner advances it; wall-clock waiting does not expire this demo. Restart preserves budgets, operation identities and checkpoints. The legacy fixture profile remains available explicitly as `local-fake-single-tender-0.1`. See [workflow details](docs/langgraph-workflow.md), [Temporal setup](docs/durable-runtime.md) and [toolchain configuration](docs/toolchain.md).
 
+Telemetry defaults to no-op. To enable the bounded local JSON-console logger and aggregate metrics, set `$env:PAYMENTS_TELEMETRY = 'json-console'` before starting the platform. Output contains only fixed operation/outcome/failure categories; queue overflow and shutdown deadlines may drop observations. See [service composition and telemetry](docs/service-composition.md) for host customization, provider health and delivery limits.
+
 ## Build and verify
 
 ```powershell
@@ -109,7 +112,7 @@ The report explicitly returns `NOT_CERTIFIED`: parts of the full adversarial/pri
 - [Status and remaining work](docs/status.md), [roadmap](docs/roadmap.md), [backlog](docs/backlog.md)
 - [Independent AP2 engine](docs/ap2-engine.md), [native requirements](docs/ap2-requirements.md), [independent vectors](integrations/ap2_vectors/README.md)
 - [Architecture](docs/architecture.md), [API](docs/api-contracts.md), [data model](docs/data-model.md)
-- [Service DI, logging, metrics and application-error design](docs/adr/0015-service-composition-observability-errors.md) (accepted design; implementation outstanding)
+- [Service DI, logging, metrics and application failures](docs/service-composition.md), [design decision](docs/adr/0015-service-composition-observability-errors.md)
 - [Durable AP2/ACP composition and replacement ports](docs/durable-composition.md), [durable runtime and Temporal setup](docs/durable-runtime.md)
 - [External commerce lifecycle](docs/durable-external-checkout.md), [external checkout authority](docs/external-checkout-authority.md), [provider journal](docs/durable-provider-journal.md)
 - [Core implementation](docs/core-implementation.md), [contracts/SDK](docs/contracts-implementation.md), [LangGraph](docs/langgraph-workflow.md)

@@ -1,5 +1,7 @@
 package io.agenticpayments.application;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.PaymentCommandTransactions.*;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.domain.OperationBinding;
@@ -90,27 +92,27 @@ class ExecutePaymentTest {
     }
 
     @Test void nativeVerificationPrecedesSuppliedAttemptCheckAndRetainsSameCommandRetry() {
-        Memory memory=new Memory();memory.nativeProfile();memory.nativeFailure=new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND");
+        Memory memory=new Memory();memory.nativeProfile();memory.nativeFailure=new PaymentException(io.agenticpayments.application.ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND);
         var failure=assertThrows(PaymentException.class,()->memory.useCase().execute(memory.session,memory.intentId,KEY,new ExecuteCommand(3,UUID.randomUUID())));
-        assertEquals(503,failure.status());assertEquals("SAME_COMMAND",failure.retry());assertEquals(1,memory.nativeCalls);assertTrue(memory.writes.isEmpty());assertTrue(memory.journal.isEmpty());
+        assertEquals(503,HttpFailureMapper.map(failure).status());assertEquals("SAME_COMMAND",HttpFailureMapper.map(failure).retry());assertEquals(1,memory.nativeCalls);assertTrue(memory.writes.isEmpty());assertTrue(memory.journal.isEmpty());
         memory.nativeFailure=null;assertEquals(202,memory.execute().status());assertEquals(1,memory.writes.size());
     }
 
     @Test void acceptedReplayIgnoresChangedStateGrantAndUnavailableNativeButCurrentAccessStillApplies() {
         Memory memory=new Memory();memory.nativeProfile();Result accepted=memory.execute();
         memory.intent=new ExecutionIntent(memory.intentId,"merchant-demo",ExecutePayment.NATIVE_PROFILE,"UNKNOWN",9,1,"success");
-        memory.grant("other-subject","merchant-demo","REVOKED",7,NOW,NOW);memory.nativeFailure=new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND");
+        memory.grant("other-subject","merchant-demo","REVOKED",7,NOW,NOW);memory.nativeFailure=new PaymentException(io.agenticpayments.application.ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND);
         memory.observations.clear();Result replay=memory.execute();assertTrue(replay.replayed());assertEquals(accepted.body(),replay.body());assertEquals(1,memory.writes.size());assertEquals(1,memory.nativeCalls);assertEquals(List.of("intent","accepted","replay"),memory.observations);
         memory.observations.clear();Session denied=new Session(memory.session.tenantId(),memory.session.runId(),memory.session.principalId(),memory.session.roles(),Set.of(),memory.session.allowedGrants());
-        assertEquals(404,assertThrows(PaymentException.class,()->memory.useCase().execute(denied,memory.intentId,KEY,memory.command())).status());assertEquals(List.of("intent"),memory.observations);
+        assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->memory.useCase().execute(denied,memory.intentId,KEY,memory.command()))).status());assertEquals(List.of("intent"),memory.observations);
         assertEquals("IDEMPOTENCY_CONFLICT",assertThrows(PaymentException.class,()->memory.useCase().execute(memory.session,memory.intentId,KEY,new ExecuteCommand(9,memory.attemptId))).code());assertEquals(1,memory.writes.size());
     }
 
     @Test void authenticationValidationAndCapabilitiesRemainBeforeTransaction() {
         Memory memory=new Memory();ExecutePayment useCase=memory.useCase();
-        assertEquals(401,assertThrows(PaymentException.class,()->useCase.execute(null,memory.intentId,KEY,memory.command())).status());
+        assertEquals(401,HttpFailureMapper.map(assertThrows(PaymentException.class,()->useCase.execute(null,memory.intentId,KEY,memory.command()))).status());
         Session denied=new Session(memory.session.tenantId(),memory.session.runId(),memory.session.principalId(),Set.of(),Set.of(),Set.of());
-        assertEquals(403,assertThrows(PaymentException.class,()->useCase.execute(denied,memory.intentId,KEY,null)).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->useCase.execute(denied,memory.intentId,KEY,null))).status());
         assertEquals("INVALID_REQUEST",assertThrows(PaymentException.class,()->useCase.execute(memory.session,memory.intentId,KEY,null)).code());
         assertEquals("INVALID_REQUEST",assertThrows(PaymentException.class,()->useCase.execute(memory.session,memory.intentId,"short",memory.command())).code());
         assertEquals("UNSUPPORTED_CAPABILITY",assertThrows(PaymentException.class,()->new ExecutePayment(memory,()->null).execute(memory.session,memory.intentId,"short",memory.command())).code());

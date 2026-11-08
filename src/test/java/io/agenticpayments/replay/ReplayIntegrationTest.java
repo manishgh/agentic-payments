@@ -1,5 +1,7 @@
 package io.agenticpayments.replay;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.PaymentException;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.infrastructure.PaymentServices;
@@ -32,10 +34,10 @@ class ReplayIntegrationTest {
     @Test void ordinaryGraphUiAndBackgroundStoresCannotMutateReplayOwnedRun(){
         ReplayRunner runner=new ReplayRunner(ds);var execution=runner.start(ReplayExamples.twoIntents(),"replay-owner-test");var ordinary=PaymentServices.local(ds);
         var graph=ReplayActors.resolve("replay-owner-test",execution.runId(),"agent");var customer=ReplayActors.resolve("replay-owner-test",execution.runId(),"customer");var background=ReplayActors.resolve("replay-owner-test",execution.runId(),"runner");
-        assertEquals(403,assertThrows(PaymentException.class,()->ordinary.create(graph,UUID.randomUUID().toString(),new CreateCommand("merchant-demo","success",io.agenticpayments.domain.PaymentRules.PROFILE,List.of()))).status());
-        assertEquals(403,assertThrows(PaymentException.class,()->ordinary.revoke(customer,"fixture-grant-1",UUID.randomUUID().toString(),new RevokeCommand("user-request"))).status());
-        assertEquals(403,assertThrows(PaymentException.class,()->ordinary.runNext(background)).status());assertEquals(403,assertThrows(PaymentException.class,()->ordinary.advanceClock(background,Instant.parse("2026-11-06T11:00:00Z"))).status());
-        assertEquals(403,assertThrows(PaymentException.class,()->ordinary.seedRun(background,Instant.parse("2026-11-06T10:00:00Z"),1250)).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->ordinary.create(graph,UUID.randomUUID().toString(),new CreateCommand("merchant-demo","success",io.agenticpayments.domain.PaymentRules.PROFILE,List.of())))).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->ordinary.revoke(customer,"fixture-grant-1",UUID.randomUUID().toString(),new RevokeCommand("user-request")))).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->ordinary.runNext(background))).status());assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->ordinary.advanceClock(background,Instant.parse("2026-11-06T11:00:00Z")))).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->ordinary.seedRun(background,Instant.parse("2026-11-06T10:00:00Z"),1250))).status());
         assertEquals("PASS",runner.continueExecution(execution).outcome());
     }
     @Test void orphanStartedStepIsIncompleteAndDoesNotBlindlySelectAnotherWorkItem()throws Exception{

@@ -25,7 +25,7 @@ final class MemoryCheckoutTransactions implements CheckoutLifecycleTransactions 
     private boolean entered;
     private static Scope scope(PaymentService.Session s){return new Scope(s.tenantId(),s.runId(),s.principalId());}
     @Override public synchronized <T>T run(PaymentService.Session session,Work<T> work){
-        check(!entered,"NESTED_TRANSACTION");entered=true;
+        if(entered)throw new IllegalStateException("NESTED_TRANSACTION");entered=true;
         var oldPurchases=new HashMap<>(purchases);var oldCommands=new HashMap<>(commands);var oldReplays=new HashMap<>(replays);var oldOutcomes=new HashMap<>(outcomes);
         Unit unit=new Unit(scope(session));
         try{return work.run(unit);}catch(RuntimeException failure){purchases=oldPurchases;commands=oldCommands;replays=oldReplays;outcomes=oldOutcomes;throw failure;}
@@ -39,7 +39,7 @@ final class MemoryCheckoutTransactions implements CheckoutLifecycleTransactions 
     }
     private final class Unit implements Transaction {
         final Scope scope;final Thread thread=Thread.currentThread();boolean active=true;Unit(Scope scope){this.scope=scope;}
-        Resource resource(UUID id){check(active&&thread==Thread.currentThread(),"INACTIVE_TRANSACTION");return new Resource(scope,id);}
+        Resource resource(UUID id){if(!active||thread!=Thread.currentThread())throw new IllegalStateException("INACTIVE_TRANSACTION");return new Resource(scope,id);}
         public Purchase purchase(UUID id){return purchases.get(resource(id));}
         public StoredCommand command(UUID purchase,UUID id){var c=commands.get(resource(id));return c!=null&&c.purchaseId().equals(purchase)?c:null;}
         public StoredCommand replay(UUID purchase,String key){UUID id=replays.get(new Replay(resource(purchase),key));return id==null?null:command(purchase,id);}
@@ -94,5 +94,5 @@ final class MemoryCheckoutTransactions implements CheckoutLifecycleTransactions 
         return new StoredCommand(c.id(),c.purchaseId(),c.localKey(),c.fingerprint(),c.input(),c.configuration(),c.prepared(),c.stagedRevision(),state,token,code,observation,http,response);
     }
     private static boolean same(Prepared a,Prepared b){return a.request().equals(b.request())&&a.profile().equals(b.profile())&&a.encodingVersion().equals(b.encodingVersion())&&a.method().equals(b.method())&&a.path().equals(b.path())&&Objects.equals(a.contentType(),b.contentType())&&Arrays.equals(a.body(),b.body());}
-    private static void check(boolean valid,String code){if(!valid)throw new PaymentException(code.equals("NOT_FOUND")?404:409,code);}
+    private static void check(boolean valid,String code){if(!valid)throw new PaymentException(ApplicationFailure.valueOf(code));}
 }

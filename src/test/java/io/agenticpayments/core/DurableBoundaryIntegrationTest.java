@@ -1,5 +1,7 @@
 package io.agenticpayments.core;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.PaymentException;
 import io.agenticpayments.application.PaymentService;
 import io.agenticpayments.application.PaymentService.*;
@@ -113,9 +115,9 @@ class DurableBoundaryIntegrationTest {
         var wrongGrant=new Session(session.tenantId(),session.runId(),session.principalId(),ROLES,session.allowedMerchants(),Set.of());
         var wrongTenant=session("different-tenant",session.runId());service.seedRun(wrongTenant,CLOCK,1250);
         var wrongRun=session(session.tenantId(),UUID.randomUUID());service.seedRun(wrongRun,CLOCK,1250);
-        for(Session denied:List.of(wrongSubject,wrongMerchant,wrongGrant,wrongTenant,wrongRun))assertEquals(404,assertThrows(PaymentException.class,()->service.checkout(denied,intent)).status());
+        for(Session denied:List.of(wrongSubject,wrongMerchant,wrongGrant,wrongTenant,wrongRun))assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->service.checkout(denied,intent))).status());
         var graph=new Session(session.tenantId(),session.runId(),"agent-demo",Set.of("intent:read"),session.allowedMerchants(),Set.of());
-        assertEquals(403,assertThrows(PaymentException.class,()->service.checkout(graph,intent)).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->service.checkout(graph,intent))).status());
         var trusted=service.checkout(session,intent);assertEquals(quote.body().get("checkoutDigest"),trusted.body().get("checkoutDigest"));assertEquals(quote.body().get("money"),trusted.body().get("money"));assertFalse(trusted.body().toString().contains("fixture-credential"));
         assertEquals(0,count("payment_attempts"));assertEquals(0,held());
     }

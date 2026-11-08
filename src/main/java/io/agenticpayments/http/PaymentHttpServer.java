@@ -8,7 +8,9 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.agenticpayments.application.PaymentException;
-import io.agenticpayments.application.PaymentService;
+import io.agenticpayments.application.PaymentOperations;
+import io.agenticpayments.application.ApplicationException;
+import io.agenticpayments.application.ApplicationFailure;
 import io.agenticpayments.application.CheckoutLifecycle;
 import io.agenticpayments.application.PaymentService.*;
 import java.io.IOException;
@@ -25,7 +27,7 @@ import java.util.concurrent.Executors;
 public final class PaymentHttpServer implements AutoCloseable {
     private static final String PREFIX = "/internal/v0.1";
     private static final int MAX_BODY = 16 * 1024;
-    private final PaymentService service;
+    private final PaymentOperations service;
     private final CheckoutLifecycle checkout;
     private final LocalSessions sessions;
     private final HttpServer server;
@@ -41,10 +43,10 @@ public final class PaymentHttpServer implements AutoCloseable {
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS).build();
 
-    public PaymentHttpServer(PaymentService service, LocalSessions sessions, int port, Path uiDirectory) throws IOException {
+    public PaymentHttpServer(PaymentOperations service, LocalSessions sessions, int port, Path uiDirectory) throws IOException {
         this(service, sessions, port, uiDirectory, null);
     }
-    public PaymentHttpServer(PaymentService service, LocalSessions sessions, int port, Path uiDirectory, CheckoutLifecycle checkout) throws IOException {
+    public PaymentHttpServer(PaymentOperations service, LocalSessions sessions, int port, Path uiDirectory, CheckoutLifecycle checkout) throws IOException {
         this.service = service;
         this.checkout = checkout;
         this.sessions = sessions;
@@ -73,22 +75,27 @@ public final class PaymentHttpServer implements AutoCloseable {
             }
             String path = exchange.getRequestURI().getRawPath();
             if (!path.startsWith(PREFIX + "/")) { staticFile(exchange, path); return; }
-            if (exchange.getRequestURI().getRawQuery() != null) throw new IllegalArgumentException();
-            if (exchange.getRequestHeaders().getOrDefault("Authorization", java.util.List.of()).size() != 1) {
-                error(exchange, 401, "UNAUTHENTICATED", "Authentication is required.", "NEVER"); return;
+            Result result;
+            try {
+                if (exchange.getRequestURI().getRawQuery() != null) throw new InvalidRequest();
+                if (exchange.getRequestHeaders().getOrDefault("Authorization", java.util.List.of()).size() != 1) {
+                    result = new Result(401, envelope("UNAUTHENTICATED", "Authentication is required.", "NEVER"), false);
+                } else {
+                    Session session = sessions.authenticate(exchange.getRequestHeaders().getFirst("Authorization"));
+                    result = session == null
+                        ? new Result(401, envelope("UNAUTHENTICATED", "Authentication is required.", "NEVER"), false)
+                        : route(exchange, path.substring(PREFIX.length()), session);
+                }
+            } catch (ApplicationException failure) {
+                result = failureResult(HttpFailureMapper.map(failure));
+            } catch (InvalidRequest invalid) {
+                result = failureResult(HttpFailureMapper.invalidRequest());
+            } catch (Exception unexpected) {
+                result = failureResult(HttpFailureMapper.unexpected());
             }
-            Session session = sessions.authenticate(exchange.getRequestHeaders().getFirst("Authorization"));
-            if (session == null) { error(exchange, 401, "UNAUTHENTICATED", "Authentication is required.", "NEVER"); return; }
-            Result result = route(exchange, path.substring(PREFIX.length()), session);
+            // Response I/O is outside application error handling: a failed write cannot rerun work.
             if (result.replayed()) exchange.getResponseHeaders().set("Idempotency-Replayed", "true");
             send(exchange, result.status(), "application/json; charset=utf-8", json.writeValueAsBytes(result.body()));
-        } catch (PaymentException ex) {
-            error(exchange, ex.status(), ex.code(), ex.getMessage(), ex.retry());
-        } catch (IllegalArgumentException | com.fasterxml.jackson.core.JacksonException ex) {
-            error(exchange, 400, "INVALID_REQUEST", "The request does not match the contract.", "NEVER");
-        } catch (Exception ex) {
-            // Do not log exceptions: database and transport messages can contain configuration or payloads.
-            error(exchange, 503, "TEMPORARILY_UNAVAILABLE", "The service is temporarily unavailable.", "SAME_COMMAND");
         } finally { exchange.close(); }
     }
 
@@ -104,11 +111,11 @@ public final class PaymentHttpServer implements AutoCloseable {
         }
         if (method.equals("POST")) {
             String key = exchange.getRequestHeaders().getFirst("Idempotency-Key");
-            if (key == null || !key.matches("[\\x20-\\x7E]{16,128}") || exchange.getRequestHeaders().get("Idempotency-Key").size() != 1) throw new IllegalArgumentException();
+            if (key == null || !key.matches("[\\x20-\\x7E]{16,128}") || exchange.getRequestHeaders().get("Idempotency-Key").size() != 1) throw new InvalidRequest();
             String type = exchange.getRequestHeaders().getFirst("Content-Type");
-            if (type == null || !type.toLowerCase(java.util.Locale.ROOT).matches("application/json(?:\\s*;\\s*charset=utf-8)?")) throw new IllegalArgumentException();
+            if (type == null || !type.toLowerCase(java.util.Locale.ROOT).matches("application/json(?:\\s*;\\s*charset=utf-8)?")) throw new InvalidRequest();
             byte[] body = exchange.getRequestBody().readNBytes(MAX_BODY + 1);
-            if (body.length > MAX_BODY || body.length == 0) throw new IllegalArgumentException();
+            if (body.length > MAX_BODY || body.length == 0) throw new InvalidRequest();
             if (segments.length == 4 && segments[1].equals("checkout-purchases") && segments[3].equals("commands"))
                 return checkoutResult(checkout().stage(session, id(segments[2]), key, parse(body, CheckoutLifecycle.StageCommand.class)));
             if (segments.length == 6 && segments[1].equals("checkout-purchases") && segments[3].equals("commands")) {
@@ -138,46 +145,56 @@ public final class PaymentHttpServer implements AutoCloseable {
     }
     private record CheckoutSignal() {}
     private CheckoutLifecycle checkout() {
-        if (checkout == null) throw new PaymentException(422, "UNSUPPORTED_CAPABILITY");
+        if (checkout == null) throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         return checkout;
     }
     private Result checkoutResult(CheckoutLifecycle.SafeView view) {
         Map<String,Object> body = json.convertValue(view, new com.fasterxml.jackson.core.type.TypeReference<Map<String,Object>>() {});
         return new Result(200, body, false);
     }
+    private static final class InvalidRequest extends RuntimeException { }
     private static UUID id(String value) {
-        UUID id = UUID.fromString(value);
-        if (!id.toString().equals(value)) throw new IllegalArgumentException();
-        return id;
+        try {
+            UUID id = UUID.fromString(value);
+            if (!id.toString().equals(value)) throw new InvalidRequest();
+            return id;
+        } catch (IllegalArgumentException invalid) { throw new InvalidRequest(); }
+    }
+    private static Result failureResult(HttpFailureMapper.MappedFailure failure) {
+        return new Result(failure.status(), envelope(failure.code(), failure.message(), failure.retry()), false);
     }
     private <T> T parse(byte[] bytes, Class<T> type) throws IOException {
-        String document;
         try {
-            document = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
-                    .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
-        } catch (java.nio.charset.CharacterCodingException invalidEncoding) {
-            throw new IllegalArgumentException();
+            String document;
+            try {
+                document = StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                        .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+            } catch (java.nio.charset.CharacterCodingException invalidEncoding) {
+                throw new InvalidRequest();
+            }
+            var tree = json.readTree(document);
+            if (tree == null || !tree.isObject()) throw new InvalidRequest();
+            validateTree(tree, "");
+            return json.treeToValue(tree, type);
+        } catch (com.fasterxml.jackson.core.JacksonException | IllegalArgumentException invalid) {
+            throw new InvalidRequest();
         }
-        var tree = json.readTree(document);
-        if (tree == null || !tree.isObject()) throw new IllegalArgumentException();
-        validateTree(tree, "");
-        return json.treeToValue(tree, type);
     }
     private void validateTree(com.fasterxml.jackson.databind.JsonNode node, String field) {
-        if (node.isNull()) throw new IllegalArgumentException();
+        if (node.isNull()) throw new InvalidRequest();
         if (node.isObject()) {
             node.properties().forEach(entry -> validateTree(entry.getValue(), entry.getKey()));
         } else if (node.isArray()) {
             node.forEach(value -> validateTree(value, field));
         } else if (java.util.Set.of("attemptId", "purchaseId", "responseReference").contains(field)) {
-            if (!node.isTextual()) throw new IllegalArgumentException();
+            if (!node.isTextual()) throw new InvalidRequest();
             id(node.textValue());
         } else if (field.equals("checkoutDigest")) {
-            if (!node.isTextual() || !node.textValue().matches("sha256:[0-9a-f]{64}")) throw new IllegalArgumentException();
+            if (!node.isTextual() || !node.textValue().matches("sha256:[0-9a-f]{64}")) throw new InvalidRequest();
         } else if (java.util.Set.of("merchantId", "scenarioId", "cartFixtureId", "provider", "method", "credentialReference", "authorityReference", "requiredCapabilities").contains(field)) {
-            if (!node.isTextual() || !node.textValue().matches("[a-z0-9][a-z0-9-]{0,63}")) throw new IllegalArgumentException();
+            if (!node.isTextual() || !node.textValue().matches("[a-z0-9][a-z0-9-]{0,63}")) throw new InvalidRequest();
         }
     }
     private Result missing() {

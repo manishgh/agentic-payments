@@ -49,7 +49,7 @@ public final class NativeApplicationCoordinator {
                 ||!terms.currency().toLowerCase(Locale.ROOT).equals(document.session().currency())
                 ||!terms.protocolVersion().equals(document.observedProtocolVersion())||!"ready_for_payment".equals(document.status())) invalid();
         if(now.isBefore(observation.observedAt())||!now.isBefore(observation.observedAt().plusSeconds(300))||!now.isBefore(terms.expiresAt()))
-            throw new PaymentException(410,"AUTHORITY_EXPIRED");
+            throw new PaymentException(ApplicationFailure.AUTHORITY_EXPIRED);
         return terms;
     }
 
@@ -143,8 +143,8 @@ public final class NativeApplicationCoordinator {
                 .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
                 .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
                 .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
-        } catch(java.nio.charset.CharacterCodingException invalidEncoding) { throw new PaymentException(422,"AUTHORITY_BINDING_INVALID"); }
+        } catch(java.nio.charset.CharacterCodingException invalidEncoding) { throw new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID); }
     }
 
-    private static void invalid() { throw new PaymentException(422,"AUTHORITY_BINDING_INVALID"); }
+    private static void invalid() { throw new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID); }
 }

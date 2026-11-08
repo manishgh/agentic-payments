@@ -5,6 +5,10 @@ import io.agenticpayments.application.CheckoutConfigurationResolver.Resolved;
 import io.agenticpayments.application.CheckoutLifecycle;
 import io.agenticpayments.application.CheckoutLifecycleService;
 import io.agenticpayments.application.PaymentException;
+import io.agenticpayments.application.ApplicationFailure;
+import io.agenticpayments.application.PaymentStore;
+import io.agenticpayments.sdk.PaymentAdapter;
+import io.agenticpayments.composition.Composition.Ports;
 import io.agenticpayments.application.PaymentService;
 import io.agenticpayments.application.ExternalCheckoutRegistration;
 import io.agenticpayments.application.CheckoutConfigurationResolver;
@@ -32,6 +36,8 @@ public final class LocalCheckoutRegistration implements AutoCloseable {
     private final CheckoutLifecycleTransactions transactions;
     private final CheckoutLifecycleTransactions.CoordinationDomain domain;
     private final boolean financial;
+    private boolean started;
+    private boolean closed;
 
     public LocalCheckoutRegistration(DataSource database, Session graph, String origin) {
         this(database, graph, origin, false);
@@ -52,9 +58,8 @@ public final class LocalCheckoutRegistration implements AutoCloseable {
             transport = new AcpHttpCheckoutSessions(configuration, SYNTHETIC_CREDENTIAL.toCharArray());
             try {
                 transactions = new JdbcCheckoutLifecycleTransactions(database, domain);
-                transactions.enroll(graph, identity);
                 resolver = requested -> {
-                    if (!identity.equals(requested)) throw new PaymentException(503, "TEMPORARILY_UNAVAILABLE");
+                    if (!identity.equals(requested)) throw new PaymentException(ApplicationFailure.TEMPORARILY_UNAVAILABLE);
                     return new Resolved(identity, transport);
                 };
                 lifecycle = new CheckoutLifecycleService(transactions, resolver);
@@ -66,18 +71,29 @@ public final class LocalCheckoutRegistration implements AutoCloseable {
             throw new IllegalArgumentException("INVALID_LOCAL_CHECKOUT_CONFIGURATION");
         }
     }
+    /** Explicit host initialization after migration and idempotent run seeding. */
+    public synchronized void start() {
+        if (closed) throw new IllegalStateException("Local checkout registration is closed");
+        if (!started) { transactions.enroll(graph, identity); started = true; }
+    }
     public CheckoutLifecycle lifecycle() { return lifecycle; }
     /** Trusted composition intentionally shares this exact database and coordination token. */
     public PaymentService financialService() {
+        var artifacts = new JdbcSignedArtifactStore(database);
+        return new PaymentService(financialStore(new JdbcSimulatorAdapter(database), NativeComposition.ports(artifacts), NativeComposition.externalPorts(artifacts)));
+    }
+    public PaymentStore financialStore(PaymentAdapter adapter, Ports nativePorts, Ports externalPorts) {
         if (!financial || transactions.coordinationDomain() != domain
                 || !transactions.bindingCapabilities().contains(CheckoutLifecycleTransactions.SEAL_CAPABILITY))
-            throw new PaymentException(422, "UNSUPPORTED_CAPABILITY");
+            throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         var registration = new ExternalCheckoutRegistration(new Scope(graph.tenantId(), graph.runId()),
             graph.principalId(), identity, resolver, domain, ExternalCheckoutRegistration.REQUIRED_GUARANTEES);
-        var artifacts = new JdbcSignedArtifactStore(database);
-        return PaymentServices.local(database, new JdbcSimulatorAdapter(database), NativeComposition.ports(artifacts),
-            NativeComposition.externalPorts(artifacts), registration, domain);
+        return new JdbcPaymentStore(database, adapter, null, nativePorts, externalPorts, registration, domain);
     }
-    @Override public void close() { transport.close(); }
+    @Override public synchronized void close() {
+        if (closed) return;
+        closed = true;
+        transport.close();
+    }
     @Override public String toString() { return "LocalCheckoutRegistration[redacted]"; }
 }

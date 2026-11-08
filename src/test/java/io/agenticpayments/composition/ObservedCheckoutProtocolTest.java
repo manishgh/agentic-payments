@@ -110,8 +110,8 @@ class ObservedCheckoutProtocolTest {
         var f=new Fixture();
         var frozen=f.checkout.freezeObserved(new ObservedCheckoutRequest(f.observation(),f.facts,f.provision.merchantSigner()));
         for(var code:List.of("AUTHORITY_REVOKED","AUTHORITY_EXPIRED")) {
-            int status=code.equals("AUTHORITY_REVOKED")?409:410;
-            KeyResolver rejecting=(s,i,k,p,n)->{throw new PaymentException(status,code);};
+            var failure=code.equals("AUTHORITY_REVOKED")?io.agenticpayments.application.ApplicationFailure.AUTHORITY_REVOKED:io.agenticpayments.application.ApplicationFailure.AUTHORITY_EXPIRED;
+            KeyResolver rejecting=(s,i,k,p,n)->{throw new PaymentException(failure);};
             assertEquals(code,assertThrows(PaymentException.class,()->f.checkout.validate(f.facts,frozen,rejecting,NOW)).code());
         }
     }

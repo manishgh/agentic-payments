@@ -1,5 +1,7 @@
 package io.agenticpayments.core;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agenticpayments.application.PaymentException;
 import io.agenticpayments.application.PaymentService;
@@ -155,7 +157,7 @@ class NativeCoordinationIntegrationTest {
         PaymentService service=PaymentServices.local(observed,new JdbcSimulatorAdapter(ds),new Ports(base.checkout(),base.issuer(),base.verifier(),base.provisioner(),artifacts,base.keyResolvers()));
         UUID intent=uuid(quoted.body().get("intentId"));String command=key();
         PaymentException failure=assertThrows(PaymentException.class,()->service.approve(session,intent,command,approval(quoted)));
-        assertEquals("TEMPORARILY_UNAVAILABLE",failure.code());assertEquals(503,failure.status());assertEquals("SAME_COMMAND",failure.retry());
+        assertEquals("TEMPORARILY_UNAVAILABLE",failure.code());assertEquals(503,HttpFailureMapper.map(failure).status());assertEquals("SAME_COMMAND",HttpFailureMapper.map(failure).retry());
         assertEquals(List.of(1L,1L,3L,0L),provisionalCounts);
         for(String table:List.of("payment_attempts","native_authorities","native_challenges","native_replay_identities","reservations","financial_operations","simulator_operation_journal")) assertEquals(0,count(ds,session,table),table);
         assertEquals(commands,count(ds,session,"commands"));assertEquals(enrollments,count(ds,session,"native_trust_keys"));

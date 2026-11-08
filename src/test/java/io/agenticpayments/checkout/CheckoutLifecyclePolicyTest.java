@@ -1,5 +1,7 @@
 package io.agenticpayments.checkout;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.CheckoutConfigurationResolver.*;
 import io.agenticpayments.application.CheckoutLifecycle.*;
@@ -42,9 +44,9 @@ class CheckoutLifecyclePolicyTest {
         CheckoutLifecycle retired=new CheckoutLifecycleService(f.store,id->{throw new IllegalStateException("synthetic-secret");});
         assertEquals(accepted,retired.stage(f.session,purchase,"local-key",input));assertEquals(accepted,retired.dispatch(f.session,purchase,staged.commandId()));
         var denied=new PaymentService.Session(f.session.tenantId(),f.session.runId(),f.session.principalId(),f.session.roles(),Set.of(),Set.of());
-        assertEquals(403,assertThrows(PaymentException.class,()->retired.stage(denied,purchase,"local-key",input)).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->retired.stage(denied,purchase,"local-key",input))).status());
         var stranger=new PaymentService.Session(f.session.tenantId(),f.session.runId(),"stranger",f.session.roles(),f.session.allowedMerchants(),Set.of());
-        assertEquals(404,assertThrows(PaymentException.class,()->f.service.status(stranger,purchase)).status());
+        assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->f.service.status(stranger,purchase))).status());
         var changed=new StageCommand(Operation.CREATE,0,"merchant","config","usd",List.of("changed"));
         assertEquals("IDEMPOTENCY_CONFLICT",assertThrows(PaymentException.class,()->f.service.stage(f.session,purchase,"local-key",changed)).code());assertEquals(1,f.transport.sends);
     }

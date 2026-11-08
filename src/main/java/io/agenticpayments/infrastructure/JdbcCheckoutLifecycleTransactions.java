@@ -36,22 +36,22 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
             try {
                 var run=one(c, "SELECT virtual_time FROM simulation_runs WHERE tenant_id=? AND run_id=? FOR UPDATE", s.tenantId(), s.runId());
                 if (run == null)
-                    throw new PaymentException(404, "NOT_FOUND");
+                    throw new PaymentException(ApplicationFailure.NOT_FOUND);
                 var tx = new Unit(c, s,instant(run,"virtual_time"));
                 try { T result = work.run(tx); c.commit(); return result; }
                 finally { tx.active = false; }
             } catch (RuntimeException | SQLException failure) { c.rollback(); throw failure; }
-        } catch (PaymentException failure) { throw failure; }
-        catch (SQLException failure) { throw new PaymentException(503, "CHECKOUT_STORE_UNAVAILABLE"); }
+        } catch (ApplicationException failure) { throw failure; }
+        catch (SQLException failure) { throw new PaymentException(ApplicationFailure.CHECKOUT_STORE_UNAVAILABLE); }
     }
     @Override public void enroll(PaymentService.Session s, ConfigurationIdentity identity) {
         require(identity.binding().tenantId().equals(s.tenantId()) && identity.binding().principalId().equals(s.principalId()),
-                422, "CHECKOUT_BINDING_CONFLICT");
+                ApplicationFailure.CHECKOUT_BINDING_CONFLICT_VALIDATION);
         run(s, raw -> {
             Unit tx = (Unit)raw; var b = identity.binding();
             Map<String,Object> existing = tx.row("SELECT metadata_json FROM checkout_configurations WHERE tenant_id=? AND run_id=? AND principal_id=? AND merchant_id=? AND configuration_id=? AND configuration_version=?",
                     b.merchantId(), b.configurationId(), identity.configurationVersion());
-            if (existing != null) require(identity.equals(decode(text(existing,"metadata_json"), ConfigurationIdentity.class)), 409, "CONFIGURATION_IDENTITY_CONFLICT");
+            if (existing != null) require(identity.equals(decode(text(existing,"metadata_json"), ConfigurationIdentity.class)), ApplicationFailure.CONFIGURATION_IDENTITY_CONFLICT);
             else tx.write("INSERT INTO checkout_configurations VALUES(?,?,?,?,?,?,?)", b.merchantId(), b.configurationId(), identity.configurationVersion(), encode(identity));
             tx.write("INSERT INTO checkout_current_configurations VALUES(?,?,?,?,?,?) ON CONFLICT(tenant_id,run_id,principal_id,merchant_id,configuration_id) DO UPDATE SET configuration_version=EXCLUDED.configuration_version",
                     b.merchantId(), b.configurationId(), identity.configurationVersion());
@@ -72,11 +72,11 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
         }
         Map<String,Object> row(String sql, Object... tail) {
             active(); try { return one(c,sql,scoped(tail)); }
-            catch (SQLException error) { throw new PaymentException(503,"CHECKOUT_STORE_UNAVAILABLE"); }
+            catch (SQLException error) { throw new PaymentException(ApplicationFailure.CHECKOUT_STORE_UNAVAILABLE); }
         }
         void write(String sql, Object... tail) {
             active(); try { update(c,sql,scoped(tail)); }
-            catch (SQLException error) { throw new PaymentException(503,"CHECKOUT_STORE_UNAVAILABLE"); }
+            catch (SQLException error) { throw new PaymentException(ApplicationFailure.CHECKOUT_STORE_UNAVAILABLE); }
         }
         @Override public Purchase purchase(UUID id) {
             var row=row("SELECT purchase_json FROM checkout_purchases WHERE tenant_id=? AND run_id=? AND principal_id=? AND purchase_id=?",id);
@@ -102,21 +102,21 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
         @Override public StoredCommand stage(UUID purchaseId,String key,String fingerprint,StageCommand input,ConfigurationIdentity identity,Prepared prepared) {
             unbound(purchaseId);
             Purchase p=purchase(purchaseId);
-            require(replay(purchaseId,key)==null,409,"IDEMPOTENCY_CONFLICT");
-            require(identity.equals(currentConfiguration(input.merchantId(),input.configurationId())),409,"CONFIGURATION_CHANGED");
+            require(replay(purchaseId,key)==null,ApplicationFailure.IDEMPOTENCY_CONFLICT);
+            require(identity.equals(currentConfiguration(input.merchantId(),input.configurationId())),ApplicationFailure.CONFIGURATION_CHANGED);
             require(identity.binding().tenantId().equals(s.tenantId()) && identity.binding().principalId().equals(s.principalId())
                     && identity.binding().equals(prepared.request().binding()) && input.operation()==prepared.request().operation()
                     && input.currency().equals(prepared.request().currency()) && identity.transportProfile().equals(prepared.profile())
                     && identity.encodingVersion().equals(prepared.encodingVersion())
-                    && input.itemIds().equals(prepared.request().items().stream().map(ItemReference::id).toList()),422,"CHECKOUT_BINDING_CONFLICT");
-            if(p==null) require(input.operation()==Operation.CREATE && input.expectedRevision()==0 && prepared.request().sessionId()==null,409,"CHECKOUT_REVISION_CONFLICT");
+                    && input.itemIds().equals(prepared.request().items().stream().map(ItemReference::id).toList()),ApplicationFailure.CHECKOUT_BINDING_CONFLICT_VALIDATION);
+            if(p==null) require(input.operation()==Operation.CREATE && input.expectedRevision()==0 && prepared.request().sessionId()==null,ApplicationFailure.CHECKOUT_REVISION_CONFLICT);
             else {
                 require(p.revision()==input.expectedRevision() && identity.equals(p.configuration()) && input.currency().equals(p.currency())
-                        && Objects.equals(p.sessionId(),prepared.request().sessionId()),409,"CHECKOUT_REVISION_CONFLICT");
-                require(input.operation()!=Operation.CREATE && p.sessionId()!=null,409,"CHECKOUT_ALREADY_EXISTS");
-                require(!p.mutationBlocked() || input.operation()==Operation.RETRIEVE,409,"CHECKOUT_MUTATION_BLOCKED");
+                        && Objects.equals(p.sessionId(),prepared.request().sessionId()),ApplicationFailure.CHECKOUT_REVISION_CONFLICT);
+                require(input.operation()!=Operation.CREATE && p.sessionId()!=null,ApplicationFailure.CHECKOUT_ALREADY_EXISTS);
+                require(!p.mutationBlocked() || input.operation()==Operation.RETRIEVE,ApplicationFailure.CHECKOUT_MUTATION_BLOCKED);
                 StoredCommand prior=command(purchaseId,p.currentCommandId());
-                require(prior.state()!=CommandState.STAGED && prior.state()!=CommandState.CLAIMED,409,"CHECKOUT_COMMAND_IN_FLIGHT");
+                require(prior.state()!=CommandState.STAGED && prior.state()!=CommandState.CLAIMED,ApplicationFailure.CHECKOUT_COMMAND_IN_FLIGHT);
             }
             UUID id=UUID.randomUUID(); int revision=p==null?1:increment(p.revision());
             var next=new Purchase(purchaseId,identity,input.currency(),p==null?null:p.sessionId(),revision,
@@ -128,13 +128,13 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
             return command(purchaseId,id);
         }
         @Override public Claim claim(UUID purchaseId,UUID commandId,UUID token) {
-            StoredCommand cmd=command(purchaseId,commandId); require(cmd!=null,404,"NOT_FOUND");
+            StoredCommand cmd=command(purchaseId,commandId); require(cmd!=null,ApplicationFailure.NOT_FOUND);
             if(cmd.state()!=CommandState.STAGED)return null;
             unbound(purchaseId);
             Purchase p=purchase(purchaseId);
-            require(p.currentCommandId().equals(commandId) && p.revision()==cmd.stagedRevision(),409,"CHECKOUT_REVISION_CONFLICT");
-            require(cmd.configuration().equals(currentConfiguration(cmd.input().merchantId(),cmd.input().configurationId())),409,"CONFIGURATION_CHANGED");
-            require(!p.mutationBlocked() || cmd.input().operation()==Operation.RETRIEVE,409,"CHECKOUT_MUTATION_BLOCKED");
+            require(p.currentCommandId().equals(commandId) && p.revision()==cmd.stagedRevision(),ApplicationFailure.CHECKOUT_REVISION_CONFLICT);
+            require(cmd.configuration().equals(currentConfiguration(cmd.input().merchantId(),cmd.input().configurationId())),ApplicationFailure.CONFIGURATION_CHANGED);
+            require(!p.mutationBlocked() || cmd.input().operation()==Operation.RETRIEVE,ApplicationFailure.CHECKOUT_MUTATION_BLOCKED);
             direct("UPDATE checkout_lifecycle_commands SET state='CLAIMED',claim_token=?,observation='UNKNOWN' WHERE tenant_id=? AND run_id=? AND principal_id=? AND purchase_id=? AND command_id=?",
                     reordered(token,purchaseId,commandId));
             return new Claim(command(purchaseId,commandId),token);
@@ -144,14 +144,14 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
             return new Object[]{first,s.tenantId(),s.runId(),s.principalId(),purchaseId,commandId};
         }
         private void direct(String sql,Object... values) {
-            active(); try { update(c,sql,values); } catch(SQLException error) { throw new PaymentException(503,"CHECKOUT_STORE_UNAVAILABLE"); }
+            active(); try { update(c,sql,values); } catch(SQLException error) { throw new PaymentException(ApplicationFailure.CHECKOUT_STORE_UNAVAILABLE); }
         }
         @Override public StoredCommand record(Claim claim,Result result,boolean resolverCurrent) {
             StoredCommand original=claim.command(); StoredCommand cmd=command(original.purchaseId(),original.id());
             require(cmd!=null && original.state()==CommandState.CLAIMED && claim.token().equals(original.claimToken())
                     && cmd.fingerprint().equals(original.fingerprint()) && cmd.configuration().equals(original.configuration())
                     && cmd.input().equals(original.input()) && encode(cmd.prepared()).equals(encode(original.prepared()))
-                    && cmd.stagedRevision()==original.stagedRevision(),409,"CHECKOUT_CORRELATION_CONFLICT");
+                    && cmd.stagedRevision()==original.stagedRevision(),ApplicationFailure.CHECKOUT_CORRELATION_CONFLICT);
             var existing=row("SELECT response_reference FROM checkout_lifecycle_outcomes WHERE tenant_id=? AND run_id=? AND principal_id=? AND purchase_id=? AND command_id=? AND claim_token=?",cmd.purchaseId(),cmd.id(),claim.token());
             if(existing!=null)return cmd;
             Purchase p=purchase(cmd.purchaseId());
@@ -182,7 +182,7 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
             return command(cmd.purchaseId(),cmd.id());
         }
         @Override public StoredCommand recoverClaim(UUID purchaseId,UUID id) {
-            StoredCommand cmd=command(purchaseId,id);require(cmd!=null,404,"NOT_FOUND");
+            StoredCommand cmd=command(purchaseId,id);require(cmd!=null,ApplicationFailure.NOT_FOUND);
             if(cmd.state()!=CommandState.CLAIMED)return cmd;
             Purchase p=purchase(purchaseId);
             direct("UPDATE checkout_lifecycle_commands SET state='UNKNOWN',claim_token=NULL,outcome_code='WORKER_INTERRUPTED',observation='UNKNOWN' WHERE tenant_id=? AND run_id=? AND principal_id=? AND purchase_id=? AND command_id=?",
@@ -196,7 +196,7 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
         }
         private void unbound(UUID purchaseId) {
             require(row("SELECT intent_id FROM external_checkout_bindings WHERE tenant_id=? AND run_id=? AND principal_id=? AND purchase_id=?",purchaseId)==null,
-                    409,"CHECKOUT_ALREADY_BOUND");
+                    ApplicationFailure.CHECKOUT_ALREADY_BOUND);
         }
     }
     private String encode(Object value) {
@@ -205,6 +205,6 @@ public final class JdbcCheckoutLifecycleTransactions implements CheckoutLifecycl
     private <T> T decode(String value,Class<T> type) {
         try { return json.readValue(value,type); } catch(Exception error) { throw new IllegalStateException("Protected checkout decoding failed"); }
     }
-    private static int increment(int value) { require(value<Integer.MAX_VALUE,409,"CHECKOUT_REVISION_EXHAUSTED");return value+1; }
-    private static void require(boolean condition,int status,String code) { if(!condition)throw new PaymentException(status,code); }
+    private static int increment(int value) { require(value<Integer.MAX_VALUE,ApplicationFailure.CHECKOUT_REVISION_EXHAUSTED);return value+1; }
+    private static void require(boolean condition,ApplicationFailure failure) { if(!condition)throw new PaymentException(failure); }
 }

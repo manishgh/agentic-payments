@@ -20,7 +20,7 @@ public final class ReplayArtifacts {
         var migrations=new TreeMap<String,String>();for(String resource:List.of("V001__simulator.sql","V002__conflict_evidence.sql","V003__accepted_evidence.sql","V004__recorded_replay.sql","V005__admission_evidence.sql","V006__recorded_run_constraints.sql")){
             try(var input=DatabaseMigrator.class.getResourceAsStream("/db/"+resource)){if(input==null)throw new IllegalStateException("Migration artifact missing");migrations.put(resource,"sha256:"+HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(input.readAllBytes())));}catch(Exception e){throw new IllegalStateException("Migration artifact cannot be identified",e);}
         }
-        return ReplayJson.digest(Map.of("classes",classes(PaymentRules.class,OperationBinding.class,PaymentService.class,PaymentStore.class,PaymentException.class,WorkerReceipt.class,JdbcPaymentStore.class,DatabaseMigrator.class,PaymentServices.class,type("io.agenticpayments.infrastructure.Sql")),"migrations",migrations));
+        return ReplayJson.digest(Map.of("classes",classes(PaymentRules.class,OperationBinding.class,PaymentService.class,PaymentStore.class,PaymentException.class,ApplicationException.class,ApplicationFailure.class,io.agenticpayments.http.HttpFailureMapper.class,WorkerReceipt.class,JdbcPaymentStore.class,DatabaseMigrator.class,PaymentServices.class,type("io.agenticpayments.infrastructure.Sql")),"migrations",migrations));
     }
     private static Class<?> type(String name){try{return Class.forName(name);}catch(ClassNotFoundException e){throw new IllegalStateException("Runtime class missing",e);}}
     private static String classes(Class<?>... types) {

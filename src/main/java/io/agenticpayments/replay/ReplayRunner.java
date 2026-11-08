@@ -3,6 +3,7 @@ package io.agenticpayments.replay;
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.infrastructure.*;
+import io.agenticpayments.http.HttpFailureMapper;
 import io.agenticpayments.sdk.*;
 import javax.sql.DataSource;
 import java.sql.*;
@@ -54,7 +55,8 @@ public final class ReplayRunner {
         try{
             result=invoke(context,step);
         }catch(RecipeIncomplete e){context.incompleteReason=e.reason;context.snapshotSafe=e.snapshotSafe;var receipt=map("code","RECIPE_INCOMPLETE","reason",e.reason,"snapshotSafe",e.snapshotSafe);repository.finishRecorded(data,step,context.staged,ignored->receipt,false);return false;}
-        catch(PaymentException e){var receipt=map("code",e.code(),"httpStatus",e.status(),"retry",e.retry());boolean expected=e.code().equals(step.expectedCode());repository.finishRecorded(data,step,context.staged,ignored->receipt,expected);return expected;}
+        // Retain the existing replay evidence projection; application control flow uses semantic failures.
+        catch(ApplicationException e){var receipt=map("code",e.code(),"httpStatus",HttpFailureMapper.map(e).status(),"retry",HttpFailureMapper.map(e).retry());boolean expected=e.code().equals(step.expectedCode());repository.finishRecorded(data,step,context.staged,ignored->receipt,expected);return expected;}
         catch(ReplayNormalizer.InvariantViolation e){var receipt=map("code","RAW_INVARIANT_FAILED","checks",e.checks());repository.finishRecorded(data,step,context.staged,ignored->receipt,false);return false;}
         catch(Exception e){var receipt=map("code","RUNNER_STEP_FAILED","failureType",e.getClass().getSimpleName());repository.finishRecorded(data,step,context.staged,ignored->receipt,false);return false;}
         boolean expected=step.expectedCode().equals("OK");repository.finishRecorded(data,step,context.staged,names->{var receipt=map("code","OK","result",safeValue(result,names));if(!expected)receipt.put("expectedCode",step.expectedCode());return receipt;},expected);return expected;
@@ -132,7 +134,7 @@ public final class ReplayRunner {
     private static String grant(String alias){return alias.equals("grant-eur")?"fixture-grant-1":"fixture-grant-usd";}
     private static UUID uuid(Object value){return value instanceof UUID id?id:UUID.fromString(value.toString());}
     private static String key(ReplayRepository.ExecutionData data,Step step){return io.agenticpayments.domain.PaymentRules.sha256(data.plan().digest()+":"+step.ordinal()+":"+step.actor());}
-    private static void runner(Step step){if(!step.actor().equals("runner"))throw new PaymentException(403,"FORBIDDEN");}
+    private static void runner(Step step){if(!step.actor().equals("runner"))throw new PaymentException(ApplicationFailure.FORBIDDEN);}
     private static Map<String,Object> response(Result result){return map("status",result.status(),"body",result.body(),"replayed",result.replayed());}
     private static Map<String,Object> worker(WorkerReceipt result){return map("operation",result.operationId(),"workKind",result.workKind()==null?"IDLE":result.workKind(),"fence",result.fence(),"firstAuditSequence",result.firstAuditSequence(),"lastAuditSequence",result.lastAuditSequence(),"progressed",result.progressed());}
     private Object safeValue(Object value,Map<UUID,String> aliases){

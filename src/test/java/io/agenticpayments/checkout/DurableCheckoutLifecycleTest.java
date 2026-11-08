@@ -1,5 +1,7 @@
 package io.agenticpayments.checkout;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import io.agenticpayments.application.*;
@@ -186,11 +188,11 @@ class DurableCheckoutLifecycleTest {
             var changed=new StageCommand(Operation.CREATE,0,"merchant-demo","config-demo","usd",List.of("changed-item"));
             assertEquals("IDEMPOTENCY_CONFLICT",assertThrows(PaymentException.class,()->f.service().stage(f.session,purchase,"same-key",changed)).code());
             var denied=new PaymentService.Session(f.session.tenantId(),f.session.runId(),f.session.principalId(),Set.of("intent:write","intent:read"),Set.of(),Set.of());
-            assertEquals(403,assertThrows(PaymentException.class,()->f.service().stage(denied,purchase,"same-key",f.input(Operation.CREATE,0))).status());
+            assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->f.service().stage(denied,purchase,"same-key",f.input(Operation.CREATE,0)))).status());
             var other=new PaymentService.Session(f.session.tenantId(),f.session.runId(),"another-principal",f.session.roles(),f.session.allowedMerchants(),Set.of());
-            assertEquals(404,assertThrows(PaymentException.class,()->f.service().status(other,purchase)).status());
+            assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->f.service().status(other,purchase))).status());
             var anotherRun=new PaymentService.Session(f.session.tenantId(),UUID.randomUUID(),f.session.principalId(),f.session.roles(),f.session.allowedMerchants(),Set.of());
-            assertEquals(404,assertThrows(PaymentException.class,()->f.service().dispatch(anotherRun,purchase,ids.iterator().next())).status());
+            assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->f.service().dispatch(anotherRun,purchase,ids.iterator().next()))).status());
             assertTrue(f.peer.captures.isEmpty());
         }
     }
@@ -327,7 +329,7 @@ class DurableCheckoutLifecycleTest {
         try(Fixture f=new Fixture()){
             UUID purchase=UUID.randomUUID();
             try(Fault ignored=new Fault(f,"checkout_lifecycle_commands","INSERT")){
-                assertEquals(503,assertThrows(PaymentException.class,()->f.service().stage(f.session,purchase,"rollback-stage",f.input(Operation.CREATE,0))).status());
+                assertEquals(503,HttpFailureMapper.map(assertThrows(PaymentException.class,()->f.service().stage(f.session,purchase,"rollback-stage",f.input(Operation.CREATE,0)))).status());
             }
             assertEquals("0",query(f,"SELECT count(*) AS result_json FROM checkout_purchases WHERE tenant_id=? AND run_id=? AND principal_id=?"));
             assertEquals("0",query(f,"SELECT count(*) AS result_json FROM checkout_lifecycle_commands WHERE tenant_id=? AND run_id=? AND principal_id=?"));
@@ -342,7 +344,7 @@ class DurableCheckoutLifecycleTest {
             CheckoutLifecycle service=f.service(new Decorator(f.transport){@Override public Result send(Prepared input){Result result=super.send(input);accepted.set(result);return result;}});
             UUID purchase=UUID.randomUUID();SafeView staged=service.stage(f.session,purchase,"rollback-outcome",f.input(Operation.CREATE,0));
             try(Fault ignored=new Fault(f,"checkout_purchases","UPDATE")){
-                assertEquals(503,assertThrows(PaymentException.class,()->service.dispatch(f.session,purchase,staged.commandId())).status());
+                assertEquals(503,HttpFailureMapper.map(assertThrows(PaymentException.class,()->service.dispatch(f.session,purchase,staged.commandId()))).status());
             }
             assertEquals(1,f.peer.captures.size());assertNotNull(accepted.get());
             SafeView pending=f.service().status(f.session,purchase);assertEquals(CommandState.CLAIMED,pending.commandState());assertEquals(1,pending.revision());

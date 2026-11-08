@@ -3,6 +3,8 @@ package io.agenticpayments.infrastructure;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import io.agenticpayments.application.PaymentException;
+import io.agenticpayments.application.ApplicationFailure;
+import io.agenticpayments.application.ApplicationException;
 import io.agenticpayments.application.NativeApplicationCoordinator;
 import io.agenticpayments.application.NativeApplicationCoordinator.*;
 import io.agenticpayments.application.ExecutePayment;
@@ -54,7 +56,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
         this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
         if((externalComposition==null)!=(externalRegistration==null)
-                ||externalRegistration!=null&&externalRegistration.coordinationDomain()!=coordinationDomain) fail(422,"UNSUPPORTED_CAPABILITY");
+                ||externalRegistration!=null&&externalRegistration.coordinationDomain()!=coordinationDomain) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         this.externalComposition=externalComposition; this.externalRegistration=externalRegistration;
         this.externalCoordinator=externalComposition==null?null:new NativeApplicationCoordinator(externalComposition.checkout(),externalComposition.issuer(),externalComposition.verifier(),externalComposition.artifacts(),EXTERNAL_PROFILE);
         if(externalComposition!=null) externalCapabilities();
@@ -74,7 +76,7 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
 
     public void seedRun(Session s,Instant clock,long budget) {
-        role(s,"runner:write"); if(clock==null||budget<1250) fail(400,"INVALID_REQUEST");
+        role(s,"runner:write"); if(clock==null||budget<1250) fail(ApplicationFailure.INVALID_REQUEST);
         try(var c=ds.getConnection()) {
             c.setAutoCommit(false);
             update(c,"INSERT INTO simulation_runs(tenant_id,run_id,virtual_time,sequence_origin) VALUES(?,?,?,'RECORDED') ON CONFLICT DO NOTHING",s.tenantId(),s.runId(),clock);
@@ -90,12 +92,12 @@ public final class JdbcPaymentStore implements PaymentStore {
     public Result create(Session s,String key,CreateCommand cmd) {
         role(s,"intent:write");
         capabilities();
-        if(cmd==null||cmd.requiredCapabilities()==null||cmd.profile()==null||!Set.of(PaymentRules.PROFILE,NATIVE_PROFILE,EXTERNAL_PROFILE).contains(cmd.profile())) fail(422,"UNSUPPORTED_PROFILE");
+        if(cmd==null||cmd.requiredCapabilities()==null||cmd.profile()==null||!Set.of(PaymentRules.PROFILE,NATIVE_PROFILE,EXTERNAL_PROFILE).contains(cmd.profile())) fail(ApplicationFailure.UNSUPPORTED_PROFILE);
         if(NATIVE_PROFILE.equals(cmd.profile())) nativeCapabilities();
         if(EXTERNAL_PROFILE.equals(cmd.profile())) externalCapabilities();
         merchant(s,cmd.merchantId());
-        if(!PaymentRules.SCENARIOS.contains(cmd.scenarioId())) fail(400,"INVALID_REQUEST");
-        if(cmd.requiredCapabilities().size()>16||new HashSet<>(cmd.requiredCapabilities()).size()!=cmd.requiredCapabilities().size()||!PaymentRules.CAPABILITIES.containsAll(cmd.requiredCapabilities())) fail(422,"UNSUPPORTED_CAPABILITY");
+        if(!PaymentRules.SCENARIOS.contains(cmd.scenarioId())) fail(ApplicationFailure.INVALID_REQUEST);
+        if(cmd.requiredCapabilities().size()>16||new HashSet<>(cmd.requiredCapabilities()).size()!=cmd.requiredCapabilities().size()||!PaymentRules.CAPABILITIES.containsAll(cmd.requiredCapabilities())) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         return command(s,key,"POST /intents","new",cmd,tx->{
             var sequence=one(tx.c,"UPDATE simulation_runs SET next_intent_sequence=next_intent_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING next_intent_sequence",s.tenantId(),s.runId());
             UUID id=UUID.randomUUID(); update(tx.c,"INSERT INTO payment_intents(tenant_id,run_id,intent_id,merchant_id,scenario_id,state,creation_sequence,profile) VALUES(?,?,?,?,?,'DRAFT',?,?)",s.tenantId(),s.runId(),id,cmd.merchantId(),cmd.scenarioId(),sequence.get("next_intent_sequence"),cmd.profile());
@@ -105,13 +107,13 @@ public final class JdbcPaymentStore implements PaymentStore {
     public Result quote(Session s,UUID id,String key,QuoteCommand cmd) {
         role(s,"intent:write"); validate(cmd==null?0:cmd.expectedVersion());
         capabilities();
-        if(cmd.tenders()==null||cmd.tenders().size()!=1) fail(422,"UNSUPPORTED_TENDER");
+        if(cmd.tenders()==null||cmd.tenders().size()!=1) fail(ApplicationFailure.UNSUPPORTED_TENDER);
         var t=cmd.tenders().getFirst();
-        if(t==null||!"simulator".equals(t.provider())||!"synthetic-card".equals(t.method())||!"fixture-credential-1".equals(t.credentialReference())) fail(422,"UNSUPPORTED_TENDER");
-        if(!Set.of("cart-1250-eur","cart-1250-usd").contains(cmd.cartFixtureId())) fail(400,"INVALID_REQUEST");
+        if(t==null||!"simulator".equals(t.provider())||!"synthetic-card".equals(t.method())||!"fixture-credential-1".equals(t.credentialReference())) fail(ApplicationFailure.UNSUPPORTED_TENDER);
+        if(!Set.of("cart-1250-eur","cart-1250-usd").contains(cmd.cartFixtureId())) fail(ApplicationFailure.INVALID_REQUEST);
         return command(s,key,"POST /intents/{id}/quote",id.toString(),cmd,tx->{
             var i=intent(tx,id); version(i,cmd.expectedVersion()); state(i,"DRAFT","QUOTED");
-            if(externalProfile(i)) fail(422,"UNSUPPORTED_PROFILE");
+            if(externalProfile(i)) fail(ApplicationFailure.UNSUPPORTED_PROFILE);
             int revision=(int)number(i,"checkout_revision")+1; String currency=cmd.cartFixtureId().endsWith("usd")?"USD":"EUR";
             String bytes=PaymentRules.checkout(text(i,"merchant_id"),revision,cmd.cartFixtureId(),currency,t.credentialReference()), digest=PaymentRules.sha256(bytes);
             Instant expiry=tx.now.plusSeconds(900);
@@ -133,20 +135,20 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     public Result quoteExternal(Session s,UUID id,String key,ExternalQuoteCommand cmd) {
         role(s,"intent:write");
-        if(id==null||cmd==null||cmd.expectedVersion()<1||cmd.purchaseId()==null||cmd.expectedPurchaseRevision()<1||cmd.responseReference()==null) fail(400,"INVALID_REQUEST");
+        if(id==null||cmd==null||cmd.expectedVersion()<1||cmd.purchaseId()==null||cmd.expectedPurchaseRevision()<1||cmd.responseReference()==null) fail(ApplicationFailure.INVALID_REQUEST);
         return command(s,key,"POST /intents/{id}/quote-external",id.toString(),cmd,tx->{
             var i=intent(tx,id); version(i,cmd.expectedVersion());
-            if(!externalProfile(i)) fail(422,"UNSUPPORTED_PROFILE"); state(i,"DRAFT");
+            if(!externalProfile(i)) fail(ApplicationFailure.UNSUPPORTED_PROFILE); state(i,"DRAFT");
             capabilities(); externalCapabilities();
-            if(cmd.tenders()==null||cmd.tenders().size()!=1) fail(422,"UNSUPPORTED_TENDER");
+            if(cmd.tenders()==null||cmd.tenders().size()!=1) fail(ApplicationFailure.UNSUPPORTED_TENDER);
             var tender=cmd.tenders().getFirst();
             if(tender==null||!"simulator".equals(tender.provider())||!"synthetic-card".equals(tender.method())
-                    ||!"fixture-credential-1".equals(tender.credentialReference())) fail(422,"UNSUPPORTED_TENDER");
+                    ||!"fixture-credential-1".equals(tender.credentialReference())) fail(ApplicationFailure.UNSUPPORTED_TENDER);
             if(one(tx.c,"SELECT intent_id FROM external_checkout_bindings WHERE tenant_id=? AND run_id=? AND (intent_id=? OR (principal_id=? AND purchase_id=?))",
-                    s.tenantId(),s.runId(),id,s.principalId(),cmd.purchaseId())!=null) fail(409,"CHECKOUT_ALREADY_BOUND");
+                    s.tenantId(),s.runId(),id,s.principalId(),cmd.purchaseId())!=null) fail(ApplicationFailure.CHECKOUT_ALREADY_BOUND);
             var observation=externalSource.load(tx.c,scope(tx),s.principalId(),cmd.purchaseId(),cmd.expectedPurchaseRevision(),cmd.responseReference());
             validateRegistration(tx,observation);
-            if(!observation.configuration().binding().merchantId().equals(text(i,"merchant_id"))) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(!observation.configuration().binding().merchantId().equals(text(i,"merchant_id"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             var terms=externalCoordinator.inspectObserved(observation,tx.now);
             Instant expiry=Collections.min(List.of(observation.observedAt().plusSeconds(300),terms.expiresAt()));
             int revision=(int)number(i,"checkout_revision")+1;
@@ -175,11 +177,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         return command(s,key,"POST /intents/{id}/approve",id.toString(),cmd,tx->{
             var i=intent(tx,id); version(i,cmd.expectedVersion()); state(i,"QUOTED"); var q=quote(tx,i); var g=grant(tx,cmd.authorityReference());
             authority(tx,g,s.principalId(),text(i,"merchant_id"));
-            if(!tx.now.isBefore(instant(q,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
-            if(cmd.checkoutRevision()!=number(q,"revision")||!Objects.equals(cmd.checkoutDigest(),q.get("digest"))) fail(409,"CHECKOUT_CHANGED");
+            if(!tx.now.isBefore(instant(q,"expires_at"))) fail(ApplicationFailure.AUTHORITY_EXPIRED);
+            if(cmd.checkoutRevision()!=number(q,"revision")||!Objects.equals(cmd.checkoutDigest(),q.get("digest"))) fail(ApplicationFailure.CHECKOUT_CHANGED);
             var b=budget(tx,text(g,"budget_id")); long total=number(q,"minor_units");
-            if(!Objects.equals(b.get("currency"),q.get("currency"))) fail(422,"AUTHORITY_BINDING_INVALID");
-            if(Boolean.TRUE.equals(b.get("frozen"))||number(b,"held")+number(b,"consumed")+total>number(b,"limit_minor")) fail(409,"BUDGET_EXCEEDED");
+            if(!Objects.equals(b.get("currency"),q.get("currency"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            if(Boolean.TRUE.equals(b.get("frozen"))||number(b,"held")+number(b,"consumed")+total>number(b,"limit_minor")) fail(ApplicationFailure.BUDGET_EXCEEDED);
             UUID attempt=UUID.randomUUID();
             update(tx.c,"INSERT INTO payment_attempts VALUES(?,?,?,?,?,?,?,?,'simulator-core')",s.tenantId(),s.runId(),attempt,id,cmd.checkoutRevision(),cmd.authorityReference(),number(g,"version"),s.principalId());
             if(nativeProfile(i)) approveNative(tx,i,q,g,attempt);
@@ -261,7 +263,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         role(s,"approval:write"); return read(s,tx->{
             var i=intent(tx,id); state(i,"QUOTED","APPROVED"); var q=quote(tx,i);
             String grantId=text(q,"currency").equals("USD")?"fixture-grant-usd":"fixture-grant-1"; grantAllowed(s,grantId); var g=grant(tx,grantId);
-            if(!Objects.equals(g.get("subject_id"),s.principalId())) fail(404,"RESOURCE_NOT_FOUND");
+            if(!Objects.equals(g.get("subject_id"),s.principalId())) fail(ApplicationFailure.RESOURCE_NOT_FOUND);
             return result(200,map("intentId",id,"version",number(i,"version"),"state",i.get("state"),"merchantId",i.get("merchant_id"),"checkoutRevision",number(q,"revision"),"checkoutDigest",q.get("digest"),"money",money(text(q,"currency"),number(q,"minor_units")),"quoteExpiresAt",instant(q,"expires_at").toString()));
         });
     }
@@ -272,11 +274,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         });
     }
     public Result completeAction(Session s,UUID id,String key,CompleteActionCommand cmd) {
-        role(s,"action:complete"); validate(cmd==null?0:cmd.expectedVersion()); if(!Set.of("approve","deny").contains(cmd.decision())) fail(400,"INVALID_REQUEST");
+        role(s,"action:complete"); validate(cmd==null?0:cmd.expectedVersion()); if(!Set.of("approve","deny").contains(cmd.decision())) fail(ApplicationFailure.INVALID_REQUEST);
         return command(s,key,"POST /actions/{id}/complete",id.toString(),cmd,tx->{
             var ac=actionRow(tx,id); var o=operationById(tx,(UUID)ac.get("operation_id")); var a=attemptById(tx,(UUID)o.get("attempt_id")); var i=intent(tx,(UUID)a.get("intent_id"));
-            if(!text(ac,"state").equals("OPEN")) fail(409,"ACTION_ALREADY_CONSUMED"); version(ac,cmd.expectedVersion());
-            if(!tx.now.isBefore(instant(ac,"expires_at"))) fail(410,"ACTION_EXPIRED");
+            if(!text(ac,"state").equals("OPEN")) fail(ApplicationFailure.ACTION_ALREADY_CONSUMED); version(ac,cmd.expectedVersion());
+            if(!tx.now.isBefore(instant(ac,"expires_at"))) fail(ApplicationFailure.ACTION_EXPIRED);
             var g=grant(tx,text(a,"grant_id")); authority(tx,g,s.principalId(),text(i,"merchant_id")); state(i,"WAITING_ACTION");
             String next=cmd.decision().equals("approve")?"VERIFIED":"DENIED";
             update(tx.c,"UPDATE customer_actions SET state=?,version=version+1 WHERE tenant_id=? AND run_id=? AND action_id=?",next,s.tenantId(),s.runId(),id);
@@ -287,9 +289,9 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     public Result revoke(Session s,String authorityId,String key,RevokeCommand cmd) {
         role(s,"authority:revoke"); grantAllowed(s,authorityId);
-        if(cmd==null||!Set.of("user-request","policy-revoked","test-revocation").contains(cmd.reason())) fail(400,"INVALID_REQUEST");
+        if(cmd==null||!Set.of("user-request","policy-revoked","test-revocation").contains(cmd.reason())) fail(ApplicationFailure.INVALID_REQUEST);
         return command(s,key,"POST /authorities/{id}/revoke",authorityId,cmd,tx->{
-            var g=grant(tx,authorityId); if(!Objects.equals(g.get("subject_id"),s.principalId())) fail(404,"RESOURCE_NOT_FOUND");
+            var g=grant(tx,authorityId); if(!Objects.equals(g.get("subject_id"),s.principalId())) fail(ApplicationFailure.RESOURCE_NOT_FOUND);
             if(text(g,"state").equals("ACTIVE")) update(tx.c,"UPDATE authority_grants SET state='REVOKED',version=version+1,revoked_at=?,revoked_admission_sequence=(SELECT admission_sequence FROM simulation_runs WHERE tenant_id=? AND run_id=?) WHERE tenant_id=? AND run_id=? AND grant_id=?",tx.now,s.tenantId(),s.runId(),s.tenantId(),s.runId(),authorityId);
             var admitted=new ArrayList<String>();
             for(var a:rows(tx.c,"SELECT a.* FROM payment_attempts a JOIN payment_intents i USING(tenant_id,run_id,intent_id) WHERE a.tenant_id=? AND a.run_id=? AND a.grant_id=? ORDER BY i.creation_sequence",s.tenantId(),s.runId(),authorityId)) {
@@ -303,7 +305,7 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     public void advanceClock(Session s,Instant clock) {
         role(s,"runner:write"); transaction(s,tx->{
-            if(clock==null||clock.isBefore(tx.now)) fail(400,"INVALID_REQUEST");
+            if(clock==null||clock.isBefore(tx.now)) fail(ApplicationFailure.INVALID_REQUEST);
             update(tx.c,"UPDATE simulation_runs SET virtual_time=? WHERE tenant_id=? AND run_id=?",clock,s.tenantId(),s.runId());audit(new Tx(tx.c,s,clock),null,"CLOCK_ADVANCED");return null;
         });
     }
@@ -378,8 +380,8 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     public void reconcile(Session s,UUID id,boolean sealIfAbsent) {
         role(s,"runner:write"); ChargeOperation op=transaction(s,tx->{
-            var i=intentUnchecked(tx,id); var a=attempt(tx,id); if(a==null) fail(409,"INVALID_STATE"); var o=operation(tx,(UUID)a.get("attempt_id"));
-            if(o==null||o.get("admitted_sequence")==null) fail(409,"INVALID_STATE"); return envelope(tx,i,a,o);
+            var i=intentUnchecked(tx,id); var a=attempt(tx,id); if(a==null) fail(ApplicationFailure.INVALID_STATE); var o=operation(tx,(UUID)a.get("attempt_id"));
+            if(o==null||o.get("admitted_sequence")==null) fail(ApplicationFailure.INVALID_STATE); return envelope(tx,i,a,o);
         });
         try {
             var lookup=adapter.lookup(op.identity());
@@ -475,14 +477,14 @@ public final class JdbcPaymentStore implements PaymentStore {
         var q=quote(tx,i); return new ChargeOperation(new OperationIdentity(new ExecutionScope(tx.s.tenantId(),tx.s.runId(),text(i,"merchant_id")),(UUID)i.get("intent_id"),(UUID)a.get("attempt_id"),(UUID)o.get("operation_id"),(UUID)o.get("adapter_key"),text(o,"request_digest")),new Money(text(q,"currency"),number(q,"minor_units")),text(i,"scenario_id"));
     }
     private Result command(Session s,String key,String route,String resource,Object request,Work<Result> body) {
-        if(key==null||!key.matches("[\\x20-\\x7E]{16,128}")) fail(400,"INVALID_REQUEST"); String digest=PaymentRules.sha256(encode(request));
+        if(key==null||!key.matches("[\\x20-\\x7E]{16,128}")) fail(ApplicationFailure.INVALID_REQUEST); String digest=PaymentRules.sha256(encode(request));
         return transaction(s,tx->{
             // Replay remains subject to current object access, not merely knowledge of an old key.
             if(route.contains("/intents/{id}")) intent(tx,UUID.fromString(resource));
             else if(route.contains("/actions/{id}")) actionRow(tx,UUID.fromString(resource));
             var old=one(tx.c,"SELECT * FROM commands WHERE tenant_id=? AND run_id=? AND principal_id=? AND route=? AND resource_id=? AND idempotency_key=?",s.tenantId(),s.runId(),s.principalId(),route,resource,key);
             if(old!=null) {
-                if(!digest.equals(old.get("request_digest"))) fail(409,"IDEMPOTENCY_CONFLICT");
+                if(!digest.equals(old.get("request_digest"))) fail(ApplicationFailure.IDEMPOTENCY_CONFLICT);
                 return new Result((int)number(old,"response_status"),json.readValue(text(old,"response_body"),new TypeReference<Map<String,Object>>(){}),true);
             }
             Result result=body.run(tx);
@@ -494,24 +496,24 @@ public final class JdbcPaymentStore implements PaymentStore {
             try(var c=ds.getConnection()) {
                 c.setAutoCommit(false);
                 try {
-                    var run=one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=? FOR UPDATE",s.tenantId(),s.runId()); if(run==null) fail(404,"RESOURCE_NOT_FOUND");
+                    var run=one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=? FOR UPDATE",s.tenantId(),s.runId()); if(run==null) fail(ApplicationFailure.RESOURCE_NOT_FOUND);
                     owner(run);
                     T result=work.run(new Tx(c,s,instant(run,"virtual_time"))); c.commit(); return result;
                 } catch(Exception e) { c.rollback(); throw e; }
-            } catch(PaymentException e) { throw e; }
-            catch(SQLException e) { if(e.getSQLState()!=null&&e.getSQLState().startsWith("40")&&retry<2) continue; if("23505".equals(e.getSQLState())) throw new PaymentException(409,"AUTHORITY_REPLAY"); throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); }
+            } catch(ApplicationException e) { throw e; }
+            catch(SQLException e) { if(e.getSQLState()!=null&&e.getSQLState().startsWith("40")&&retry<2) continue; if("23505".equals(e.getSQLState())) throw new PaymentException(ApplicationFailure.AUTHORITY_REPLAY); throw new PaymentException(ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND); }
             catch(CompositionException e) { throw compositionFailure(e); }
             catch(RuntimeException e) { throw e; }
             catch(Exception e) { throw new IllegalStateException("Synthetic transaction encoding failed",e); }
         }
-        throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND");
+        throw new PaymentException(ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND);
     }
     private <T> T read(Session s,Work<T> work) {
         try(var c=ds.getConnection()) {
             c.setAutoCommit(false); c.setReadOnly(true); c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-            var run=one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=?",s.tenantId(),s.runId()); if(run==null) fail(404,"RESOURCE_NOT_FOUND");
+            var run=one(c,"SELECT * FROM simulation_runs WHERE tenant_id=? AND run_id=?",s.tenantId(),s.runId()); if(run==null) fail(ApplicationFailure.RESOURCE_NOT_FOUND);
             T result=work.run(new Tx(c,s,instant(run,"virtual_time"))); c.commit(); return result;
-        } catch(PaymentException e) { throw e; } catch(CompositionException e) { throw compositionFailure(e); } catch(SQLException e) { throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); } catch(Exception e) { throw new IllegalStateException("Synthetic read failed",e); }
+        } catch(ApplicationException e) { throw e; } catch(CompositionException e) { throw compositionFailure(e); } catch(SQLException e) { throw new PaymentException(ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND); } catch(Exception e) { throw new IllegalStateException("Synthetic read failed",e); }
     }
     private Map<String,Object> intent(Tx tx,UUID id) throws SQLException { var i=intentUnchecked(tx,id); merchant(tx.s,text(i,"merchant_id")); return i; }
     private Map<String,Object> intentUnchecked(Tx tx,UUID id) throws SQLException { return required(one(tx.c,"SELECT * FROM payment_intents WHERE tenant_id=? AND run_id=? AND intent_id=?",tx.s.tenantId(),tx.s.runId(),id)); }
@@ -525,13 +527,13 @@ public final class JdbcPaymentStore implements PaymentStore {
     private Map<String,Object> budget(Tx tx,String id) throws SQLException { return required(one(tx.c,"SELECT * FROM budgets WHERE tenant_id=? AND run_id=? AND budget_id=?",tx.s.tenantId(),tx.s.runId(),id)); }
     private Map<String,Object> actionRow(Tx tx,UUID id) throws SQLException {
         var a=required(one(tx.c,"SELECT * FROM customer_actions WHERE tenant_id=? AND run_id=? AND action_id=?",tx.s.tenantId(),tx.s.runId(),id));
-        if(!Objects.equals(a.get("subject_id"),tx.s.principalId())) fail(404,"RESOURCE_NOT_FOUND");
+        if(!Objects.equals(a.get("subject_id"),tx.s.principalId())) fail(ApplicationFailure.RESOURCE_NOT_FOUND);
         var o=operationById(tx,(UUID)a.get("operation_id")); var attempt=attemptById(tx,(UUID)o.get("attempt_id")); intent(tx,(UUID)attempt.get("intent_id")); grantAllowed(tx.s,text(attempt,"grant_id")); return a;
     }
     private void authority(Tx tx,Map<String,Object> g,String subject,String merchant) {
-        if(!Objects.equals(g.get("subject_id"),subject)||!Objects.equals(g.get("merchant_id"),merchant)) fail(422,"AUTHORITY_BINDING_INVALID");
-        if(text(g,"state").equals("REVOKED")) fail(409,"AUTHORITY_REVOKED");
-        if(tx.now.isBefore(instant(g,"valid_from"))||!tx.now.isBefore(instant(g,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
+        if(!Objects.equals(g.get("subject_id"),subject)||!Objects.equals(g.get("merchant_id"),merchant)) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+        if(text(g,"state").equals("REVOKED")) fail(ApplicationFailure.AUTHORITY_REVOKED);
+        if(tx.now.isBefore(instant(g,"valid_from"))||!tx.now.isBefore(instant(g,"expires_at"))) fail(ApplicationFailure.AUTHORITY_EXPIRED);
     }
     private static boolean externalProfile(Map<String,Object> intent) { return EXTERNAL_PROFILE.equals(intent.get("profile")); }
     private static boolean nativeProfile(Map<String,Object> intent) { return NATIVE_PROFILE.equals(intent.get("profile"))||externalProfile(intent); }
@@ -539,11 +541,11 @@ public final class JdbcPaymentStore implements PaymentStore {
     private NativeApplicationCoordinator coordinator(Map<String,Object> intent) { return externalProfile(intent)?externalCoordinator:nativeCoordinator; }
     private Scope scope(Tx tx) { return new Scope(tx.s.tenantId(),tx.s.runId()); }
     private void nativeCapabilities() {
-        if(composition==null) fail(422,"UNSUPPORTED_CAPABILITY");
+        if(composition==null) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         try { composition.requireSupported(); } catch(CompositionException e) { throw compositionFailure(e); }
     }
     private void externalCapabilities() {
-        if(externalComposition==null||externalRegistration==null) fail(422,"UNSUPPORTED_CAPABILITY");
+        if(externalComposition==null||externalRegistration==null) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         try { externalComposition.requireSupported(EXTERNAL_PROFILE); }
         catch(CompositionException error) { throw compositionFailure(error); }
     }
@@ -552,13 +554,13 @@ public final class JdbcPaymentStore implements PaymentStore {
         externalCapabilities();
         if(!externalRegistration.scope().equals(scope(tx))
                 ||!externalRegistration.sourcePrincipalId().equals(observation.configuration().binding().principalId())
-                ||!externalRegistration.configuration().equals(observation.configuration())) fail(422,"UNSUPPORTED_CAPABILITY");
+                ||!externalRegistration.configuration().equals(observation.configuration())) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         try {
             var resolved=externalRegistration.resolver().resolve(observation.configuration());
-            if(resolved==null||!observation.configuration().equals(resolved.identity())) fail(422,"UNSUPPORTED_CAPABILITY");
+            if(resolved==null||!observation.configuration().equals(resolved.identity())) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
             resolved.transport().describe().require(observation.configuration().transportProfile(),Set.of());
-            if(!observation.configuration().encodingVersion().equals(resolved.transport().encodingVersion())) fail(422,"UNSUPPORTED_CAPABILITY");
-        } catch(RuntimeException error) { throw new PaymentException(422,"UNSUPPORTED_CAPABILITY"); }
+            if(!observation.configuration().encodingVersion().equals(resolved.transport().encodingVersion())) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+        } catch(RuntimeException error) { throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY); }
     }
     private Provisioning provision(Tx tx) throws SQLException {
         return provision(tx,composition);
@@ -566,12 +568,12 @@ public final class JdbcPaymentStore implements PaymentStore {
     private Provisioning provision(Tx tx,Ports ports) throws SQLException {
         var provision=ports.provisioner().provision(scope(tx),tx.now);
         for(var key:provision.enrollments()) {
-            if(!key.scope().equals(scope(tx))||key.revoked()) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(!key.scope().equals(scope(tx))||key.revoked()) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             var old=one(tx.c,"SELECT * FROM native_trust_keys WHERE tenant_id=? AND run_id=? AND issuer=? AND kid=? AND purpose=?",tx.s.tenantId(),tx.s.runId(),key.issuer(),key.kid(),key.purpose());
             byte[] publicKey;
-            try { publicKey=Base64.getUrlDecoder().decode(key.publicKeySpki()); } catch(IllegalArgumentException e) { fail(422,"AUTHORITY_BINDING_INVALID"); return null; }
+            try { publicKey=Base64.getUrlDecoder().decode(key.publicKeySpki()); } catch(IllegalArgumentException e) { fail(ApplicationFailure.AUTHORITY_BINDING_INVALID); return null; }
             if(old!=null) {
-                if(!Arrays.equals(publicKey,(byte[])old.get("public_key"))||!key.validFrom().equals(instant(old,"valid_from"))||!key.validUntil().equals(instant(old,"expires_at"))||key.version()!=number(old,"version")||Boolean.TRUE.equals(old.get("revoked"))) fail(422,"AUTHORITY_BINDING_INVALID");
+                if(!Arrays.equals(publicKey,(byte[])old.get("public_key"))||!key.validFrom().equals(instant(old,"valid_from"))||!key.validUntil().equals(instant(old,"expires_at"))||key.version()!=number(old,"version")||Boolean.TRUE.equals(old.get("revoked"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             } else update(tx.c,"INSERT INTO native_trust_keys VALUES(?,?,?,?,?,?,?,?,?,false)",tx.s.tenantId(),tx.s.runId(),key.issuer(),key.kid(),key.purpose(),publicKey,key.validFrom(),key.validUntil(),key.version());
         }
         return provision;
@@ -590,16 +592,16 @@ public final class JdbcPaymentStore implements PaymentStore {
         } catch(SQLException e) { unavailable(); }
         var snapshot=new EnrollmentSnapshot(scope(tx),tx.now,enrolled);
         KeyResolver selected=ports.keyResolvers().bind(snapshot);
-        if(selected==null) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(selected==null) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         return (requestedScope,issuer,kid,purpose,now)->{
-            if(!scope(tx).equals(requestedScope)||!tx.now.equals(now)) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(!scope(tx).equals(requestedScope)||!tx.now.equals(now)) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             TrustKey authoritative=snapshot.keys().stream().filter(k->k.issuer().equals(issuer)&&k.kid().equals(kid)&&k.purpose().equals(purpose)).findFirst().orElse(null);
-            if(authoritative==null) fail(422,"AUTHORITY_BINDING_INVALID");
-            if(authoritative.revoked()) fail(409,"AUTHORITY_REVOKED");
-            if(now.isBefore(authoritative.validFrom())||!now.isBefore(authoritative.validUntil())) fail(410,"AUTHORITY_EXPIRED");
+            if(authoritative==null) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            if(authoritative.revoked()) fail(ApplicationFailure.AUTHORITY_REVOKED);
+            if(now.isBefore(authoritative.validFrom())||!now.isBefore(authoritative.validUntil())) fail(ApplicationFailure.AUTHORITY_EXPIRED);
             TrustKey resolved=selected.resolve(requestedScope,issuer,kid,purpose,now);
             // A replaceable resolver cannot enroll keys or relax the owner's current revocation policy.
-            if(!authoritative.equals(resolved)) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(!authoritative.equals(resolved)) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             return resolved;
         };
     }
@@ -613,7 +615,7 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     private FrozenCheckout nativeCheckout(Tx tx,Map<String,Object> i,Map<String,Object> q) throws Exception {
         var row=one(tx.c,"SELECT checkout_json FROM native_checkouts WHERE tenant_id=? AND run_id=? AND intent_id=? AND revision=?",tx.s.tenantId(),tx.s.runId(),i.get("intent_id"),q.get("revision"));
-        if(row==null) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(row==null) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         var stored=json.readValue(text(row,"checkout_json"),StoredCheckout.class);
         return coordinator(i).reloadCheckout(scope(tx),stored,text(q,"digest"));
     }
@@ -642,12 +644,12 @@ public final class JdbcPaymentStore implements PaymentStore {
     private void verifyNative(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
         nativeCapabilities(i);
         var coordinator=coordinator(i); var ports=protocols(i);
-        if(!eligible(tx,g,a,i)) fail(409,"AUTHORITY_REVOKED");
+        if(!eligible(tx,g,a,i)) fail(ApplicationFailure.AUTHORITY_REVOKED);
         var q=quote(tx,i);
-        if(number(a,"checkout_revision")!=number(q,"revision")) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(number(a,"checkout_revision")!=number(q,"revision")) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         var row=one(tx.c,"SELECT * FROM native_authorities WHERE tenant_id=? AND run_id=? AND attempt_id=?",tx.s.tenantId(),tx.s.runId(),a.get("attempt_id"));
-        if(row==null||!Objects.equals(row.get("intent_id"),i.get("intent_id"))||number(row,"revision")!=number(q,"revision")||!Objects.equals(row.get("subject_id"),a.get("subject_id"))||!Objects.equals(row.get("grant_id"),a.get("grant_id"))||number(row,"grant_version")!=number(a,"grant_version")) fail(422,"AUTHORITY_BINDING_INVALID");
-        if(!tx.now.isBefore(instant(row,"expires_at"))) fail(410,"AUTHORITY_EXPIRED");
+        if(row==null||!Objects.equals(row.get("intent_id"),i.get("intent_id"))||number(row,"revision")!=number(q,"revision")||!Objects.equals(row.get("subject_id"),a.get("subject_id"))||!Objects.equals(row.get("grant_id"),a.get("grant_id"))||number(row,"grant_version")!=number(a,"grant_version")) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+        if(!tx.now.isBefore(instant(row,"expires_at"))) fail(ApplicationFailure.AUTHORITY_EXPIRED);
         var stored=json.readValue(text(row,"authority_json"),StoredAuthority.class);
         var facts=checkoutFacts(tx,i,q); var checkout=nativeCheckout(tx,i,q);
         if(externalProfile(i)) verifyExternalBinding(tx,i,q,checkout);
@@ -656,38 +658,38 @@ public final class JdbcPaymentStore implements PaymentStore {
         var issued=coordinator.reloadAuthority(scope(tx),stored);
         coordinator.validateAuthorityDigest(stored,text(row,"authority_digest"));
         var verified=coordinator.verifyAuthority(context,issued,keyResolver(tx,ports),tx.now);
-        if(!verified.expiresAt().equals(instant(row,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(!verified.expiresAt().equals(instant(row,"expires_at"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         for(var role:verified.authorizations()) {
             var used=one(tx.c,"SELECT * FROM native_replay_identities WHERE tenant_id=? AND role=? AND issuer=? AND jti=?",tx.s.tenantId(),role.role(),role.issuer(),role.jwtId());
             boolean merchant=role.role().equals("MERCHANT");
             var challenge=one(tx.c,"SELECT * FROM native_challenges WHERE tenant_id=? AND run_id=? AND role=? AND nonce=?",tx.s.tenantId(),tx.s.runId(),role.role(),merchant?context.checkoutNonce():context.paymentNonce());
-            if(used==null||!Objects.equals(used.get("run_id"),tx.s.runId())||!Objects.equals(used.get("attempt_id"),a.get("attempt_id"))||challenge==null||!Objects.equals(challenge.get("attempt_id"),a.get("attempt_id"))||!Objects.equals(challenge.get("intent_id"),i.get("intent_id"))||number(challenge,"revision")!=number(q,"revision")||!Objects.equals(challenge.get("subject_id"),a.get("subject_id"))||!Objects.equals(challenge.get("grant_id"),a.get("grant_id"))||number(challenge,"grant_version")!=number(a,"grant_version")||!Objects.equals(challenge.get("issuer"),context.issuer())||!Objects.equals(challenge.get("audience"),merchant?context.checkoutAudience():context.paymentAudience())||!Objects.equals(challenge.get("checkout_digest"),q.get("digest"))||!tx.now.isBefore(instant(challenge,"expires_at"))) fail(422,"AUTHORITY_BINDING_INVALID");
+            if(used==null||!Objects.equals(used.get("run_id"),tx.s.runId())||!Objects.equals(used.get("attempt_id"),a.get("attempt_id"))||challenge==null||!Objects.equals(challenge.get("attempt_id"),a.get("attempt_id"))||!Objects.equals(challenge.get("intent_id"),i.get("intent_id"))||number(challenge,"revision")!=number(q,"revision")||!Objects.equals(challenge.get("subject_id"),a.get("subject_id"))||!Objects.equals(challenge.get("grant_id"),a.get("grant_id"))||number(challenge,"grant_version")!=number(a,"grant_version")||!Objects.equals(challenge.get("issuer"),context.issuer())||!Objects.equals(challenge.get("audience"),merchant?context.checkoutAudience():context.paymentAudience())||!Objects.equals(challenge.get("checkout_digest"),q.get("digest"))||!tx.now.isBefore(instant(challenge,"expires_at"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         }
     }
     private void verifyExternalBinding(Tx tx,Map<String,Object> intent,Map<String,Object> quote,FrozenCheckout checkout) throws Exception {
         var binding=one(tx.c,"SELECT * FROM external_checkout_bindings WHERE tenant_id=? AND run_id=? AND intent_id=?",tx.s.tenantId(),tx.s.runId(),intent.get("intent_id"));
-        if(binding==null||!"local-synthetic-attestation-0.1".equals(text(binding,"attestation_provenance"))) fail(422,"AUTHORITY_BINDING_INVALID");
+        if(binding==null||!"local-synthetic-attestation-0.1".equals(text(binding,"attestation_provenance"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         var observation=externalSource.load(tx.c,scope(tx),text(binding,"principal_id"),uuid(binding,"purchase_id"),(int)number(binding,"purchase_revision"),uuid(binding,"response_reference"));
         validateRegistration(tx,observation);
         if(!observation.commandId().equals(uuid(binding,"command_id"))||!observation.observedAt().equals(instant(binding,"observed_at"))
                 ||!observation.configuration().equals(json.readValue(text(binding,"configuration_json"),io.agenticpayments.application.CheckoutConfigurationResolver.ConfigurationIdentity.class))
                 ||!io.agenticpayments.composition.ArtifactIntegrity.digest(observation.bytes()).equals(text(binding,"raw_digest"))
                 ||!instant(binding,"expires_at").equals(instant(quote,"expires_at"))
-                ||!observation.configuration().binding().merchantId().equals(text(intent,"merchant_id"))) fail(422,"AUTHORITY_BINDING_INVALID");
+                ||!observation.configuration().binding().merchantId().equals(text(intent,"merchant_id"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         var terms=externalCoordinator.inspectObserved(observation,tx.now);
         externalCoordinator.validateObservedBytes(observation,terms,checkoutFacts(tx,intent,quote),checkout);
     }
     private boolean nativeGate(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> g) throws Exception {
         try { verifyNative(tx,i,a,g); return true; }
-        catch(CompositionException e) { var failure=compositionFailure(e); if(failure.status()>=500) throw failure; terminate(tx,i,a,failure.status()==410?"EXPIRED":"CANCELLED"); return false; }
-        catch(PaymentException e) { if(e.status()>=500) throw e; terminate(tx,i,a,e.status()==410?"EXPIRED":"CANCELLED"); return false; }
+        catch(CompositionException e) { var failure=compositionFailure(e); if(failure.failure().category()==ApplicationFailure.Category.UNAVAILABLE || failure.failure().category()==ApplicationFailure.Category.INTERNAL) throw failure; terminate(tx,i,a,failure.failure().category()==ApplicationFailure.Category.EXPIRED?"EXPIRED":"CANCELLED"); return false; }
+        catch(ApplicationException e) { if(e.failure().category()==ApplicationFailure.Category.UNAVAILABLE || e.failure().category()==ApplicationFailure.Category.INTERNAL) throw e; terminate(tx,i,a,e.failure().category()==ApplicationFailure.Category.EXPIRED?"EXPIRED":"CANCELLED"); return false; }
     }
     private static PaymentException compositionFailure(CompositionException error) {
         return switch(error.failure()) {
-            case UNSUPPORTED_CAPABILITY -> new PaymentException(422,"UNSUPPORTED_CAPABILITY");
-            case EXPIRED_AUTHORITY -> new PaymentException(410,"AUTHORITY_EXPIRED");
-            case SIGNING_UNAVAILABLE, CRYPTO_UNAVAILABLE, ARTIFACT_UNAVAILABLE -> new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND");
-            default -> new PaymentException(422,"AUTHORITY_BINDING_INVALID");
+            case UNSUPPORTED_CAPABILITY -> new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+            case EXPIRED_AUTHORITY -> new PaymentException(ApplicationFailure.AUTHORITY_EXPIRED);
+            case SIGNING_UNAVAILABLE, CRYPTO_UNAVAILABLE, ARTIFACT_UNAVAILABLE -> new PaymentException(ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND);
+            default -> new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID);
         };
     }
     private void change(Tx tx,UUID id,String next) throws SQLException { update(tx.c,"UPDATE payment_intents SET state=?,version=version+1 WHERE tenant_id=? AND run_id=? AND intent_id=?",next,tx.s.tenantId(),tx.s.runId(),id); audit(tx,id,next); }
@@ -703,21 +705,21 @@ public final class JdbcPaymentStore implements PaymentStore {
     private void done(Tx tx,UUID op,String kind) throws SQLException { update(tx.c,"UPDATE outbox SET done=true WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",tx.s.tenantId(),tx.s.runId(),op,kind); }
     private boolean fence(Tx tx,UUID op,String kind,long fence) throws SQLException { var w=one(tx.c,"SELECT * FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind=?",tx.s.tenantId(),tx.s.runId(),op,kind); return w!=null&&!Boolean.TRUE.equals(w.get("done"))&&number(w,"fence")==fence; }
     private String encode(Object value) { try { return json.writeValueAsString(value); } catch(Exception e) { throw new IllegalArgumentException("Invalid synthetic request"); } }
-    private static Map<String,Object> required(Map<String,Object> r) { if(r==null) fail(404,"RESOURCE_NOT_FOUND"); return r; }
-    private static void role(Session s,String role) { if(s==null) fail(401,"UNAUTHENTICATED"); if(!s.roles().contains(role)) fail(403,"FORBIDDEN"); }
-    private static void merchant(Session s,String merchant) { if(!s.allowedMerchants().contains(merchant)||!"merchant-demo".equals(merchant)) fail(404,"RESOURCE_NOT_FOUND"); }
-    private static void grantAllowed(Session s,String grant) { if(!s.allowedGrants().contains(grant)) fail(404,"RESOURCE_NOT_FOUND"); }
-    private static void validate(int version) { if(version<1) fail(400,"INVALID_REQUEST"); }
-    private static void version(Map<String,Object> row,int expected) { if(number(row,"version")!=expected) fail(409,"VERSION_CONFLICT"); }
-    private static void state(Map<String,Object> i,String... allowed) { if(!List.of(allowed).contains(i.get("state"))) fail(409,"INVALID_STATE"); }
+    private static Map<String,Object> required(Map<String,Object> r) { if(r==null) fail(ApplicationFailure.RESOURCE_NOT_FOUND); return r; }
+    private static void role(Session s,String role) { if(s==null) fail(ApplicationFailure.UNAUTHENTICATED); if(!s.roles().contains(role)) fail(ApplicationFailure.FORBIDDEN); }
+    private static void merchant(Session s,String merchant) { if(!s.allowedMerchants().contains(merchant)||!"merchant-demo".equals(merchant)) fail(ApplicationFailure.RESOURCE_NOT_FOUND); }
+    private static void grantAllowed(Session s,String grant) { if(!s.allowedGrants().contains(grant)) fail(ApplicationFailure.RESOURCE_NOT_FOUND); }
+    private static void validate(int version) { if(version<1) fail(ApplicationFailure.INVALID_REQUEST); }
+    private static void version(Map<String,Object> row,int expected) { if(number(row,"version")!=expected) fail(ApplicationFailure.VERSION_CONFLICT); }
+    private static void state(Map<String,Object> i,String... allowed) { if(!List.of(allowed).contains(i.get("state"))) fail(ApplicationFailure.INVALID_STATE); }
     private static Map<String,Object> money(String currency,long minor) { return map("currency",currency,"minorUnits",Long.toString(minor)); }
     private static Result result(int status,Map<String,Object> body) { var out=map("contractVersion",PaymentRules.CONTRACT,"correlationId",UUID.randomUUID().toString()); out.putAll(body); return new Result(status,out,false); }
-    private static void fail(int status,String code) { throw new PaymentException(status,code); }
-    private static void unavailable() { throw new PaymentException(503,"TEMPORARILY_UNAVAILABLE","SAME_COMMAND"); }
+    private static void fail(ApplicationFailure failure) { throw new PaymentException(failure); }
+    private static void unavailable() { throw new PaymentException(ApplicationFailure.TEMPORARILY_UNAVAILABLE_SAME_COMMAND); }
     private void capabilities() {
-        if(!CapabilityOffer.localFake().equals(adapter.capabilities())) fail(422,"UNSUPPORTED_CAPABILITY");
+        if(!CapabilityOffer.localFake().equals(adapter.capabilities())) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
     }
-    private void owner(Map<String,Object> run) { if("REPLAY".equals(run.get("execution_mode"))&&!Objects.equals(run.get("replay_owner"),replayOwner))fail(403,"FORBIDDEN"); }
+    private void owner(Map<String,Object> run) { if("REPLAY".equals(run.get("execution_mode"))&&!Objects.equals(run.get("replay_owner"),replayOwner))fail(ApplicationFailure.FORBIDDEN); }
     private void activity(Tx tx,long[] values) throws SQLException {
         values[0]=number(one(tx.c,"SELECT COALESCE(max(step_sequence),0) AS value FROM audit_events WHERE tenant_id=? AND run_id=?",tx.s.tenantId(),tx.s.runId()),"value");
         values[1]=number(one(tx.c,"SELECT count(*) AS value FROM outbox WHERE tenant_id=? AND run_id=? AND done",tx.s.tenantId(),tx.s.runId()),"value");

@@ -1,5 +1,7 @@
 package io.agenticpayments.externalbinding;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.CheckoutConfigurationResolver.Resolved;
 import io.agenticpayments.application.CheckoutLifecycleTransactions.CoordinationDomain;
@@ -20,7 +22,7 @@ public final class ExternalBindingCrashProcess {
             var database=database();var graph=session(args[1],UUID.fromString(args[2]),"agent-demo");var customer=session(args[1],graph.runId(),"customer-demo");
             var identity=identity(graph);var domain=new CoordinationDomain();UUID intent=UUID.fromString(args[4]),purchase=UUID.fromString(args[5]),response=UUID.fromString(args[6]);
             try(var transport=new AcpHttpCheckoutSessions(new AcpHttpCheckoutSessions.Configuration(identity.binding(),URI.create(args[3]),true,Duration.ofMillis(250),Duration.ofSeconds(2)),SECRET.toCharArray())){
-                CheckoutConfigurationResolver resolver=id->{if(!identity.equals(id))throw new PaymentException(422,"CHECKOUT_CONFIGURATION_UNAVAILABLE");return new Resolved(identity,transport);};
+                CheckoutConfigurationResolver resolver=id->{if(!identity.equals(id))throw new PaymentException(io.agenticpayments.application.ApplicationFailure.CHECKOUT_CONFIGURATION_UNAVAILABLE);return new Resolved(identity,transport);};
                 PaymentAdapter adapter=new JdbcSimulatorAdapter(database);
                 if(args[0].equals("journal")){
                     PaymentAdapter original=adapter;
@@ -57,7 +59,7 @@ public final class ExternalBindingCrashProcess {
                         try{
                             checkout.stage(graph,purchase,key(),new CheckoutLifecycle.StageCommand(io.agenticpayments.checkout.CheckoutSessions.Operation.RETRIEVE,Integer.parseInt(args[7]),"merchant-demo","binding-config","eur",List.of()));
                             throw new IllegalStateException("Seal disappeared across JVM restart");
-                        }catch(PaymentException expected){if(expected.status()<400)throw expected;}
+                        }catch(PaymentException expected){if(HttpFailureMapper.map(expected).status()<400)throw expected;}
                     }
                     case "journal" -> {payment.runNext(customer);throw new IllegalStateException("Expected process halt did not happen");}
                     case "recover" -> {

@@ -1,5 +1,7 @@
 package io.agenticpayments.core;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.PaymentCommandTransactions.*;
@@ -46,7 +48,7 @@ class ExecutionCommandIntegrationTest {
         String key=key();var fault=new ExecutionCommandFaultDataSource(f.ds(),f.session(),f.intent(),atExecution,"XX000");
         PaymentService failing=PaymentServices.local(fault);
         PaymentException error=assertThrows(PaymentException.class,()->failing.execute(f.session(),f.intent(),key,f.command()));
-        assertEquals(503,error.status());assertEquals("TEMPORARILY_UNAVAILABLE",error.code());assertEquals("SAME_COMMAND",error.retry());
+        assertEquals(503,HttpFailureMapper.map(error).status());assertEquals("TEMPORARILY_UNAVAILABLE",error.code());assertEquals("SAME_COMMAND",HttpFailureMapper.map(error).retry());
         assertNotNull(fault.witness);assertEquals(1,fault.witness.operations());assertEquals(1,fault.witness.work());assertEquals(commands,fault.witness.commands());
         assertEquals(audit+1,fault.witness.audit());assertEquals("PREPARING",fault.witness.state());assertEquals(version(f.approved())+1,fault.witness.version());
         assertEquals(((Number)before.get("next_work_sequence")).longValue()+1,fault.witness.workSequence());assertEquals(((Number)before.get("step_sequence")).longValue()+1,fault.witness.stepSequence());
@@ -76,7 +78,7 @@ class ExecutionCommandIntegrationTest {
         assertEquals(PaymentRules.sha256(historicRequest),stored.get("request_digest"));assertEquals(historicResponse,stored.get("response_body"));
         var restarted=PaymentServices.local(f.ds());Result replay=restarted.execute(f.session(),f.intent(),key,f.command());assertTrue(replay.replayed());assertEquals(json.readTree(historicResponse),json.valueToTree(replay.body()));
         Session denied=new Session(f.session().tenantId(),f.session().runId(),f.session().principalId(),f.session().roles(),Set.of(),f.session().allowedGrants());
-        assertEquals(404,assertThrows(PaymentException.class,()->restarted.execute(denied,f.intent(),key,f.command())).status());
+        assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->restarted.execute(denied,f.intent(),key,f.command()))).status());
         assertEquals("IDEMPOTENCY_CONFLICT",assertThrows(PaymentException.class,()->restarted.execute(f.session(),f.intent(),key,new ExecuteCommand(4,f.command().attemptId()))).code());
         f.service().revoke(f.session(),"fixture-grant-1",key(),new RevokeCommand("user-request"));
         assertTrue(restarted.execute(f.session(),f.intent(),key,f.command()).replayed(),"Accepted replay does not reapply current state/grant policy");
@@ -140,7 +142,7 @@ class ExecutionCommandIntegrationTest {
         try(var connection=f.ds().getConnection();var update=connection.prepareStatement("UPDATE simulation_runs SET execution_mode='REPLAY',replay_owner=? WHERE tenant_id=? AND run_id=?")) {
             update.setObject(1,owner);update.setString(2,f.session().tenantId());update.setObject(3,f.session().runId());assertEquals(1,update.executeUpdate());
         }
-        assertEquals(403,assertThrows(PaymentException.class,()->f.execute(key)).status());
+        assertEquals(403,HttpFailureMapper.map(assertThrows(PaymentException.class,()->f.execute(key))).status());
         var owned=new PaymentService(new JdbcPaymentStore(f.ds(),new JdbcSimulatorAdapter(f.ds()),owner));assertTrue(owned.execute(f.session(),f.intent(),key,f.command()).replayed());
         assertEquals(1,count(f,"financial_operations"));held(f);
     }
@@ -161,7 +163,7 @@ class ExecutionCommandIntegrationTest {
         Result quote=service.quote(session,intent,key(),new QuoteCommand(version(created),"cart-1250-eur",List.of(new Tender("simulator","synthetic-card","fixture-credential-1"))));
         Fixture f=new Fixture(ds,session,service,service.approve(session,intent,key(),approval(quote)));String key=key();
         long commands=count(f,"commands"),audit=count(f,"audit_events"),artifactsBefore=count(f,"native_artifacts"),replay=count(f,"native_replay_identities");var before=sequences(f);
-        fail.set(true);PaymentException error=assertThrows(PaymentException.class,()->f.execute(key));assertEquals(503,error.status());assertEquals("SAME_COMMAND",error.retry());
+        fail.set(true);PaymentException error=assertThrows(PaymentException.class,()->f.execute(key));assertEquals(503,HttpFailureMapper.map(error).status());assertEquals("SAME_COMMAND",HttpFailureMapper.map(error).retry());
         assertEquals("APPROVED",service.status(session,intent).body().get("state"));assertEquals(version(f.approved()),((Number)service.status(session,intent).body().get("version")).intValue());held(f);
         assertEquals(0,count(f,"financial_operations"));assertEquals(0,count(f,"outbox"));assertEquals(commands,count(f,"commands"));assertEquals(audit,count(f,"audit_events"));assertEquals(before,sequences(f));
         assertEquals(artifactsBefore,count(f,"native_artifacts"));assertEquals(replay,count(f,"native_replay_identities"));
@@ -187,7 +189,7 @@ class ExecutionCommandIntegrationTest {
                 assertThrows(IllegalArgumentException.class,()->tx.replay(new AcceptedCommand("fabricated-command-digest")));
                 try{assertInstanceOf(IllegalStateException.class,pool.submit(()->{try{tx.now();return null;}catch(RuntimeException error){return error;}}).get(5,TimeUnit.SECONDS));}finally{pool.shutdownNow();}
                 assertThrows(IllegalStateException.class,()->transactions.run(f.session(),nested->new Result(200,Map.of(),false)));
-                if(fail)throw new PaymentException(409,"INVALID_STATE");return new Result(200,Map.of(),false);
+                if(fail)throw new PaymentException(io.agenticpayments.application.ApplicationFailure.INVALID_STATE);return new Result(200,Map.of(),false);
             };
             if(fail)assertThrows(PaymentException.class,()->transactions.run(f.session(),work));else transactions.run(f.session(),work);
             var tx=escaped.get();assertThrows(IllegalStateException.class,tx::now);assertThrows(IllegalStateException.class,()->tx.intent(f.intent()));

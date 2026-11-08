@@ -1,5 +1,7 @@
 package io.agenticpayments.application;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.NativeApplicationCoordinator.*;
 import io.agenticpayments.composition.*;
 import io.agenticpayments.crypto.JcaSignatureProvider;
@@ -183,6 +185,6 @@ class NativeApplicationCoordinatorTest {
     }
     private static void assertInvalid(org.junit.jupiter.api.function.Executable action) {
         PaymentException error=assertThrows(PaymentException.class,action);
-        assertEquals(422,error.status()); assertEquals("AUTHORITY_BINDING_INVALID",error.code());
+        assertEquals(422,HttpFailureMapper.map(error).status()); assertEquals("AUTHORITY_BINDING_INVALID",error.code());
     }
 }

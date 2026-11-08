@@ -1,5 +1,7 @@
 package io.agenticpayments.core;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.PaymentService.*;
 import io.agenticpayments.infrastructure.*;
@@ -83,7 +85,7 @@ class PaymentCoreIntegrationTest {
         UUID intent=ready("challenge-then-success"); service.runNext(session); assertEquals("WAITING_ACTION",state(intent));
         UUID action=id(service.status(session,intent).body().get("actionId"));
         var wrong=new Session(session.tenantId(),session.runId(),"other-user",ROLES,session.allowedMerchants(),session.allowedGrants());
-        assertEquals(404,assertThrows(PaymentException.class,()->service.action(wrong,action)).status());
+        assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->service.action(wrong,action))).status());
         String key=key(); var result=service.completeAction(session,action,key,new CompleteActionCommand(1,"approve")); assertEquals("READY",result.body().get("intentState"));
         assertTrue(service.completeAction(session,action,key,new CompleteActionCommand(1,"approve")).replayed());
         assertEquals("ACTION_ALREADY_CONSUMED",assertThrows(PaymentException.class,()->service.completeAction(session,action,key(),new CompleteActionCommand(2,"approve"))).code());
@@ -115,9 +117,9 @@ class PaymentCoreIntegrationTest {
     @Test void differentRunOrTenantCannotReadObjectsOrReplayKeys() {
         var c=created("success");UUID intent=id(c.body().get("intentId"));
         var other=new Session(session.tenantId(),UUID.randomUUID(),session.principalId(),ROLES,session.allowedMerchants(),session.allowedGrants()); service.seedRun(other,CLOCK,1250);
-        assertEquals(404,assertThrows(PaymentException.class,()->service.status(other,intent)).status());
+        assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->service.status(other,intent))).status());
         var tenant=new Session("other-tenant",session.runId(),session.principalId(),ROLES,session.allowedMerchants(),session.allowedGrants());service.seedRun(tenant,CLOCK,1250);
-        assertEquals(404,assertThrows(PaymentException.class,()->service.status(tenant,intent)).status());
+        assertEquals(404,HttpFailureMapper.map(assertThrows(PaymentException.class,()->service.status(tenant,intent))).status());
     }
     @Test void splitTenderAndUnknownCapabilitiesRefuseBeforeReservation() throws Exception {
         assertEquals("UNSUPPORTED_CAPABILITY",assertThrows(PaymentException.class,()->service.create(session,key(),new CreateCommand("merchant-demo","success",PaymentRules.PROFILE,List.of("split-tender")))).code());

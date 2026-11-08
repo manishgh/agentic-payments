@@ -1,5 +1,7 @@
 package io.agenticpayments.core;
 
+import io.agenticpayments.http.HttpFailureMapper;
+
 import io.agenticpayments.ap2.Ap2Crypto;
 import io.agenticpayments.application.*;
 import io.agenticpayments.application.PaymentService.*;
@@ -55,7 +57,7 @@ class CryptoAvailabilityIntegrationTest {
         Map<String,Object> dispatchBefore=row(f.ds(),"SELECT fence,done FROM outbox WHERE tenant_id=? AND run_id=? AND operation_id=? AND kind='DISPATCH'",f.session().tenantId(),f.session().runId(),f.operation());
         f.provider().unavailableType.set(artifactType);
         PaymentException failure=assertThrows(PaymentException.class,()->f.service().runNext(f.session()));
-        assertEquals(503,failure.status());assertEquals("TEMPORARILY_UNAVAILABLE",failure.code());assertEquals("SAME_COMMAND",failure.retry());assertNull(failure.getCause());
+        assertEquals(503,HttpFailureMapper.map(failure).status());assertEquals("TEMPORARILY_UNAVAILABLE",failure.code());assertEquals("SAME_COMMAND",HttpFailureMapper.map(failure).retry());assertNull(failure.getCause());
         assertTrue(f.provider().unavailableCalls.get()>0);
         Result uncertain=f.service().status(f.session(),f.intent());
         assertEquals("READY",uncertain.body().get("state"));assertEquals("HELD",uncertain.body().get("exposureState"));assertEquals(f.operation(),uncertain.body().get("operationId"));

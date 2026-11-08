@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted design for generic Java DI, logging, metrics and transport-independent failures, preserving payment/checkout/AP2/provider behavior. Implementation remains outstanding; no new dependency is selected.
+Accepted and implemented for the bounded local Java reference: explicit constructor DI, ordered service decorators, generic logging/metrics, isolated bounded providers and transport-independent typed failures. No new dependency is selected. See the [integration and operation guide](../service-composition.md) for public APIs, host customization, privacy and delivery limits. Remote exporters, tracing and production operation remain deferred; this status does not establish certification or real-provider support.
 
 ## Composition and lifetimes
 

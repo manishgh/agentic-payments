@@ -16,7 +16,7 @@ public record ExternalCheckoutRegistration(Scope scope, String sourcePrincipalId
         Objects.requireNonNull(resolver); Objects.requireNonNull(coordinationDomain); guarantees=Set.copyOf(guarantees);
         if(!scope.tenantId().equals(configuration.binding().tenantId())
                 ||!sourcePrincipalId.equals(configuration.binding().principalId())||!guarantees.containsAll(REQUIRED_GUARANTEES))
-            throw new PaymentException(422,"UNSUPPORTED_CAPABILITY");
+            throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
     }
     @Override public String toString() { return "ExternalCheckoutRegistration[protected]"; }
 }

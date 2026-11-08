@@ -138,7 +138,7 @@ final class ExternalBindingTestSupport {
             peer=new Peer();identity=identity(graph);
             transport=new AcpHttpCheckoutSessions(new AcpHttpCheckoutSessions.Configuration(identity.binding(),peer.origin(),true,Duration.ofMillis(250),Duration.ofSeconds(2)),SECRET.toCharArray());
             transactions=new JdbcCheckoutLifecycleTransactions(database,domain);transactions.enroll(graph,identity);
-            resolver=requested->{if(!identity.equals(requested))throw new PaymentException(422,"CHECKOUT_CONFIGURATION_UNAVAILABLE");return new Resolved(identity,transport);};
+            resolver=requested->{if(!identity.equals(requested))throw new PaymentException(io.agenticpayments.application.ApplicationFailure.CHECKOUT_CONFIGURATION_UNAVAILABLE);return new Resolved(identity,transport);};
             payment=service(database);
         }
         PaymentService service(DataSource selected) {return payment(selected,new JdbcSimulatorAdapter(database));}
