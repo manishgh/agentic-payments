@@ -8,6 +8,7 @@ import io.agenticpayments.application.ApplicationException;
 import io.agenticpayments.application.NativeApplicationCoordinator;
 import io.agenticpayments.application.NativeApplicationCoordinator.*;
 import io.agenticpayments.application.ExecutePayment;
+import io.agenticpayments.application.ApprovePayment;
 import io.agenticpayments.application.PaymentCommandTransactions;
 import io.agenticpayments.application.PaymentCommandTransactions.*;
 import io.agenticpayments.application.PaymentStore;
@@ -38,6 +39,7 @@ public final class JdbcPaymentStore implements PaymentStore {
     private final ExternalCheckoutRegistration externalRegistration;
     private final JdbcObservedCheckoutSource externalSource=new JdbcObservedCheckoutSource();
     private final ExecutePayment execution;
+    private final ApprovePayment approval;
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
     @FunctionalInterface private interface Work<T> { T run(Tx tx) throws Exception; }
@@ -60,9 +62,10 @@ public final class JdbcPaymentStore implements PaymentStore {
         this.externalComposition=externalComposition; this.externalRegistration=externalRegistration;
         this.externalCoordinator=externalComposition==null?null:new NativeApplicationCoordinator(externalComposition.checkout(),externalComposition.issuer(),externalComposition.verifier(),externalComposition.artifacts(),EXTERNAL_PROFILE);
         if(externalComposition!=null) externalCapabilities();
-        this.execution=new ExecutePayment(new PaymentCommandTransactions() {
+        var transactions=new PaymentCommandTransactions() {
             private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
             public String requestDigest(ExecuteCommand command){return PaymentRules.sha256(encode(command));}
+            public String approvalRequestDigest(ApproveCommand command){return PaymentRules.sha256(encode(command));}
             public Result run(Session session,PaymentCommandTransactions.Work work){
                 if(entered.get())throw new IllegalStateException("Nested payment command transaction");
                 entered.set(true);
@@ -72,7 +75,18 @@ public final class JdbcPaymentStore implements PaymentStore {
                     });
                 } finally{entered.remove();}
             }
-        },adapter::capabilities);
+            public Result runApproval(Session session,PaymentCommandTransactions.ApprovalWork work){
+                if(entered.get())throw new IllegalStateException("Nested payment command transaction");
+                entered.set(true);
+                try{return transaction(session,tx->{
+                        var scope=new ApprovalCommandTransaction(tx);
+                        try{return work.run(scope);}finally{scope.active=false;}
+                    });
+                } finally{entered.remove();}
+            }
+        };
+        this.execution=new ExecutePayment(transactions,adapter::capabilities);
+        this.approval=new ApprovePayment(transactions,adapter::capabilities);
     }
 
     public void seedRun(Session s,Instant clock,long budget) {
@@ -172,27 +186,83 @@ public final class JdbcPaymentStore implements PaymentStore {
         });
     }
     public Result approve(Session s,UUID id,String key,ApproveCommand cmd) {
-        role(s,"approval:write"); validate(cmd==null?0:cmd.expectedVersion()); grantAllowed(s,cmd.authorityReference());
-        capabilities();
-        return command(s,key,"POST /intents/{id}/approve",id.toString(),cmd,tx->{
-            var i=intent(tx,id); version(i,cmd.expectedVersion()); state(i,"QUOTED"); var q=quote(tx,i); var g=grant(tx,cmd.authorityReference());
-            authority(tx,g,s.principalId(),text(i,"merchant_id"));
-            if(!tx.now.isBefore(instant(q,"expires_at"))) fail(ApplicationFailure.AUTHORITY_EXPIRED);
-            if(cmd.checkoutRevision()!=number(q,"revision")||!Objects.equals(cmd.checkoutDigest(),q.get("digest"))) fail(ApplicationFailure.CHECKOUT_CHANGED);
-            var b=budget(tx,text(g,"budget_id")); long total=number(q,"minor_units");
-            if(!Objects.equals(b.get("currency"),q.get("currency"))) fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
-            if(Boolean.TRUE.equals(b.get("frozen"))||number(b,"held")+number(b,"consumed")+total>number(b,"limit_minor")) fail(ApplicationFailure.BUDGET_EXCEEDED);
-            UUID attempt=UUID.randomUUID();
-            update(tx.c,"INSERT INTO payment_attempts VALUES(?,?,?,?,?,?,?,?,'simulator-core')",s.tenantId(),s.runId(),attempt,id,cmd.checkoutRevision(),cmd.authorityReference(),number(g,"version"),s.principalId());
-            if(nativeProfile(i)) approveNative(tx,i,q,g,attempt);
-            update(tx.c,"INSERT INTO reservations VALUES(?,?,?,?,?,'HELD')",s.tenantId(),s.runId(),attempt,g.get("budget_id"),total);
-            update(tx.c,"UPDATE budgets SET held=held+? WHERE tenant_id=? AND run_id=? AND budget_id=?",total,s.tenantId(),s.runId(),g.get("budget_id"));
-            change(tx,id,"APPROVED");
-            return result(200,map("intentId",id,"state","APPROVED","version",cmd.expectedVersion()+1,"attemptId",attempt,"executionOwner","simulator-core","authorityProfile",nativeProfile(i)?"ap2-v0.2-direct-tap-synthetic-0.1":"local-fake","authorityVersion",number(g,"version"),"reserved",money(text(q,"currency"),total)));
-        });
+        return approval.approve(s,id,key,cmd);
     }
     public Result execute(Session s,UUID id,String key,ExecuteCommand cmd) {
         return execution.execute(s,id,key,cmd);
+    }
+
+    /** Approval row mapping and phased atomic writes; policy lives in ApprovePayment. */
+    private final class ApprovalCommandTransaction implements PaymentCommandTransactions.ApprovalTransaction {
+        private final Tx tx;
+        private final Thread thread=Thread.currentThread();
+        private boolean active=true,nativeVerified,finalized;
+        private Map<String,Object> intentRow,checkoutRow,grantRow,acceptedRow;
+        private ApprovalIntent intentValue;
+        private ApprovalCheckout checkoutValue;
+        private ApprovalGrant grantValue;
+        private ApprovalBudget budgetValue;
+        private AcceptedCommand acceptedValue;
+        private ApprovalWrite stagedWrite;
+        ApprovalCommandTransaction(Tx tx){this.tx=tx;}
+        private void active(){if(!active||thread!=Thread.currentThread())throw new IllegalStateException("Payment transaction is no longer active");}
+        private void reading(){active();if(stagedWrite!=null)throw new IllegalStateException("Approval facts are already staged");}
+        public Instant now(){active();return tx.now;}
+        public ApprovalIntent intent(UUID id) throws SQLException {
+            reading();intentRow=intentUnchecked(tx,id);
+            checkoutRow=null;checkoutValue=null;grantRow=null;grantValue=null;budgetValue=null;
+            return intentValue=new ApprovalIntent(id,text(intentRow,"merchant_id"),text(intentRow,"profile"),text(intentRow,"state"),number(intentRow,"version"),(int)number(intentRow,"checkout_revision"));
+        }
+        public ApprovalCheckout checkout(ApprovalIntent intent) throws SQLException {
+            reading();if(intent!=intentValue)throw new IllegalArgumentException("Unbound payment transaction facts");
+            checkoutRow=quote(tx,intentRow);
+            return checkoutValue=new ApprovalCheckout((int)number(checkoutRow,"revision"),text(checkoutRow,"digest"),text(checkoutRow,"currency"),number(checkoutRow,"minor_units"),instant(checkoutRow,"expires_at"));
+        }
+        public ApprovalGrant grant(String id) throws SQLException {
+            reading();grantRow=JdbcPaymentStore.this.grant(tx,id);budgetValue=null;
+            return grantValue=new ApprovalGrant(id,text(grantRow,"subject_id"),text(grantRow,"merchant_id"),text(grantRow,"state"),number(grantRow,"version"),instant(grantRow,"valid_from"),instant(grantRow,"expires_at"),text(grantRow,"budget_id"));
+        }
+        public ApprovalBudget budget(String id) throws SQLException {
+            reading();var row=JdbcPaymentStore.this.budget(tx,id);
+            return budgetValue=new ApprovalBudget(id,text(row,"currency"),Boolean.TRUE.equals(row.get("frozen")),number(row,"held"),number(row,"consumed"),number(row,"limit_minor"));
+        }
+        public Optional<AcceptedCommand> accepted(CommandIdentity id) throws Exception {
+            active();acceptedRow=one(tx.c,"SELECT * FROM commands WHERE tenant_id=? AND run_id=? AND principal_id=? AND route=? AND resource_id=? AND idempotency_key=?",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),id.route(),id.resource(),id.key());
+            acceptedValue=acceptedRow==null?null:new AcceptedCommand(text(acceptedRow,"request_digest"));
+            return Optional.ofNullable(acceptedValue);
+        }
+        public Result replay(AcceptedCommand accepted) throws Exception {
+            active();if(accepted==null||accepted!=acceptedValue)throw new IllegalArgumentException("Unbound accepted command");
+            return new Result((int)number(acceptedRow,"response_status"),json.readValue(text(acceptedRow,"response_body"),new TypeReference<Map<String,Object>>(){}),false);
+        }
+        public void stageAttempt(ApprovalWrite write) throws SQLException {
+            active();
+            if(write==null||stagedWrite!=null||intentValue==null||checkoutValue==null||grantValue==null||budgetValue==null
+                    ||!write.intentId().equals(intentValue.id())||write.expectedVersion()!=intentValue.version()
+                    ||write.checkoutRevision()!=checkoutValue.revision()||write.checkoutRevision()!=intentValue.checkoutRevision()
+                    ||!write.grantId().equals(grantValue.id())||write.grantVersion()!=grantValue.version()
+                    ||!write.subjectId().equals(tx.s.principalId())||!write.subjectId().equals(grantValue.subjectId())
+                    ||!write.budgetId().equals(grantValue.budgetId())||!write.budgetId().equals(budgetValue.id())
+                    ||write.minorUnits()!=checkoutValue.minorUnits())throw new IllegalArgumentException("Unbound payment approval");
+            update(tx.c,"INSERT INTO payment_attempts VALUES(?,?,?,?,?,?,?,?,'simulator-core')",tx.s.tenantId(),tx.s.runId(),write.attemptId(),write.intentId(),write.checkoutRevision(),write.grantId(),write.grantVersion(),write.subjectId());
+            stagedWrite=write;
+        }
+        public void issueAndVerifyNative(ApprovalIntent intent,ApprovalCheckout checkout,ApprovalGrant grant,ApprovalWrite write) throws Exception {
+            active();
+            if(write==null||write!=stagedWrite||intent!=intentValue||checkout!=checkoutValue||grant!=grantValue
+                    ||nativeVerified||finalized||!nativeProfile(intentRow))throw new IllegalArgumentException("Unbound native approval");
+            approveNative(tx,intentRow,checkoutRow,grantRow,write.attemptId());nativeVerified=true;
+        }
+        public void reserveAndApprove(ApprovalWrite write) throws SQLException {
+            active();
+            if(write==null||write!=stagedWrite||finalized||(nativeProfile(intentRow)&&!nativeVerified))throw new IllegalArgumentException("Unbound payment reservation");
+            update(tx.c,"INSERT INTO reservations VALUES(?,?,?,?,?,'HELD')",tx.s.tenantId(),tx.s.runId(),write.attemptId(),write.budgetId(),write.minorUnits());
+            update(tx.c,"UPDATE budgets SET held=held+? WHERE tenant_id=? AND run_id=? AND budget_id=?",write.minorUnits(),tx.s.tenantId(),tx.s.runId(),write.budgetId());
+            change(tx,write.intentId(),"APPROVED");finalized=true;
+        }
+        public void accept(CommandIdentity id,String requestDigest,Result result) throws SQLException {
+            active();update(tx.c,"INSERT INTO commands VALUES(?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),id.route(),id.resource(),id.key(),requestDigest,result.status(),encode(result.body()));
+        }
     }
 
     /** Infrastructure-only row mapping and indivisible writes; use-case decisions live in ExecutePayment. */
