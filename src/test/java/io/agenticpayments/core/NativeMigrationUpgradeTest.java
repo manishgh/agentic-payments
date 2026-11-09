@@ -100,7 +100,7 @@ class NativeMigrationUpgradeTest {
             DatabaseMigrator.migrate(isolated);
             DatabaseMigrator.migrate(isolated); // Reopening an upgraded store must be idempotent.
 
-            Map<Integer,String> after=migrationHistory(isolated);assertEquals(15,after.size());
+            Map<Integer,String> after=migrationHistory(isolated);assertEquals(16,after.size());
             for(var original:originalChecksums.entrySet()) assertEquals(original.getValue(),after.get(original.getKey()));
             assertEquals(checksum(resource(NATIVE)),after.get(7));
             assertEquals(checksum(resource("/db/V008__durable_checkout_lifecycle.sql")),after.get(8));

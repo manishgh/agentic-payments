@@ -63,6 +63,7 @@ def source_identity(root: Path):
         "docs/adr/0020-provider-journal-admission.md",
         "docs/adr/0021-provider-authentication-events.md",
         "docs/adr/0022-automatic-provider-event-delivery.md",
+        "docs/adr/0023-historical-event-routing.md",
     ):
         entries[name] = sha(safe_path(root, name).read_bytes())
     ordered = sorted(entries.items())

@@ -164,6 +164,11 @@ public final class JdbcPaymentStore implements PaymentStore {
     public ProviderEventOperations providerEvents() {
         if(providerEvents==null)throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);return providerEvents;
     }
+    /** Dispute-only projection remains available even when every provider signing configuration is retired. */
+    public io.agenticpayments.application.ProviderEventDeliveryHandler quarantineEventDelivery(Session runner,
+            io.agenticpayments.application.ProviderEventDisputeVerifier disputes) {
+        return new io.agenticpayments.application.QuarantineProviderEventDelivery(runner,workerTransactions,disputes);
+    }
     public record EventDelivery(io.agenticpayments.application.ProviderEventAcceptance acceptance,
                                 io.agenticpayments.application.ProviderEventDeliveryHandler handler) {}
     /** Automatic delivery is explicit; all supplied responsibilities can be adapted or decorated. */
@@ -726,7 +731,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         }
         public void quarantineProviderOperation(io.agenticpayments.sdk.execution.v1.ExecutionOperation expected) throws Exception {
             active();if(written)throw new IllegalStateException("Worker phase already written");
-            if(!providerInteractions||expected==null||!tx.s.roles().contains("runner:write"))fail(ApplicationFailure.FORBIDDEN);
+            if(expected==null||!tx.s.roles().contains("runner:write"))fail(ApplicationFailure.FORBIDDEN);
             var identity=expected.identity();
             if(!tx.s.tenantId().equals(identity.tenantId())||!tx.s.runId().toString().equals(identity.runId())
                     ||!tx.s.allowedMerchants().contains(identity.merchantId()))fail(ApplicationFailure.FORBIDDEN);
@@ -743,7 +748,7 @@ public final class JdbcPaymentStore implements PaymentStore {
             if(!SyntheticProviderRegistration.INTERACTIONS_PROFILE.equals(text(route,"route"))||operation.get("admitted_sequence")==null)fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             ProviderExecutionBinding binding;
             try{binding=providerCodec.decode(text(route,"binding_json"));}catch(RuntimeException invalid){throw new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID);}
-            validateProviderBinding(core,text(quote,"credential_reference"),binding);
+            validateProviderBinding(core,text(quote,"credential_reference"),binding,SyntheticProviderRegistration.INTERACTIONS_PROFILE);
             if(!expected.equals(binding.operation()))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
             var prior=one(tx.c,"SELECT operation_id FROM disputed_exposure WHERE tenant_id=? AND run_id=? AND operation_id=?",tx.s.tenantId(),tx.s.runId(),operationId);
             freeze(tx,attempt,operationId,core.money().minorUnits(),"provider-evidence-conflict");
@@ -849,8 +854,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         return new ChargeOperation(new OperationIdentity(new ExecutionScope(tx.s.tenantId(),tx.s.runId(),text(i,"merchant_id")),(UUID)i.get("intent_id"),(UUID)a.get("attempt_id"),(UUID)o.get("operation_id"),(UUID)o.get("adapter_key"),text(o,"request_digest")),new Money(text(q,"currency"),number(q,"minor_units")),text(i,"scenario_id"));
     }
     private void validateProviderBinding(ChargeOperation core,String credential,ProviderExecutionBinding binding) {
+        validateProviderBinding(core,credential,binding,providerInteractions?SyntheticProviderRegistration.INTERACTIONS_PROFILE:SyntheticProviderRegistration.PROFILE);
+    }
+    private void validateProviderBinding(ChargeOperation core,String credential,ProviderExecutionBinding binding,String profile) {
         if(binding==null||!binding.coreOperation().equals(core)||!credential.equals(binding.credentialReference())
-                ||!(providerInteractions?SyntheticProviderRegistration.INTERACTIONS_PROFILE:SyntheticProviderRegistration.PROFILE).equals(binding.profile())||!SyntheticProviderRegistration.MAPPING.equals(binding.mappingPolicy())
+                ||!profile.equals(binding.profile())||!SyntheticProviderRegistration.MAPPING.equals(binding.mappingPolicy())
                 ||!"synthetic-card".equals(binding.operation().selection().combination().methodId())
                 ||!"synthetic-reference".equals(binding.operation().selection().combination().credentialFormatId()))fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
     }

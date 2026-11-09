@@ -44,7 +44,7 @@ class ProviderInteractionsMigrationUpgradeTest {
             DatabaseMigrator.migrate(isolated);DatabaseMigrator.migrate(isolated);
             PaymentServices.providerJournal(isolated,registration).reconcile(session,intent,false);
             var after=snapshot(isolated,schema);for(var table:before.entrySet())assertEquals(table.getValue(),after.get(table.getKey()),table.getKey());
-            assertEquals(15,scalar(isolated,"SELECT count(*) FROM schema_migrations"));
+            assertEquals(16,scalar(isolated,"SELECT count(*) FROM schema_migrations"));
             for(var migration:prefix.entrySet())assertEquals(migration.getValue(),row(isolated,"SELECT digest FROM schema_migrations WHERE version=?",migration.getKey()).get("digest"));
             for(String name:List.of("V012__provider_authentication.sql","V013__provider_events.sql","V014__provider_interactions.sql")) {
                 int version=Integer.parseInt(name.substring(1,4));assertEquals(io.agenticpayments.domain.PaymentRules.sha256(resource(name)),row(isolated,"SELECT digest FROM schema_migrations WHERE version=?",version).get("digest"));

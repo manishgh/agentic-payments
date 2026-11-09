@@ -100,8 +100,46 @@ host.start(); // migrates, seeds idempotently, starts delivery, HTTP and payment
 
 Use a dedicated webhook token rather than graph/UI credentials. Registration must be the opt-in `SyntheticProviderRegistration.interactions(...)`; the event configuration must match its scope, full binding and offer. The runnable CLI remains unchanged unless a host explicitly supplies this composition. See the executable `ProviderWebhookDeliveryIntegrationTest` for a complete synthetic setup and signed request.
 
-The reference factory serves **one configured provider/policy per tenant/merchant/run**. Multiple workers may share that same configuration. It does not implement a historical-policy or multi-provider registry: differently configured consumers must not compete in the same queue scope. Such a registry can implement/decorate the delivery handler using trusted retained operation/configuration values, without changing workflow callers. Missing original policy never selects a newer policy automatically.
+The reference factory serves **one configured provider/policy per tenant/merchant/run**. Multiple workers may share that same configuration. This compatibility factory remains restricted to that scope. Use the routed composition below to share a queue across providers/accounts and historical policies; competing one-provider workers must not consume that shared queue. Missing original policy never selects a newer policy automatically.
 
 The scheduled runtime defaults to a 200 ms delay between bounded steps and at most two seconds of shutdown waiting. It stops new polling and interrupts in-flight work; an uncooperative injected handler can outlive that wait, and durable leases permit later recovery. Existing pluggable telemetry emits fixed invocation categories; it does not substitute for queue status or expose payloads. LangGraph need not be running for delivery, and its checkpoints do not acknowledge a provider event.
 
 Validation includes raw HTTP acceptance boundaries, concurrent/fenced queue claims, final-attempt crash recovery, child-process restart checkpoints, composed financial application/quarantine, and bounded host lifecycle tests. These establish the named synthetic behavior only. See [ADR 0022](adr/0022-automatic-provider-event-delivery.md).
+
+## Multi-provider and historical routing
+
+`provider-event-delivery-routes-1` resolves EVENT work by **tenant + merchant + run + complete execution binding + exact event policy/key tuple**. This includes provider, account, region, configuration reference/version, credential reference/version and execution owner. `RouteProviderEventDelivery` verifies runner scope before resolution and compares the returned route with the requested route before calling its handler. A replacement resolver can consult trusted configuration services; callers never depend on a particular secret store or registry backend.
+
+`ImmutableProviderEventDeliveryRoutes` copies its trusted registrations, rejects duplicate owners and resolves only exact matches. Register complete historical handlers, including their original transaction registration, offer and verifier. A current handler with an old signing key is insufficient. All workers sharing a tenant/merchant/run queue must receive coherent catalogs; separate incomplete provider catalogs may otherwise consume each other's retry budgets.
+
+`provider-event-configuration-store-1` independently defines atomic immutable `register` and read-only `verify`. The JDBC adapter uses V016 to retain the complete route identity and a nonsecret descriptor digest. The synthetic descriptor commits to the offer, profile, mapping/scenario policies and original registration timestamps. Re-registering the same values is idempotent; changing a descriptor under the same identity fails with `CONFIGURATION_CHANGED`. Use a new explicit configuration/policy version for new semantics. Acceptance and delivery verify the commitment before authentication/processing. No key bytes, signed bodies or executable code are stored in this table.
+
+The host reconstructs historical authenticators and handlers from trusted configuration on restart. It must preserve key-reference/version meanings; this contract cannot detect changed opaque key material or altered custom adapter code. A registered digest does not supply an authenticator, and registration does not prove vendor authenticity. Missing routes or commitments and descriptor mismatch fail closed with bounded `CONFIGURATION_UNAVAILABLE` delivery retries; healthy routes remain independently eligible. Restore the exact missing configuration before its existing attempt budget is exhausted. There is no automatic reset or redrive after `DEAD`.
+
+```java
+// Migrate first; constructors below only compose services. Keep all original values stable.
+DatabaseMigrator.migrate(database);
+var oldRoute = PaymentServices.providerEventDeliveryRoute(database, oldRegistration,
+    oldEventConfiguration, oldAuthenticator, runner);
+var currentRoute = PaymentServices.providerEventDeliveryRoute(database, currentRegistration,
+    currentEventConfiguration, currentAuthenticator, runner);
+oldRoute.registerConfiguration();
+currentRoute.registerConfiguration();
+
+// One keyless quarantine owner per event-ID namespace, independent of signing history.
+var namespace = new ProviderEventDeliveryRoutes.Namespace(tenant, merchant,
+    runner.runId().toString(), providerId, accountReference);
+var quarantine = PaymentServices.providerEventQuarantine(database, runner, namespace);
+var routes = new ImmutableProviderEventDeliveryRoutes(
+    List.of(oldRoute.route(), currentRoute.route()), List.of(quarantine));
+ProviderEventDeliveryWork work = PaymentServices.providerEventDeliveryWorker(
+    database, runner, merchant, routes);
+var runtime = new ScheduledProviderEventDelivery(work, observations);
+runtime.start();
+// Feed each explicitly configured acceptance port from its trusted ingress.
+// oldRoute.acceptance() and currentRoute.acceptance() enqueue to the same durable scope.
+```
+
+Add a separate quarantine registration for each provider/account namespace. Its keyless reader verifies protected authenticated dispute provenance and the core rechecks the original admitted route. All EVENT configurations may be removed from the catalog while quarantine processing remains available. A caller-created quarantine value still cannot authorize a freeze.
+
+The existing webhook remains explicitly bound to its injected acceptance configuration. Incoming event bytes do not choose a provider, historical key or algorithm. Multi-provider *financial admission selection* and production ingress credential routing are separate capabilities. Generic distinct-provider PostgreSQL inbox/queue tests prove dispatch isolation; synthetic financial tests prove mixed accounts, historical binding revisions, independent policy/key rotation, concurrency and JVM recovery without another submission. V016 migration tests preserve populated V015 history without enrollment or backfill. See [ADR 0023](adr/0023-historical-event-routing.md).

@@ -35,7 +35,7 @@ class ProviderEventDeliveryMigrationUpgradeTest {
             DatabaseMigrator.migrate(isolated);DatabaseMigrator.migrate(isolated);
             assertEquals(rawBefore,row(isolated,"SELECT row_to_json(t)::text AS value FROM provider_event_envelopes t WHERE envelope_ref=?",envelope));
             assertEquals(verifiedBefore,row(isolated,"SELECT row_to_json(t)::text AS value FROM provider_verified_events t WHERE verified_ref=?",verified.verifiedEventRef()));
-            assertEquals(0,count(isolated,"SELECT count(*) FROM provider_event_delivery"));assertEquals(15,count(isolated,"SELECT count(*) FROM schema_migrations"));
+            assertEquals(0,count(isolated,"SELECT count(*) FROM provider_event_delivery"));assertEquals(16,count(isolated,"SELECT count(*) FROM schema_migrations"));
             for(int n=0;n<14;n++)assertEquals(migrationsBefore.get(n),row(isolated,"SELECT digest FROM schema_migrations WHERE version=?",n+1).get("digest"));
             assertEquals(ExecutionEvidence.State.PENDING,inbox.normalize(operation,verified).state());
         }finally{if(created)try(var c=admin.getConnection();var statement=c.createStatement()){statement.execute("DROP SCHEMA \""+schema+"\" CASCADE");}}
