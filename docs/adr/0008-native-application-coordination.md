@@ -66,7 +66,7 @@ Preserve existing fixed mappings: unsupported capability -> 422 `UNSUPPORTED_CAP
 
 The worker's `nativeGate` still propagates 5xx for retry with exposure retained; its existing non-5xx verification failures terminate through JDBC as EXPIRED for 410 or CANCELLED otherwise. Coordinator code must not perform release or interpret unavailable verification as proven no effect. Preserve current read/parser error handling rather than adding a new public error contract in this slice.
 
-Raw ACP/JWT/mandate bytes remain transient application values or immutable stored artifacts, excluded from safe responses, logs, exceptions, graph state and reports. Use synthetic fixtures. The exact implemented profiles and existing external interoperability/certification exclusions in [durable composition](../durable-composition.md) remain unchanged.
+Raw ACP/JWT/mandate bytes remain transient application values or immutable stored artifacts, excluded from safe responses, logs, exceptions, graph state and reports. Use synthetic fixtures. The exact implemented profiles and existing external interoperability/certification exclusions in [durable composition](../concepts/durable-composition.md) remain unchanged.
 
 ## Acceptance and meaningful tests
 

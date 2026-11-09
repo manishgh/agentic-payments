@@ -1,6 +1,6 @@
 # Pinned upstream research
 
-[source-lock.json](source-lock.json) pins inspected AP2/ACP artifacts to exact commits, decoded byte hashes, Git blob identities, lengths and upstream licenses. It contains no source tree, credential or provider configuration. [bridge-profile.constraints.json](bridge-profile.constraints.json) is a disabled design candidate, with no advertised real combination. The field/trust/ownership mapping and blockers are in [the bridge design](../../docs/ap2-acp-bridge-design.md).
+[source-lock.json](source-lock.json) pins inspected AP2/ACP artifacts to exact commits, decoded byte hashes, Git blob identities, lengths and upstream licenses. It contains no source tree, credential or provider configuration. [bridge-profile.constraints.json](bridge-profile.constraints.json) is a disabled design candidate, with no advertised real combination. The field/trust/ownership mapping and blockers are in [the bridge design](../../docs/advanced/ap2-acp-bridge-design.md).
 
 The [synthetic structural probes](fixtures/structural-probes.json) preserve both permitted shapes and expected failures in the released sources. Schema acceptance is not signature verification, spend authority, a valid credential, or interoperability evidence.
 

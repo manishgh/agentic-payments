@@ -1,6 +1,6 @@
 # Offline artifact lab
 
-This Python laboratory verifies synthetic merchant checkout ES256 signatures and content bindings without invoking the Java payment core, a provider or a network service. Its profile is `offline-ap2-acp-artifact-lab-0.1`; native AP2 authority and interoperability remain unverified. Read [the implementation contract and commands](../../docs/offline-artifact-lab.md).
+This Python laboratory verifies synthetic merchant checkout ES256 signatures and content bindings without invoking the Java payment core, a provider or a network service. Its profile is `offline-ap2-acp-artifact-lab-0.1`; native AP2 authority and interoperability remain unverified. Read [the implementation contract and commands](../../docs/how-to/offline-artifact-lab.md).
 
 ```powershell
 ./.venv/Scripts/python.exe -m unittest discover -s integrations/offline_lab/tests

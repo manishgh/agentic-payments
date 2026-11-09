@@ -4,7 +4,7 @@ Status: accepted for the bounded reference profile described below.
 
 ## Context and scope
 
-The existing `io.agenticpayments.sdk.PaymentAdapter`, `CapabilityOffer`, `ChargeOperation` and `Money` deliberately implement a synthetic, closed local-fake profile. Its mandatory atomic absence seal is stronger than an arbitrary external provider can promise. Generic descriptors are metadata and cannot silently widen that executable contract. The [provider roadmap](../provider-adapter-evolution.md) describes the missing boundary.
+The existing `io.agenticpayments.sdk.PaymentAdapter`, `CapabilityOffer`, `ChargeOperation` and `Money` deliberately implement a synthetic, closed local-fake profile. Its mandatory atomic absence seal is stronger than an arbitrary external provider can promise. Generic descriptors are metadata and cannot silently widen that executable contract. The [provider roadmap](../project/provider-adapter-evolution.md) describes the missing boundary.
 
 Add a separately versioned, executable contract in `io.agenticpayments.sdk.execution.v1`, plus a reusable behavioral TCK in its `tck` subpackage and an explicit local-fake compatibility bridge in its `compat` subpackage. The version is `provider-execution-1`; protocol/profile revisions remain separate. Preserve existing SDK classes, stored JSON, simulator scenarios, old TCK behavior and the existing SDK classifier. All new SDK classes depend only on `java.base`; no new dependency, vendor SDK, network implementation, database port or financial dispatch change is required. The package is additive within the existing SDK classifier; package-release/POM separation remains an open release task.
 

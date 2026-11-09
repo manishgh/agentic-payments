@@ -18,4 +18,4 @@ The local composition permits one configured delivery provider/policy per tenant
 
 The loopback synthetic transport is bounded and separately authenticated. Public ingress, vendor signature profiles, distributed queue implementations, policy registries, retention management and an operator redrive service remain separate work. The host owns scheduling and bounded shutdown; LangGraph continues coordinating the payment workflow rather than treating its checkpoints as payment or delivery truth.
 
-See [provider events](../provider-events.md) for composition, failure handling and operational limits.
+See [provider events](../advanced/provider-events.md) for composition, failure handling and operational limits.

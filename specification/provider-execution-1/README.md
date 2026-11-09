@@ -4,7 +4,7 @@ Version identifier: `provider-execution-1`. Status: bounded provider-neutral SDK
 
 The keywords MUST, MUST NOT, SHOULD and MAY state requirements for an implementation claiming this version. Interface compatibility alone does not establish behavioral conformance. A claim MUST identify the exact contract, profile, implementation revision, offer/selected-combination digests, suite revision, fixture provenance and evidence limitations. No result grants provider, AP2/ACP, PCI, regulatory or network certification.
 
-The SDK alone does not grant financial admission. The reference platform separately composes its contracts through the opt-in [provider journal admission](../../docs/durable-provider-journal.md) and [provider authentication/event route](../../docs/provider-authentication.md). Those synthetic application tests do not widen this adapter-only TCK claim.
+The SDK alone does not grant financial admission. The reference platform separately composes its contracts through the opt-in [provider journal admission](../../docs/advanced/durable-provider-journal.md) and [provider authentication/event route](../../docs/advanced/provider-authentication.md). Those synthetic application tests do not widen this adapter-only TCK claim.
 
 ## Composition and responsibilities
 

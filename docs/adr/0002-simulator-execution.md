@@ -6,7 +6,7 @@ Date: 2026-11-06. Scope: `0.1.0-draft`, `local-fake-single-tender-0.1`, `simulat
 ## Context and bounded decision
 
 [ADR 0001](0001-simulator-preview.md) accepted only create/quote/approve/reserve/read.
-The existing [API contract](../api-contracts.md) and [data model](../data-model.md) already propose later dispatch, challenge, journal and reconciliation behavior.
+The existing [API contract](../reference/api-contracts.md) and [data model](../reference/data-model.md) already propose later dispatch, challenge, journal and reconciliation behavior.
 Extend implementation scope to those synthetic operations after the integration owner accepts this clarification and the independent review recommendation.
 The mandatory bootstrap gate still applies. Code acceptance additionally requires PostgreSQL, failure-recovery and independent code-review evidence.
 

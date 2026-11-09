@@ -17,17 +17,17 @@ The first implementation must remain small enough for independent review and fai
 
 ## Recommended decision
 
-Use the reference stack with versions and dependency locks documented in the [toolchain guide](../toolchain.md).
+Use the reference stack with versions and dependency locks documented in the [toolchain guide](../reference/toolchain.md).
 Use one modular Java core with domain/application/ports/infrastructure boundaries and one authoritative PostgreSQL store.
 Python LangGraph calls authenticated internal commands and polls status; TypeScript is the trusted local approval/action surface.
 Core/adapter modules have no dependency on graph state or UI. Domain types depend on neither HTTP nor SQL/provider libraries.
 The first slice is local-only, synthetic, single provider, single tender, no external HTTP adapter or live endpoint configuration.
-Implement [API contracts](../api-contracts.md) and [transaction model](../data-model.md) after G2-S acceptance.
+Implement [API contracts](../reference/api-contracts.md) and [transaction model](../reference/data-model.md) after G2-S acceptance.
 
 Recommended core baseline is Temurin Java 21 LTS language/API target, Maven 3.9.16 and PostgreSQL 17.11; a supported baseline, not a latest-version claim.
 Runtime support references: official [Maven maintenance history](https://maven.apache.org/docs/history.html) and [PostgreSQL support table](https://www.postgresql.org/support/versioning/).
 The official [Adoptium support policy](https://adoptium.net/support) lists Java 21 support through at least December 2029; pin an actual available binary/checksum during bootstrap.
-The repository contains verified toolchain bootstrap and component dependency locks. See the [toolchain guide](../toolchain.md) for exact versions and setup, and the [verification guide](../requirement-evidence.md) for source-bound checks.
+The repository contains verified toolchain bootstrap and component dependency locks. See the [toolchain guide](../reference/toolchain.md) for exact versions and setup, and the [verification guide](../reference/requirement-evidence.md) for source-bound checks.
 
 ## Selected profile
 
