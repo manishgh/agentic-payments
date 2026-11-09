@@ -45,7 +45,7 @@ Stable identifiers are retained for platform capabilities and unfinished work. I
 | DES-006 | Simulator and conformance profiles | Partial. Expand deterministic scenarios and requirement mappings with explicit unsupported cases. |
 | CON-001 | Executable project conformance profiles | Partial. Named observations and recomputable reports exist; complete the remaining requirement inventory and profile coverage. |
 | CON-002 | Negative adapters and certification policy | Partial. Incompatible adapters and evidence-forgery negatives exist; broader executable profiles and certification policy remain unfinished. |
-| CON-003 | Recorded multi-intent replay | Partial. Durable schedules, invariants and normalized digests exist. Complete conflict normalization; conflicted/frozen runs currently refuse a digest. |
+| CON-003 | Recorded multi-intent replay | Partial. Durable schedules, invariants and normalized digests exist. Canonicalize the execution-policy digest across JVM processes (unordered sets currently make saved-plan validation unstable); add a fresh-process regression. Complete conflict normalization; conflicted/frozen runs currently refuse a digest. |
 | CON-004 | Adversarial event/privacy matrix | Partial. Selected negatives exist; finish concurrent delivery and telemetry/redaction coverage across all relevant surfaces. |
 | CON-005 | Concurrent-clock and fresh-JVM crash matrix | Partial. Selected ordered-lock, SQL rollback and actual process-loss cases exist; cover the remaining boundaries without substituting object reconstruction for process durability. |
 | REL-004 | License and distribution | Decision required before package/spec release; include dependency redistribution policy. |
