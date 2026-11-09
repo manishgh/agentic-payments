@@ -222,7 +222,7 @@ class WorkerOwnershipIntegrationTest {
             assertThrows(IllegalStateException.class,tx::next);assertThrows(IllegalStateException.class,()->tx.load(null));assertThrows(IllegalStateException.class,()->tx.findAdmitted(null));
             assertThrows(IllegalStateException.class,()->tx.claim(null));assertThrows(IllegalStateException.class,()->tx.reconciliationClaim(null));assertThrows(IllegalStateException.class,()->tx.isCurrent(null));
             assertThrows(IllegalStateException.class,()->tx.nativeGate(null));assertThrows(IllegalStateException.class,()->tx.terminateBeforeAdmission(null,null));assertThrows(IllegalStateException.class,()->tx.completeObsolete(null));
-            assertThrows(IllegalStateException.class,()->tx.admit(null,null));assertThrows(IllegalStateException.class,()->tx.completePreparation(null,null,null));assertThrows(IllegalStateException.class,()->tx.markUnknown(null,null));
+            assertThrows(IllegalStateException.class,()->tx.admit(null,null));assertThrows(IllegalStateException.class,()->tx.completePreparation(null,null,null));assertThrows(IllegalStateException.class,()->tx.completePreparationObservation(null,null,null));assertThrows(IllegalStateException.class,()->tx.markUnknown(null,null));
             assertThrows(IllegalStateException.class,()->tx.applyVerifiedFact(null,null));assertThrows(IllegalStateException.class,()->tx.receipt(null,null));
             assertThrows(IllegalStateException.class,()->tx.quarantineProvider(null));
         }

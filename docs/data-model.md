@@ -166,3 +166,9 @@ Evidence must include normalized state/reservation/journal digests and demonstra
 ## Provider execution routes
 
 V011 adds `payment_operation_routes`, one immutable route per financial operation. Existing operations are backfilled as `legacy-local-fake-1` without changing their financial rows. Newly opted-in operations retain the complete `local-provider-journal-admission-1` association, including the original core operation and request digest, approved credential, full provider selection/binding and mapping policy. Route enrollment shares the operation/PREPARE transaction; missing or mismatched routes reject worker activity rather than reconstructing ownership. See [provider admission](durable-provider-journal.md#opt-in-to-core-admission) for recovery and replacement requirements.
+
+## Provider authentication and events
+
+V012 retains full immutable provider action bindings and one authentic synthetic decision per action. V013 stores protected event envelopes, verified event identities, retained conflicts and per-operation quarantine. Event identity excludes mutable configuration/key revisions; authenticated reuse cannot escape an existing owner by rotating configuration.
+
+V014 adds `customer_action_provider_bindings` and `provider_action_commands`. The core stores the complete descriptor and resolved authentication result; the pending request fixes principal, action, command key, decision and original timestamp before provider interaction. Completion shares the existing command-response and READY/DISPATCH transaction. It also enables the explicit `local-provider-interactions-1` route without changing historical route rows or earlier migration bytes. There is no shared transaction with the provider authentication/event stores. See [authentication](provider-authentication.md) and [events](provider-events.md) for restoration and replay requirements.

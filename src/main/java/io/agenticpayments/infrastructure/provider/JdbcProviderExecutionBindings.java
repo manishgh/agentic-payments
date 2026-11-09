@@ -12,9 +12,9 @@ public final class JdbcProviderExecutionBindings implements ProviderExecutionBin
         try(var c=database.getConnection();var p=c.prepareStatement("SELECT route,binding_json FROM payment_operation_routes WHERE tenant_id=? AND run_id=? AND operation_id=?")) {
             p.setString(1,id.scope().tenantId());p.setObject(2,id.scope().runId());p.setObject(3,id.operationId());
             try(var rs=p.executeQuery()) {
-                if(!rs.next()||!SyntheticProviderRegistration.PROFILE.equals(rs.getString(1)))throw rejected();
+                if(!rs.next()||!java.util.Set.of(SyntheticProviderRegistration.PROFILE,SyntheticProviderRegistration.INTERACTIONS_PROFILE).contains(rs.getString(1)))throw rejected();
                 ProviderExecutionBinding binding;try{binding=codec.decode(rs.getString(2));}catch(RuntimeException invalid){throw rejected();}
-                if(!binding.coreOperation().identity().equals(id))throw rejected();return binding;
+                if(!binding.profile().equals(rs.getString(1))||!binding.coreOperation().identity().equals(id))throw rejected();return binding;
             }
         }catch(SQLException unavailable){throw new io.agenticpayments.sdk.AdapterUnavailableException();}
     }

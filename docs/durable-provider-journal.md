@@ -51,6 +51,8 @@ Provider evidence is projected through a named synthetic state mapping: PENDING 
 
 Do not remove route, journal or peer history independently during restoration. There is no automatic migration of historical legacy operations into this route, claim reset, configuration rebinding or live-provider guarantee.
 
+For durable synthetic customer authentication and signed event ingress, use the separate opt-in [interactions route](provider-authentication.md). Its offer and route are distinct; this guide's earlier admission profile and historical bindings remain unchanged.
+
 ## Ownership and evidence
 
 Each journal call uses a short independent database transaction. Provider execution, lookup and genuine fencing occur after those transactions; the peer owns its separate durable journal.

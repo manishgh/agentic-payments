@@ -22,6 +22,17 @@ import io.agenticpayments.application.ExternalCheckoutRegistration;
 import io.agenticpayments.application.ProviderExecutionRegistration;
 import io.agenticpayments.application.ProviderExecutionBinding;
 import io.agenticpayments.application.ProviderEvidenceVerifier;
+import io.agenticpayments.application.PaymentPreparation;
+import io.agenticpayments.application.PreparationObservation;
+import io.agenticpayments.application.ProviderActionBinding;
+import io.agenticpayments.application.AuthenticationObservation;
+import io.agenticpayments.application.CustomerActionTransactions;
+import io.agenticpayments.application.CompleteCustomerAction;
+import io.agenticpayments.application.ProviderInteractionPorts;
+import io.agenticpayments.application.ProviderEventProcessing;
+import io.agenticpayments.application.ProviderEventOperations;
+import io.agenticpayments.application.ReceiveProviderEvent;
+import io.agenticpayments.infrastructure.provider.ProviderAuthenticationCodec;
 import io.agenticpayments.infrastructure.provider.ProviderAdmissionCodec;
 import io.agenticpayments.infrastructure.provider.SyntheticProviderRegistration;
 import io.agenticpayments.infrastructure.provider.JournaledPaymentAdapter;
@@ -56,6 +67,10 @@ public final class JdbcPaymentStore implements PaymentStore {
     private final RunPaymentWork worker;
     private final ProviderExecutionRegistration providerRegistration;
     private final ProviderAdmissionCodec providerCodec=new ProviderAdmissionCodec();
+    private final ProviderAuthenticationCodec authenticationCodec=new ProviderAuthenticationCodec();
+    private final CompleteCustomerAction actionCompletion;
+    private final ProviderEventOperations providerEvents;
+    private final boolean providerInteractions;
     private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
     private record Tx(Connection c,Session s,Instant now) {}
@@ -84,8 +99,16 @@ public final class JdbcPaymentStore implements PaymentStore {
     private JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition,Ports externalComposition,
                             ExternalCheckoutRegistration externalRegistration,CoordinationDomain coordinationDomain,
                             PaymentFactVerifier verifier,SyntheticPendingProgression progression,ProviderExecutionRegistration providerRegistration) {
+        this(ds,adapter,replayOwner,composition,externalComposition,externalRegistration,coordinationDomain,verifier,progression,
+                providerRegistration,PaymentPreparation.legacy(adapter),null,null);
+    }
+    private JdbcPaymentStore(DataSource ds,PaymentAdapter adapter,UUID replayOwner,Ports composition,Ports externalComposition,
+                            ExternalCheckoutRegistration externalRegistration,CoordinationDomain coordinationDomain,
+                            PaymentFactVerifier verifier,SyntheticPendingProgression progression,ProviderExecutionRegistration providerRegistration,
+                            PaymentPreparation preparation,ProviderInteractionPorts interactions,ProviderEventProcessing eventProcessing) {
         this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
         this.providerRegistration=providerRegistration;
+        this.providerInteractions=interactions!=null;
         this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
         if((externalComposition==null)!=(externalRegistration==null)
                 ||externalRegistration!=null&&externalRegistration.coordinationDomain()!=coordinationDomain) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
@@ -118,7 +141,25 @@ public final class JdbcPaymentStore implements PaymentStore {
                 });
             }
         };
-        this.worker=new RunPaymentWork(workerTransactions,adapter,verifier,progression);
+        this.worker=new RunPaymentWork(workerTransactions,adapter,verifier,progression,preparation);
+        this.actionCompletion=interactions==null?null:new CompleteCustomerAction(new CustomerActionTransactions() {
+            public <T>T run(Session session,CustomerActionTransactions.Work<T> work) {
+                return transaction(session,tx->{var scope=new ActionTransaction(tx);try{return work.run(scope);}finally{scope.active=false;}});
+            }
+        },interactions.syntheticDecisions(),interactions.authentication());
+        this.providerEvents=interactions==null?null:new ReceiveProviderEvent(workerTransactions,new JdbcProviderExecutionBindings(ds),interactions.ingress(),Objects.requireNonNull(eventProcessing));
+    }
+    /** Coherent opt-in composition; no caller-provided legacy executor can bypass the retained route. */
+    public static JdbcPaymentStore providerInteractions(DataSource ds,Ports composition,ProviderExecutionRegistration registration,
+            ExecutionPreparer preparer,FinancialSubmitter submitter,ExecutionReconciler reconciler,Optional<NoEffectFencer> fencer,
+            ProviderEvidenceVerifier verifier,ProviderInteractionPorts interactions,SyntheticPendingProgression progression) {
+        Objects.requireNonNull(interactions);
+        var guards=new io.agenticpayments.infrastructure.provider.ProviderEventGuards(interactions.eventHealth());
+        var adapter=new JournaledPaymentAdapter(registration,new JdbcProviderExecutionBindings(ds),guards.preparer(preparer),guards.submitter(submitter),guards.reconciler(reconciler),fencer.map(guards::fencer),guards.evidenceVerifier(verifier),interactions);
+        return new JdbcPaymentStore(ds,adapter,null,composition,null,null,null,adapter,progression,registration,adapter,interactions,adapter);
+    }
+    public ProviderEventOperations providerEvents() {
+        if(providerEvents==null)throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);return providerEvents;
     }
     /** Assemble a coherent provider route: arbitrary legacy adapters cannot bypass its binding or projection. */
     public static JdbcPaymentStore providerJournal(DataSource ds,UUID replayOwner,Ports composition,Ports externalComposition,
@@ -404,9 +445,11 @@ public final class JdbcPaymentStore implements PaymentStore {
         });
     }
     public Result completeAction(Session s,UUID id,String key,CompleteActionCommand cmd) {
+        if(actionCompletion!=null)return actionCompletion.complete(s,id,key,cmd);
         role(s,"action:complete"); validate(cmd==null?0:cmd.expectedVersion()); if(!Set.of("approve","deny").contains(cmd.decision())) fail(ApplicationFailure.INVALID_REQUEST);
         return command(s,key,"POST /actions/{id}/complete",id.toString(),cmd,tx->{
             var ac=actionRow(tx,id); var o=operationById(tx,(UUID)ac.get("operation_id")); var a=attemptById(tx,(UUID)o.get("attempt_id")); var i=intent(tx,(UUID)a.get("intent_id"));
+            envelope(tx,i,a,o);
             if(!text(ac,"state").equals("OPEN")) fail(ApplicationFailure.ACTION_ALREADY_CONSUMED); version(ac,cmd.expectedVersion());
             if(!tx.now.isBefore(instant(ac,"expires_at"))) fail(ApplicationFailure.ACTION_EXPIRED);
             var g=grant(tx,text(a,"grant_id")); authority(tx,g,s.principalId(),text(i,"merchant_id")); state(i,"WAITING_ACTION");
@@ -416,6 +459,82 @@ public final class JdbcPaymentStore implements PaymentStore {
             else terminate(tx,i,a,"FAILED");
             return result(200,map("actionId",id,"version",cmd.expectedVersion()+1,"state",next,"intentState",next.equals("VERIFIED")?"READY":"FAILED"));
         });
+    }
+    /** Reserves immutable interaction identity before the external issuer; no provider calls in this scope. */
+    private final class ActionTransaction implements CustomerActionTransactions.Transaction {
+        private static final String ROUTE="POST /actions/{id}/complete";
+        private final Tx tx;private final Thread thread=Thread.currentThread();private boolean active=true,written;
+        ActionTransaction(Tx tx){this.tx=tx;}
+        private void check(){if(!active||Thread.currentThread()!=thread||written)throw new IllegalStateException("Inactive action transaction");}
+        private Result replay(UUID id,String key,String digest)throws Exception {
+            var row=one(tx.c,"SELECT * FROM commands WHERE tenant_id=? AND run_id=? AND principal_id=? AND route=? AND resource_id=? AND idempotency_key=?",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),ROUTE,id.toString(),key);
+            if(row==null)return null;
+            if(!digest.equals(row.get("request_digest")))fail(ApplicationFailure.IDEMPOTENCY_CONFLICT);
+            return new Result((int)number(row,"response_status"),json.readValue(text(row,"response_body"),new TypeReference<Map<String,Object>>(){}),true);
+        }
+        private ProviderActionBinding current(UUID id,int expectedVersion)throws Exception {
+            var ac=actionRow(tx,id);var o=operationById(tx,(UUID)ac.get("operation_id"));var a=attemptById(tx,(UUID)o.get("attempt_id"));var i=intent(tx,(UUID)a.get("intent_id"));
+            if(!Objects.equals(ac.get("checkout_digest"),quote(tx,i).get("digest"))||!Objects.equals(ac.get("subject_id"),a.get("subject_id")))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            if(!"OPEN".equals(text(ac,"state")))fail(ApplicationFailure.ACTION_ALREADY_CONSUMED);
+            version(ac,expectedVersion);state(i,"WAITING_ACTION");
+            if(!tx.now.isBefore(instant(ac,"expires_at")))fail(ApplicationFailure.ACTION_EXPIRED);
+            var g=grant(tx,text(a,"grant_id"));authority(tx,g,tx.s.principalId(),text(i,"merchant_id"));
+            if(number(g,"version")!=number(a,"grant_version"))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            if(o.get("admitted_sequence")!=null)fail(ApplicationFailure.INVALID_STATE);
+            var core=envelope(tx,i,a,o);var route=providerRegistration.binding(core);
+            if(!SyntheticProviderRegistration.INTERACTIONS_PROFILE.equals(route.profile()))fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+            var row=one(tx.c,"SELECT * FROM customer_action_provider_bindings WHERE tenant_id=? AND run_id=? AND action_id=?",tx.s.tenantId(),tx.s.runId(),id);
+            if(row==null||!core.identity().operationId().equals(row.get("operation_id")))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            var binding=authenticationCodec.decodeBinding(text(row,"binding_json"));
+            if(!binding.operation().equals(route.operation())||!binding.action().usableFor(route.operation(),tx.now)
+                    ||binding.action().expiresAt().isAfter(route.actionExpiresAt()))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            if(nativeProfile(i)&&!nativeGate(tx,i,a,g))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            return binding;
+        }
+        private Map<String,Object> pending(UUID id)throws SQLException {
+            return one(tx.c,"SELECT * FROM provider_action_commands WHERE tenant_id=? AND run_id=? AND action_id=?",tx.s.tenantId(),tx.s.runId(),id);
+        }
+        private CustomerActionTransactions.Request request(Map<String,Object> row) {
+            return new CustomerActionTransactions.Request((UUID)row.get("request_id"),(UUID)row.get("action_id"),text(row,"idempotency_key"),(int)number(row,"expected_version"),text(row,"subject_id"),
+                    authenticationCodec.decodeBinding(text(row,"binding_json")),text(row,"decision"),Instant.parse(text(row,"requested_at")));
+        }
+        public CustomerActionTransactions.Reservation reserve(UUID id,String key,CompleteActionCommand command)throws Exception {
+            check();role(tx.s,"action:complete");
+            if(id==null||key==null||!key.matches("[\\x20-\\x7E]{16,128}")||command==null||command.expectedVersion()<1
+                    ||command.decision()==null||!Set.of("approve","deny").contains(command.decision()))fail(ApplicationFailure.INVALID_REQUEST);
+            actionRow(tx,id);String digest=PaymentRules.sha256(encode(command));var accepted=replay(id,key,digest);
+            if(accepted!=null)return new CustomerActionTransactions.Reservation(Optional.of(accepted),Optional.empty());
+            var binding=current(id,command.expectedVersion());var retained=pending(id);
+            if(retained!=null) {
+                if(!tx.s.principalId().equals(retained.get("principal_id"))||!key.equals(retained.get("idempotency_key"))||!digest.equals(retained.get("request_digest"))
+                        ||!binding.equals(authenticationCodec.decodeBinding(text(retained,"binding_json"))))fail(ApplicationFailure.IDEMPOTENCY_CONFLICT);
+            } else {
+                update(tx.c,"INSERT INTO provider_action_commands VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),id,key,UUID.randomUUID(),digest,command.expectedVersion(),tx.s.principalId(),command.decision(),tx.now.toString(),authenticationCodec.encodeBinding(binding));
+                retained=pending(id);written=true;
+            }
+            return new CustomerActionTransactions.Reservation(Optional.empty(),Optional.of(request(retained)));
+        }
+        public Result finish(CustomerActionTransactions.Request expected,AuthenticationObservation observation)throws Exception {
+            check();role(tx.s,"action:complete");Objects.requireNonNull(expected);Objects.requireNonNull(observation);
+            actionRow(tx,expected.actionId());var command=new CompleteActionCommand(expected.expectedVersion(),expected.decision());String digest=PaymentRules.sha256(encode(command));
+            var retained=pending(expected.actionId());
+            if(retained==null||!tx.s.principalId().equals(retained.get("principal_id"))||!tx.s.principalId().equals(expected.subjectId())
+                    ||!digest.equals(retained.get("request_digest"))||!expected.equals(request(retained)))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            var accepted=replay(expected.actionId(),expected.key(),digest);if(accepted!=null)return accepted;
+            var binding=current(expected.actionId(),expected.expectedVersion());
+            if(!binding.equals(expected.binding())||!binding.equals(observation.binding())||!expected.subjectId().equals(observation.subjectId())
+                    ||observation.observedAt().isBefore(expected.now())||observation.observedAt().isAfter(tx.now)
+                    ||!observation.observedAt().isBefore(binding.action().expiresAt())
+                    ||observation.outcome()!=(expected.decision().equals("approve")?AuthenticationObservation.Outcome.VERIFIED:AuthenticationObservation.Outcome.DENIED))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            var ac=actionRow(tx,expected.actionId());var o=operationById(tx,(UUID)ac.get("operation_id"));var a=attemptById(tx,(UUID)o.get("attempt_id"));var i=intent(tx,(UUID)a.get("intent_id"));
+            String next=observation.outcome().name();
+            update(tx.c,"UPDATE customer_action_provider_bindings SET authentication_json=? WHERE tenant_id=? AND run_id=? AND action_id=?",authenticationCodec.encodeObservation(observation),tx.s.tenantId(),tx.s.runId(),expected.actionId());
+            update(tx.c,"UPDATE customer_actions SET state=?,version=version+1 WHERE tenant_id=? AND run_id=? AND action_id=?",next,tx.s.tenantId(),tx.s.runId(),expected.actionId());
+            if("VERIFIED".equals(next)){change(tx,(UUID)i.get("intent_id"),"READY");work(tx,(UUID)o.get("operation_id"),"DISPATCH");}
+            else terminate(tx,i,a,"FAILED");
+            var result=result(200,map("actionId",expected.actionId(),"version",expected.expectedVersion()+1,"state",next,"intentState","VERIFIED".equals(next)?"READY":"FAILED"));
+            update(tx.c,"INSERT INTO commands VALUES(?,?,?,?,?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),tx.s.principalId(),ROUTE,expected.actionId().toString(),expected.key(),digest,result.status(),encode(result.body()));written=true;return result;
+        }
     }
     public Result revoke(Session s,String authorityId,String key,RevokeCommand cmd) {
         role(s,"authority:revoke"); grantAllowed(s,authorityId);
@@ -533,16 +652,38 @@ public final class JdbcPaymentStore implements PaymentStore {
             if(claim!=claimed||claim.kind()!=WorkKind.DISPATCH||!isCurrent(claim)||snapshot.admitted()
                     ||!"READY".equals(snapshot.state())||!"HELD".equals(snapshot.reservationState())
                     ||(nativeProfile(intentRow)&&!nativeVerified))throw new IllegalArgumentException("Unbound dispatch admission");
+            if(providerInteractions&&"challenge-then-success".equals(snapshot.operation().scenarioId())) {
+                var row=one(tx.c,"SELECT b.binding_json,b.authentication_json FROM customer_action_provider_bindings b JOIN customer_actions a USING(tenant_id,run_id,action_id) WHERE b.tenant_id=? AND b.run_id=? AND b.operation_id=? AND a.state='VERIFIED'",tx.s.tenantId(),tx.s.runId(),claim.operationId());
+                if(row==null||row.get("authentication_json")==null)fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+                var binding=authenticationCodec.decodeBinding(text(row,"binding_json"));var observation=authenticationCodec.decodeObservation(text(row,"authentication_json"));
+                if(!binding.operation().equals(providerRegistration.binding(snapshot.operation()).operation())||!binding.equals(observation.binding())
+                        ||!snapshot.subjectId().equals(observation.subjectId())||observation.outcome()!=AuthenticationObservation.Outcome.VERIFIED
+                        ||!binding.action().usableFor(binding.operation(),tx.now)||!observation.observedAt().isBefore(binding.action().expiresAt()))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            }
             var sequence=one(tx.c,"UPDATE simulation_runs SET admission_sequence=admission_sequence+1 WHERE tenant_id=? AND run_id=? RETURNING admission_sequence",tx.s.tenantId(),tx.s.runId());
             update(tx.c,"UPDATE financial_operations SET admitted_sequence=?,admitted_at=?,admitted_grant_version=? WHERE tenant_id=? AND run_id=? AND operation_id=?",sequence.get("admission_sequence"),tx.now,grantRow.get("version"),tx.s.tenantId(),tx.s.runId(),claim.operationId());
             change(tx,snapshot.operation().identity().intentId(),"ADMITTED");done(tx,claim.operationId(),"DISPATCH");work(tx,claim.operationId(),"RECONCILE");written=true;
         }
         public void completePreparation(Claim claim,Snapshot snapshot,ActionType action) throws SQLException {
+            active();
+            completePreparationObservation(claim,snapshot,new PreparationObservation(action,Optional.empty()));
+        }
+        public void completePreparationObservation(Claim claim,Snapshot snapshot,PreparationObservation observation) throws SQLException {
             bound(claim,snapshot);
             if(claim.kind()!=WorkKind.PREPARE||!isCurrent(claim)||snapshot.admitted()||!"PREPARING".equals(snapshot.state())
                     ||(nativeProfile(intentRow)&&!nativeVerified))throw new IllegalArgumentException("Unbound preparation completion");
-            if(action==ActionType.SYNTHETIC_CHALLENGE) {
-                update(tx.c,"INSERT INTO customer_actions(tenant_id,run_id,action_id,operation_id,subject_id,checkout_digest,state,expires_at) VALUES(?,?,?,?,?,?,'OPEN',?) ON CONFLICT DO NOTHING",tx.s.tenantId(),tx.s.runId(),UUID.randomUUID(),claim.operationId(),attemptRow.get("subject_id"),snapshot.checkoutDigest(),tx.now.plusSeconds(600));
+            if(observation.actionType()==ActionType.SYNTHETIC_CHALLENGE) {
+                Instant expiry=tx.now.plusSeconds(600);ProviderActionBinding binding=null;
+                if(providerInteractions) {
+                    binding=observation.providerAction().orElseThrow(()->new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID));
+                    var retained=providerRegistration.binding(snapshot.operation());
+                    if(!binding.operation().equals(retained.operation())||!binding.action().usableFor(retained.operation(),tx.now)
+                            ||binding.action().expiresAt().isAfter(retained.actionExpiresAt()))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+                    if(binding.action().expiresAt().isBefore(expiry))expiry=binding.action().expiresAt();
+                } else if(observation.providerAction().isPresent())fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+                UUID actionId=UUID.randomUUID();
+                update(tx.c,"INSERT INTO customer_actions(tenant_id,run_id,action_id,operation_id,subject_id,checkout_digest,state,expires_at) VALUES(?,?,?,?,?,?,'OPEN',?)",tx.s.tenantId(),tx.s.runId(),actionId,claim.operationId(),attemptRow.get("subject_id"),snapshot.checkoutDigest(),expiry);
+                if(binding!=null)update(tx.c,"INSERT INTO customer_action_provider_bindings(tenant_id,run_id,action_id,operation_id,binding_json) VALUES(?,?,?,?,?)",tx.s.tenantId(),tx.s.runId(),actionId,claim.operationId(),authenticationCodec.encodeBinding(binding));
                 change(tx,snapshot.operation().identity().intentId(),"WAITING_ACTION");
             } else {change(tx,snapshot.operation().identity().intentId(),"READY");work(tx,claim.operationId(),"DISPATCH");}
             done(tx,claim.operationId(),"PREPARE");written=true;
@@ -657,7 +798,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         if(providerRegistration==null) {
             if(!"legacy-local-fake-1".equals(text(route,"route"))||route.get("binding_json")!=null)fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         } else {
-            if(!SyntheticProviderRegistration.PROFILE.equals(text(route,"route")))fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+            if(!(providerInteractions?SyntheticProviderRegistration.INTERACTIONS_PROFILE:SyntheticProviderRegistration.PROFILE).equals(text(route,"route")))fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
             ProviderExecutionBinding retained;
             try{retained=providerCodec.decode(text(route,"binding_json"));}catch(RuntimeException invalid){throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);}
             validateProviderBinding(core,text(q,"credential_reference"),retained);
@@ -665,9 +806,9 @@ public final class JdbcPaymentStore implements PaymentStore {
         }
         return core;
     }
-    private static void validateProviderBinding(ChargeOperation core,String credential,ProviderExecutionBinding binding) {
+    private void validateProviderBinding(ChargeOperation core,String credential,ProviderExecutionBinding binding) {
         if(binding==null||!binding.coreOperation().equals(core)||!credential.equals(binding.credentialReference())
-                ||!SyntheticProviderRegistration.PROFILE.equals(binding.profile())||!SyntheticProviderRegistration.MAPPING.equals(binding.mappingPolicy())
+                ||!(providerInteractions?SyntheticProviderRegistration.INTERACTIONS_PROFILE:SyntheticProviderRegistration.PROFILE).equals(binding.profile())||!SyntheticProviderRegistration.MAPPING.equals(binding.mappingPolicy())
                 ||!"synthetic-card".equals(binding.operation().selection().combination().methodId())
                 ||!"synthetic-reference".equals(binding.operation().selection().combination().credentialFormatId()))fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
     }

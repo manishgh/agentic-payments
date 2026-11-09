@@ -110,6 +110,40 @@ class ConformanceRunnerTests(unittest.TestCase):
         self.assertFalse((self.bundle / "old-raw.log").exists())
         self.assertFalse((self.bundle / "artifacts/nested/old.json").exists())
 
+    def test_expanded_maven_budget_does_not_extend_other_invocations(self):
+        for stage, invocation, expected in (
+            ("java-postgresql", ["maven", "clean", "verify"], 900),
+            ("java-postgresql", ["python", "-m", "integrations.ap2_vectors"], 600),
+            ("langgraph", ["python", "-m", "scripts.run_python_evidence"], 600),
+            ("http", ["python", "-m", "scripts.run_python_evidence"], 300),
+            ("adapter-tck", ["java", "-cp", "classes"], 300),
+        ):
+            with self.subTest(stage=stage, invocation=invocation):
+                self.assertEqual(expected, conformance.command_timeout(stage, invocation, "maven"))
+
+    def test_maven_timeout_publishes_failed_stage_and_incomplete_dependents(self):
+        environment = {key: "synthetic" for key in conformance.DB_ENV}
+        maven = "mvn.cmd" if os.name == "nt" else "mvn"
+        def child(command, **kwargs):
+            if command[0] == maven:
+                self.assertEqual(900, kwargs["timeout"])
+                raise subprocess.TimeoutExpired(command, 900, output=CANARY, stderr=CANARY)
+            return subprocess.CompletedProcess(command, 0)
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(conformance.shutil, "which", side_effect=lambda tool: tool), \
+                patch.object(conformance, "tool_versions", return_value={"java": "21", "maven": "3", "node": "24", "python": "3"}), \
+                patch.object(conformance.subprocess, "run", side_effect=child):
+            self.assertNotEqual(0, self.invoke())
+        receipt = evidence.read_json(self.bundle / "receipt.json")
+        stages = {stage["name"]: stage for stage in receipt["stages"]}
+        self.assertEqual(("FAIL", 124), (stages["java-postgresql"]["outcome"], stages["java-postgresql"]["exitCode"]))
+        for name in ("adapter-tck", "recorded-replay", "http", "langgraph"):
+            self.assertEqual("INCOMPLETE", stages[name]["outcome"])
+        report = evidence.validate_bundle(self.root, self.bundle)
+        self.assertEqual("FAIL", report["previewChecks"])
+        self.assertNotEqual("VALID", report["evidenceValidity"])
+        self.assert_safe_publication()
+
     def test_missing_database_environment_publishes_new_full_incomplete_receipt(self):
         self.old_bundle()
         with patch.dict(os.environ, {"JAVA_HOME": "synthetic-toolchain"}, clear=True), \

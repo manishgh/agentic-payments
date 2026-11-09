@@ -13,13 +13,19 @@ public final class RunPaymentWork {
     private final PaymentAdapter adapter;
     private final PaymentFactVerifier verifier;
     private final SyntheticPendingProgression progression;
+    private final PaymentPreparation preparation;
     private record Ticket(ChargeOperation operation,Claim claim) {}
     private record Step(Activity before,Selection selection,Ticket ticket) {}
 
     public RunPaymentWork(PaymentWorkerTransactions transactions,PaymentAdapter adapter,
                           PaymentFactVerifier verifier,SyntheticPendingProgression progression) {
+        this(transactions,adapter,verifier,progression,PaymentPreparation.legacy(adapter));
+    }
+    public RunPaymentWork(PaymentWorkerTransactions transactions,PaymentAdapter adapter,
+                          PaymentFactVerifier verifier,SyntheticPendingProgression progression,PaymentPreparation preparation) {
         this.transactions=Objects.requireNonNull(transactions);this.adapter=Objects.requireNonNull(adapter);
         this.verifier=Objects.requireNonNull(verifier);this.progression=Objects.requireNonNull(progression);
+        this.preparation=Objects.requireNonNull(preparation);
     }
     public boolean runNext(Session session) {
         var receipt=runNextRecorded(session);return receipt.operationId()!=null||receipt.progressed();
@@ -57,16 +63,16 @@ public final class RunPaymentWork {
             var ticket=step.ticket();
             try {
                 if(ticket.claim().kind()==WorkKind.PREPARE) {
-                    Preparation preparation=adapter.prepare(ticket.operation());
+                    PreparationObservation prepared=preparation.preparePayment(ticket.operation());
                     transactions.run(session,tx->{
                         var snapshot=tx.load(ticket.claim().operationId());
                         if(!"PREPARING".equals(snapshot.state())||!tx.isCurrent(ticket.claim()))return null;
                         if(!eligible(snapshot,tx.now())) {tx.terminateBeforeAdmission(snapshot,authorityTermination(snapshot));return null;}
                         if(nativeProfile(snapshot)&&!tx.nativeGate(snapshot))return null;
-                        if((preparation.actionType()==ActionType.SYNTHETIC_CHALLENGE)!=needsAction(snapshot)) {
+                        if((prepared.actionType()==ActionType.SYNTHETIC_CHALLENGE)!=needsAction(snapshot)) {
                             tx.terminateBeforeAdmission(snapshot,Termination.FAILED);return null;
                         }
-                        tx.completePreparation(ticket.claim(),snapshot,preparation.actionType());return null;
+                        tx.completePreparationObservation(ticket.claim(),snapshot,prepared);return null;
                     });
                 } else if(ticket.claim().kind()==WorkKind.DISPATCH) {
                     try { accept(session,ticket.operation(),adapter.execute(ticket.operation())); }

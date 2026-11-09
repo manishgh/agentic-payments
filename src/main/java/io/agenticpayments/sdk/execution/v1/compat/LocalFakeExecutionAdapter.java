@@ -23,6 +23,12 @@ public final class LocalFakeExecutionAdapter implements ExecutionPreparer, Finan
     public LocalFakeExecutionAdapter(PaymentAdapter delegate, CompatibilityBindingJournal journal, ExecutionBinding binding,
                                      String tenant, String merchant, String run, Instant observedAt, Instant actionExpiresAt,
                                      Function<ExecutionOperation, String> scenario) {
+        this(delegate,journal,binding,tenant,merchant,run,observedAt,actionExpiresAt,scenario,offer());
+    }
+    /** Exact synthetic composition profiles only; historical callers retain their original offer. */
+    public LocalFakeExecutionAdapter(PaymentAdapter delegate, CompatibilityBindingJournal journal, ExecutionBinding binding,
+                                     String tenant, String merchant, String run, Instant observedAt, Instant actionExpiresAt,
+                                     Function<ExecutionOperation, String> scenario,ExecutionOffer configuredOffer) {
         this.delegate = Objects.requireNonNull(delegate); this.journal = Objects.requireNonNull(journal);
         this.binding = Objects.requireNonNull(binding); this.tenant = Objects.requireNonNull(tenant);
         this.merchant = Objects.requireNonNull(merchant); this.run = Objects.requireNonNull(run);
@@ -35,7 +41,16 @@ public final class LocalFakeExecutionAdapter implements ExecutionPreparer, Finan
                 throw new ExecutionFailure(UNSUPPORTED_COMBINATION, NOT_STARTED);
         } catch (ExecutionFailure safe) { throw safe; }
         catch (RuntimeException unsafe) { throw new ExecutionFailure(CONFIGURATION_UNAVAILABLE, NOT_STARTED); }
-        this.offer = offer();
+        if(!offer().equals(configuredOffer)&&!interactionsOffer().equals(configuredOffer))
+            throw new ExecutionFailure(UNSUPPORTED_COMBINATION,NOT_STARTED);
+        this.offer = configuredOffer;
+    }
+    /** Requires separately composed trusted authentication and event responsibilities. */
+    public static ExecutionOffer interactionsOffer() {
+        var original=offer().combinations().getFirst();
+        return new ExecutionOffer(ExecutionOffer.VERSION,"local-fake-interactions-execution-1","simulator","1",
+                List.of(new ExecutionOffer.Combination(original.methodId(),original.credentialFormatId(),original.actions(),original.purposes(),
+                    original.preparationEffect(),Set.of(ExecutionOffer.Capability.ATOMIC_NO_EFFECT_FENCE,ExecutionOffer.Capability.VERIFIED_EVENTS),original.limits())));
     }
     public static ExecutionOffer offer() {
         return new ExecutionOffer(ExecutionOffer.VERSION, PROFILE, "simulator", "1", List.of(new ExecutionOffer.Combination(

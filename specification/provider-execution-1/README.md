@@ -4,6 +4,8 @@ Version identifier: `provider-execution-1`. Status: bounded provider-neutral SDK
 
 The keywords MUST, MUST NOT, SHOULD and MAY state requirements for an implementation claiming this version. Interface compatibility alone does not establish behavioral conformance. A claim MUST identify the exact contract, profile, implementation revision, offer/selected-combination digests, suite revision, fixture provenance and evidence limitations. No result grants provider, AP2/ACP, PCI, regulatory or network certification.
 
+The SDK alone does not grant financial admission. The reference platform separately composes its contracts through the opt-in [provider journal admission](../../docs/durable-provider-journal.md) and [provider authentication/event route](../../docs/provider-authentication.md). Those synthetic application tests do not widen this adapter-only TCK claim.
+
 ## Composition and responsibilities
 
 Java interfaces are in `io.agenticpayments.sdk.execution.v1`. They depend only on `java.base`. Implementations MAY implement the interfaces directly, adapt an external implementation or forward/decorate another implementation. Vendor identity belongs in configuration and offers, never in a new vendor-specific port. A decorator MUST preserve the original immutable binding, selection, financial certainty and evidence meaning.
@@ -17,7 +19,7 @@ Java interfaces are in `io.agenticpayments.sdk.execution.v1`. They depend only o
 | `ProviderEventNormalizer.normalize(operation, event)` | Resolve trusted provenance of a verified reference, then interpret its status under the pinned financial profile. A caller-constructed Java value MUST NOT establish authenticity. |
 | `NoEffectFencer.fence(operation)` | Optional atomic exclusion against every admitted/delayed/future financial sender. Ordinary cancellation or current absence MUST NOT be advertised as this guarantee. |
 
-The application remains responsible for durable spending authority, reservation/admission, outbox publication, one execution owner and atomic application of verified facts. Constructing an operation or calling negotiation does not grant authority. The new interfaces are not connected to the existing financial store in this slice.
+The application remains responsible for durable spending authority, reservation/admission, outbox publication, one execution owner and atomic application of verified facts. Constructing an operation or calling negotiation does not grant authority. The opt-in reference compositions connect these responsibilities to financial admission; other hosts must supply equivalent guarantees.
 
 ## Immutable operations and scoped idempotency
 
@@ -105,7 +107,7 @@ Sources are `SUBMIT`, `RECONCILIATION`, `VERIFIED_EVENT` and `FENCE`. A source e
 
 Advertising `ATOMIC_NO_EFFECT_FENCE` requires an implemented `NoEffectFencer` with durable atomic exclusion against every delayed/future financial sender. If acceptance already won, it MUST return known accepted evidence or uncertainty. A winning fence MUST replay and prevent sends after reconstruction. Providers without that guarantee MAY pass the base contract with fence explicitly unsupported; ordinary absence/cancellation MUST NOT be promoted to fencing.
 
-`compat.LocalFakeExecutionAdapter` wraps the original synthetic `PaymentAdapter` without widening the original SDK or changing current financial callers. It supports only `local-fake-execution-1`, synthetic method/reference/action, EUR/USD exponent two with existing local limits, `CHARGE` and effect-free preparation. It maps existing success to capture, pending to pending and local journal-backed no effect to the explicit fence guarantee. It offers no event-verification implementation.
+`compat.LocalFakeExecutionAdapter` wraps the original synthetic `PaymentAdapter` without widening the original SDK or changing current financial callers. It supports only `local-fake-execution-1`, synthetic method/reference/action, EUR/USD exponent two with existing local limits, `CHARGE` and effect-free preparation. It maps existing success to capture, pending to pending and local journal-backed no effect to the explicit fence guarantee. Its historical constructor offers no event-verification implementation. A separate exact `local-fake-interactions-execution-1` offer can be explicitly selected for a host composing trusted authentication and verified-event responsibilities. The bridge still performs only preparation/submission/reconciliation/fencing; the host supplies the other ports, and the historical offer remains unchanged.
 
 The bridge requires injected `CompatibilityBindingJournal`: atomic durable binding of full new operation plus original legacy identity/key/scenario; complete submission-resource association; at-most-once initial dispatch claim; terminal-evidence preservation/conflict detection. Publishing a claim before a delegate failure MUST preserve uncertainty. Concurrent calls MUST NOT choose different mappings. No production journal backend is supplied here. Retained-memory test journals demonstrate in-process adapter reconstruction only, not OS/process crash durability. Before financial wiring, a durable backend and separately reviewed integration evidence are required.
 

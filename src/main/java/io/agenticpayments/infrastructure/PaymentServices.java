@@ -6,6 +6,8 @@ import io.agenticpayments.application.PaymentFactVerifier;
 import io.agenticpayments.application.SyntheticPendingProgression;
 import io.agenticpayments.application.ProviderExecutionRegistration;
 import io.agenticpayments.application.ProviderEvidenceVerifier;
+import io.agenticpayments.application.ProviderInteractionPorts;
+import io.agenticpayments.application.ProviderEventAuthenticator;
 import io.agenticpayments.infrastructure.provider.*;
 import io.agenticpayments.sdk.execution.v1.*;
 import io.agenticpayments.sdk.execution.v1.compat.LocalFakeExecutionAdapter;
@@ -19,6 +21,30 @@ import javax.sql.DataSource;
 /** Composition helper kept out of application/domain packages. */
 public final class PaymentServices {
     private PaymentServices() {}
+    /** Explicit synthetic interactions; the trusted event key and configuration must survive restart. */
+    public static ProviderInteractionServices providerInteractions(DataSource dataSource,SyntheticProviderRegistration registration,
+            ProviderEventConfiguration eventConfiguration,ProviderEventAuthenticator authenticator) {
+        var configuration=registration.configuration();
+        if(!SyntheticProviderRegistration.INTERACTIONS_PROFILE.equals(registration.profile())
+                ||!configuration.binding().equals(eventConfiguration.binding())||!configuration.offer().equals(eventConfiguration.offer())
+                ||!configuration.tenantId().equals(eventConfiguration.tenantId())||!configuration.merchantId().equals(eventConfiguration.merchantId())
+                ||!configuration.runId().equals(eventConfiguration.runId()))throw new io.agenticpayments.application.ApplicationException(io.agenticpayments.application.ApplicationFailure.UNSUPPORTED_CAPABILITY);
+        var journal=new JdbcCompatibilityBindingJournal(dataSource,configuration);var peer=new JdbcSimulatorAdapter(dataSource);
+        var bridge=new LocalFakeExecutionAdapter(peer,journal,configuration.binding(),configuration.tenantId(),configuration.merchantId(),configuration.runId(),
+                registration.observedAt(),registration.actionExpiresAt(),configuration::scenarioFor,configuration.offer());
+        var authentication=new JdbcSyntheticAuthentication(dataSource,configuration);
+        var inbox=new JdbcProviderEventInbox(dataSource,eventConfiguration,authenticator,
+                new SyntheticProviderEventDecoder(op->"legacy-resource-"+configuration.expectedLegacy(op).identity().adapterKey()));
+        var interactions=new ProviderInteractionPorts(authentication,authentication,authentication,inbox,inbox,inbox,inbox);
+        return providerInteractions(dataSource,registration,bridge,bridge,bridge,Optional.of(bridge),journal,interactions,NativeComposition.ports(new JdbcSignedArtifactStore(dataSource)));
+    }
+    /** Every provider, authentication and event responsibility accepts direct implementations, adapters and wrappers. */
+    public static ProviderInteractionServices providerInteractions(DataSource dataSource,ProviderExecutionRegistration registration,
+            ExecutionPreparer preparer,FinancialSubmitter submitter,ExecutionReconciler reconciler,Optional<NoEffectFencer> fencer,
+            ProviderEvidenceVerifier verifier,ProviderInteractionPorts interactions,Ports nativePorts) {
+        var store=JdbcPaymentStore.providerInteractions(dataSource,nativePorts,registration,preparer,submitter,reconciler,fencer,verifier,interactions,(core,pending)->pending);
+        return new ProviderInteractionServices(new PaymentService(store),store.providerEvents());
+    }
     public static PaymentService local(DataSource dataSource) { return local(dataSource,new JdbcSimulatorAdapter(dataSource)); }
     public static PaymentService local(DataSource dataSource,PaymentAdapter adapter) {
         return local(dataSource,adapter,NativeComposition.ports(new JdbcSignedArtifactStore(dataSource)));

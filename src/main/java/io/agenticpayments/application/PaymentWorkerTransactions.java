@@ -29,6 +29,10 @@ public interface PaymentWorkerTransactions {
         void completeObsolete(WorkItem work) throws Exception;
         void admit(Claim claim,Snapshot snapshot) throws Exception;
         void completePreparation(Claim claim,Snapshot snapshot,ActionType action) throws Exception;
+        default void completePreparationObservation(Claim claim,Snapshot snapshot,PreparationObservation observation) throws Exception {
+            if(observation.providerAction().isPresent())throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+            completePreparation(claim,snapshot,observation.actionType());
+        }
         /** Only current uncertainty may project ADMITTED to UNKNOWN; never regress known facts. */
         void markUnknown(Claim claim,Snapshot snapshot) throws Exception;
         /** Caller must use the configured verifier; stale counters do not invalidate evidence. */

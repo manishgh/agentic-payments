@@ -62,7 +62,7 @@ class ProviderJournalMigrationUpgradeTest {
                 for(String table:List.of("provider_compatibility_bindings","provider_compatibility_evidence","provider_compatibility_conflicts","provider_compatibility_resource_owners"))assertEquals(List.of(),after.get(table));
             }
             Map<Integer,String> history=new TreeMap<>();try(var connection=isolated.getConnection();var statement=connection.createStatement();var rows=statement.executeQuery("SELECT version,digest FROM schema_migrations ORDER BY version")){while(rows.next())history.put(rows.getInt(1),rows.getString(2));}
-            assertEquals(11,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));assertEquals(digest(resource("V009__provider_compatibility_journal.sql")),history.get(9));
+            assertEquals(14,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));assertEquals(digest(resource("V009__provider_compatibility_journal.sql")),history.get(9));
             assertEquals(digest(resource("V010__external_checkout_authority_binding.sql")),history.get(10));
             assertEquals(digest(resource("V011__provider_admission_routes.sql")),history.get(11));
             io.agenticpayments.core.HistoricalPaymentRows.assertLegacyRoutes(isolated,1);

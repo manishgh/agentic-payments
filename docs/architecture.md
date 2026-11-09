@@ -49,6 +49,8 @@ The additive [provider execution contract](../specification/provider-execution-1
 
 The [durable provider journal](durable-provider-journal.md) now implements that existing binding responsibility in PostgreSQL, independently of financial tables. It publishes one initial dispatch owner, preserves the full legacy mapping and retains conflicting evidence before returning a quarantined result. Actual child-JVM tests cover its separate commit gaps with the durable synthetic peer. The opt-in route preserves core spending authority and admission as the financial owner; neither a journal claim nor a constructed evidence value supplies that authority. Canonical synthetic projections prevent repeated observations from inventing financial progress; journal quarantine propagates to core freeze/disputed exposure.
 
+The opt-in `local-provider-interactions-1` route additionally carries full preparation action bindings into the core. A durable completion request precedes external authentication; a separately resolved result and current authority precede READY/DISPATCH. Signed event ingress retains protected raw bytes and verified provenance, then applies the existing journal conflict rules and core projection. Authentication, event parsing/verification, inbox storage and health gates are independently injected. Inbox, provider journal and core commit separately; explicit replay closes those gaps. See [ADR 0021](adr/0021-provider-authentication-events.md).
+
 ## Execution flow
 
 1. An authenticated principal requests a platform intent. Parse suggestions from the agent but validate all binding data deterministically.

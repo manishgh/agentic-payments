@@ -10,16 +10,21 @@ import java.util.function.Function;
 /** Exact trusted synthetic policy. Resolver implementations must retain their immutable revision. */
 public record ProviderJournalConfiguration(String tenantId, String merchantId, String runId,
         ExecutionBinding binding, String mappingPolicyVersion, String scenarioPolicyReference,
-        String scenarioPolicyVersion, Function<ExecutionOperation, String> scenarioResolver) {
+        String scenarioPolicyVersion, Function<ExecutionOperation, String> scenarioResolver,ExecutionOffer offer) {
     public static final String MAPPING_POLICY_VERSION = "local-fake-uuid-map-1";
+    public ProviderJournalConfiguration(String tenantId,String merchantId,String runId,ExecutionBinding binding,
+            String mappingPolicyVersion,String scenarioPolicyReference,String scenarioPolicyVersion,Function<ExecutionOperation,String> scenarioResolver) {
+        this(tenantId,merchantId,runId,binding,mappingPolicyVersion,scenarioPolicyReference,scenarioPolicyVersion,scenarioResolver,LocalFakeExecutionAdapter.offer());
+    }
     public ProviderJournalConfiguration {
         token(tenantId); token(merchantId); token(runId); token(scenarioPolicyReference); token(scenarioPolicyVersion);
         if (!tenantId.matches("[a-z0-9][a-z0-9-]{0,63}") || !merchantId.matches("[a-z0-9][a-z0-9-]{0,63}")
                 || !MAPPING_POLICY_VERSION.equals(mappingPolicyVersion) || !"simulator".equals(Objects.requireNonNull(binding).providerId()))
             throw new IllegalArgumentException("Invalid trusted compatibility policy.");
         Objects.requireNonNull(scenarioResolver);
+        if(!LocalFakeExecutionAdapter.offer().equals(offer)&&!LocalFakeExecutionAdapter.interactionsOffer().equals(offer))
+            throw new IllegalArgumentException("Unsupported synthetic provider offer.");
     }
-    public ExecutionOffer offer() { return LocalFakeExecutionAdapter.offer(); }
     public void validate(ExecutionOperation operation) {
         Objects.requireNonNull(operation); var id = operation.identity();
         if (!tenantId.equals(id.tenantId()) || !merchantId.equals(id.merchantId()) || !runId.equals(id.runId()))

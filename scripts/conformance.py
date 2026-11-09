@@ -34,6 +34,13 @@ def source_identity():
     return evidence.source_identity(ROOT)
 
 
+def command_timeout(stage, invocation, maven):
+    # The expanded PostgreSQL/process suite needs a larger bound than auxiliary probes.
+    if stage == "java-postgresql" and invocation[0] == maven:
+        return 900
+    return 600 if stage in {"java-postgresql", "langgraph"} else 300
+
+
 def tool_versions(java, maven, node):
     result = {"python": ".".join(map(str, sys.version_info[:3]))}
     for name, command, pattern in (
@@ -142,7 +149,7 @@ def run(output: Path, require_certification=False) -> int:
                                  "--execution-id", stage["executionId"]]]
                 for invocation in commands:
                     process = subprocess.run(invocation, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT,
-                                             timeout=600 if name in {"java-postgresql", "langgraph"} else 300)
+                                             timeout=command_timeout(name, invocation, maven))
                     if process.returncode != 0:
                         break
             code = process.returncode
