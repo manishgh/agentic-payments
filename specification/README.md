@@ -16,4 +16,4 @@ The enclosing platform payment-intent workflow is AP2-based and embeds OpenAI ag
 
 `MUST`, `MUST NOT`, and `SHOULD` express project requirements. The accepted local profile has executable JSON Schemas, Java APIs, fixtures and an evidence runner. Examples, conceptual future operations and roadmap entries remain nonnormative. Missing evidence is not an implicit conformance pass.
 
-The separate real-protocol gate must pin upstream revisions and settle cryptographic integration, execution ownership and wire mappings. The [adapter brief](../docs/reference/adapter-sdk.md) and [simulator/conformance brief](../docs/simulator-and-conformance.md) preserve the broader target; [current status](../docs/introduction/status.md) identifies actual support.
+The separate real-protocol gate must pin upstream revisions and settle cryptographic integration, execution ownership and wire mappings. The [adapter brief](../docs/reference/adapter-sdk.md) and [simulator/conformance brief](../docs/simulator-and-conformance.md) preserve the broader target; [current status](../docs/introduction/README.md#current-support) identifies actual support.

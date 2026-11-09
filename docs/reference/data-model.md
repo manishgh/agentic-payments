@@ -1,7 +1,7 @@
 # Simulator transaction and persistence design
 
 [Documentation](../README.md) / [Reference](README.md)
-Status: reviewed logical design; normalized PostgreSQL migrations and the bounded runtime now exist. Physical storage combines the inbox/evidence facts with a separate conflict table; the run lock serializes mutation eligibility. The preview uses claim-fence counters rather than timed leases. Full seeded schedule replay remains incomplete. See [current status](../introduction/status.md) and executable tests for implementation evidence and limits.
+Status: reviewed logical design; normalized PostgreSQL migrations and the bounded runtime now exist. Physical storage combines the inbox/evidence facts with a separate conflict table; the run lock serializes mutation eligibility. The preview uses claim-fence counters rather than timed leases. Full seeded schedule replay remains incomplete. See [current status](../introduction/README.md#current-support) and executable tests for implementation evidence and limits.
 Profiles: `local-fake-single-tender-0.1` and `local-ap2-acp-single-tender-0.1`; contracts: [internal API](api-contracts.md); scope: [ADR 0001](../adr/0001-simulator-preview.md) and [durable admission](../adr/0006-durable-ap2-admission.md).
 PostgreSQL is the recommended authoritative transaction store; graph checkpoints are separate, nonauthoritative orchestration storage.
 

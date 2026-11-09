@@ -17,4 +17,4 @@ Learn what the platform does, run a purchase, then explore the concepts you need
 - [Project direction](project/README.md): roadmap, backlog and integration plans.
 - [Architecture decisions](adr/README.md): why important design choices were made.
 
-The reference executes synthetic payments only. See [current support](introduction/status.md) before choosing an integration.
+The reference executes synthetic payments only. See [current support](introduction/README.md#current-support) before choosing an integration.

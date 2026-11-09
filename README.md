@@ -4,11 +4,11 @@ Build purchasing agents that can obtain approval, complete checkout and recover 
 
 Agentic Payments provides versioned extension contracts, a Java adapter SDK, a simulator, conformance tooling and a runnable reference platform. An AP2-based payment-intent workflow embeds ACP checkout; LangGraph coordinates the workflow while trusted services enforce spending authority and retain payment state.
 
-**Current release scope:** a local synthetic reference. No live merchant or payment provider is enabled. See [supported capabilities](docs/introduction/status.md).
+**Current release scope:** a local synthetic reference. No live merchant or payment provider is enabled. See [supported capabilities](docs/introduction/README.md#current-support).
 
 ## Start here
 
-- [What is Agentic Payments?](docs/introduction/product-brief.md)
+- [What is Agentic Payments?](docs/introduction/README.md#what-is-agentic-payments)
 - [Run your first purchase](docs/getting-started/quickstart.md)
 - [Browse the documentation](docs/README.md)
 
@@ -21,7 +21,7 @@ Agentic Payments provides versioned extension contracts, a Java adapter SDK, a s
 | A recoverable payment workflow | Retain uncertain outcomes and process verified events without inventing another charge. |
 | An integration platform | Implement, adapt or wrap checkout, authority, provider, storage and workflow interfaces. |
 
-See [use cases and planned scenarios](docs/introduction/use-cases.md) for examples and boundaries.
+See [use cases and planned scenarios](docs/introduction/README.md#use-cases) for examples and boundaries.
 
 ## Contribute and verify
 

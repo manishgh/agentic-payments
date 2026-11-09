@@ -26,4 +26,4 @@ A developer preview needs reproducible setup, relevant passing checks, a documen
 
 A managed or live deployment additionally needs provider approval, tenant and secret-management controls, reconciliation and incident procedures, exposure limits, appropriate legal/security assessment and explicit authorization for the intended live scope. A successful sandbox transaction does not establish that readiness.
 
-See [current capabilities](../introduction/status.md), [stable backlog items](backlog.md) and the [product brief](../introduction/product-brief.md).
+See [current capabilities](../introduction/README.md#current-support), [stable backlog items](backlog.md) and the [product brief](../introduction/README.md#what-is-agentic-payments).
