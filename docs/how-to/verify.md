@@ -2,8 +2,7 @@
 
 [Documentation](../README.md) / [How-to guides](README.md)
 
-Complete the [quickstart prerequisites](../getting-started/quickstart.md) first. Run these commands from the repository root.
-
+Complete the [quickstart prerequisites](../getting-started/README.md) first. Run these commands from the repository root.
 
 ```powershell
 . ./scripts/Use-LocalToolchain.ps1

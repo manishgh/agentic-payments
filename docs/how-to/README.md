@@ -2,7 +2,7 @@
 
 [Documentation](../README.md)
 
-Start with the [quickstart](../getting-started/quickstart.md) if you have not run the platform yet. Each guide below addresses a specific task.
+Start with the [quickstart](../getting-started/README.md) if you have not run the platform yet. Each guide below addresses a specific task.
 
 | I want to… | Guide |
 | --- | --- |

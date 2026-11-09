@@ -71,4 +71,4 @@ The aggregate verdict remains `NOT_CERTIFIED`. Project conformance does not conf
 | MNG-004 | Controlled live pilot | Planned after MNG-003; staffed monitoring/support, stop conditions and exposure controls required. |
 | MNG-005 | Wider managed availability | Planned after pilot findings are resolved and operating capacity, commercial/support and privacy commitments are established. |
 
-Provider access and licensing constrain the work they govern; they do not prevent independent local contract, SDK and simulator development. See the [roadmap](roadmap.md) for sequencing and [README](../../README.md) for setup and verification commands.
+Provider access and licensing constrain the work they govern; they do not prevent independent local contract, SDK and simulator development. See the [roadmap](README.md) for sequencing and [README](../../README.md) for setup and verification commands.

@@ -22,4 +22,4 @@ Status: documentation baseline; 2026-11-06. Owners are project roles, not extern
 
 ## Baseline review evidence
 
-The [plan](roadmap.md), [requirements](../../specification/0.1.0-draft/README.md) and [conformance cases](../simulator-and-conformance.md) identify the corresponding controls. Findings are closed only by linked design or executable evidence, not by appearing in this register.
+The [plan](README.md), [requirements](../../specification/0.1.0-draft/README.md) and [conformance cases](../simulator-and-conformance.md) identify the corresponding controls. Findings are closed only by linked design or executable evidence, not by appearing in this register.

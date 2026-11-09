@@ -1,7 +1,7 @@
 # Architecture concept
 
 [Documentation](../README.md) / [Concepts](README.md)
-Status: platform composition brief, updated 2026-11-08. The broader real-provider and managed-platform design gates in the [roadmap](../project/roadmap.md) remain open.
+Status: platform composition brief, updated 2026-11-08. The broader real-provider and managed-platform design gates in the [roadmap](../project/README.md) remain open.
 
 ## Composition
 

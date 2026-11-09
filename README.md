@@ -9,7 +9,7 @@ Agentic Payments provides versioned extension contracts, a Java adapter SDK, a s
 ## Start here
 
 - [What is Agentic Payments?](docs/introduction/README.md#what-is-agentic-payments)
-- [Run your first purchase](docs/getting-started/quickstart.md)
+- [Run your first purchase](docs/getting-started/README.md)
 - [Browse the documentation](docs/README.md)
 
 ## Use cases
@@ -25,6 +25,6 @@ See [use cases and planned scenarios](docs/introduction/README.md#use-cases) for
 
 ## Contribute and verify
 
-The reference stack is Java 21, PostgreSQL, Python/LangGraph and TypeScript. Follow [setup](docs/getting-started/quickstart.md), then [run the checks](docs/how-to/verify.md). See the [roadmap](docs/project/roadmap.md) for remaining work.
+The reference stack is Java 21, PostgreSQL, Python/LangGraph and TypeScript. Follow [setup](docs/getting-started/README.md), then [run the checks](docs/how-to/verify.md). See the [roadmap](docs/project/README.md) for remaining work.
 
 Public licensing and package distribution are undecided. Conformance reports remain `NOT_CERTIFIED`; passing project checks is not upstream, provider or regulatory certification.

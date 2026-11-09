@@ -70,6 +70,6 @@ The runnable reference journey is **create checkout → approve → authenticate
 - Wallets, vouchers, split tender, refunds, managed identity, production retention, remote tracing and an operated managed service remain future work. Cadence and Azure Durable Task are future runtime adapters.
 - Conformance coverage and certification policy remain incomplete: reports return `NOT_CERTIFIED`. Public licensing and package distribution are undecided.
 
-For integration details, see [advanced concepts](../advanced/README.md). For planned work, see the [roadmap](../project/roadmap.md) and [backlog](../project/backlog.md).
+For integration details, see [advanced concepts](../advanced/README.md). For planned work, see the [roadmap](../project/README.md) and [backlog](../project/backlog.md).
 
-**Next:** [Run your first purchase](../getting-started/quickstart.md).
+**Next:** [Run your first purchase](../getting-started/README.md).
