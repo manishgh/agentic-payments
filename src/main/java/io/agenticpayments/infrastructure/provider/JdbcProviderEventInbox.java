@@ -7,7 +7,7 @@ import java.sql.*;
 import java.util.*;
 
 /** Protected independent inbox transactions. No provider activity or core financial writes occur here. */
-public final class JdbcProviderEventInbox implements ProviderEventIngress,ProviderEventHealth,ProviderEventVerifier,ProviderEventNormalizer {
+public final class JdbcProviderEventInbox implements ProviderEventIngress,ProviderEventDeliveryIngress,ProviderEventDisputeVerifier,ProviderEventHealth,ProviderEventVerifier,ProviderEventNormalizer {
     private final DataSource database;
     private final ProviderEventConfiguration configuration;
     private final ProviderEventAuthenticator authenticator;
@@ -19,15 +19,34 @@ public final class JdbcProviderEventInbox implements ProviderEventIngress,Provid
         this.authenticator=Objects.requireNonNull(authenticator);this.decoder=Objects.requireNonNull(decoder);
     }
     @Override public String retain(ExecutionOperation expected,byte[] body,String signature){
+        return retain(expected,body,signature,false);
+    }
+    @Override public String accept(ExecutionOperation expected,byte[] body,String signature){
+        return retain(expected,body,signature,true);
+    }
+    private String retain(ExecutionOperation expected,byte[] body,String signature,boolean automatic){
         configuration.validate(expected);
         if(body==null||body.length==0||body.length>16384||signature==null||!signature.matches("[0-9a-f]{64}"))throw invalid();
         byte[] retained=body.clone();String reference=UUID.randomUUID().toString();
+        var policy=List.of(configuration.policyReference(),configuration.policyVersion(),configuration.keyReference(),configuration.keyVersion());
+        if(automatic)authenticated(expected,new Envelope(retained,signature,policy));
         return transaction(c->{
+            if(automatic)deliveryLock(c,expected.fingerprint());
             healthy(c,expected);
             write(c,"INSERT INTO provider_event_envelopes(envelope_ref,tenant_id,merchant_id,run_id,operation_fingerprint,operation_json,raw_body,signature,policy_ref,policy_version,key_ref,key_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     reference,configuration.tenantId(),configuration.merchantId(),configuration.runId(),expected.fingerprint(),codec.encodeOperation(expected),retained,signature,
                     configuration.policyReference(),configuration.policyVersion(),configuration.keyReference(),configuration.keyVersion());
+            if(automatic)enqueue(c,expected,"EVENT",reference,policy);
             return reference;
+        });
+    }
+    @Override public void requireQuarantined(ExecutionOperation expected){
+        Objects.requireNonNull(expected);
+        transaction(c->{
+            var row=one(c,"SELECT * FROM provider_event_quarantine WHERE tenant_id=? AND merchant_id=? AND run_id=? AND operation_fingerprint=?",
+                    configuration.tenantId(),configuration.merchantId(),configuration.runId(),expected.fingerprint());
+            // Resolve exact durable provenance without requiring the prior owner's key/config revision.
+            if(row==null||!expected.equals(operation(row,false)))throw invalid();return null;
         });
     }
     @Override public void requireHealthy(ExecutionOperation expected){configuration.validate(expected);transaction(c->{healthy(c,expected);return null;});}
@@ -52,9 +71,15 @@ public final class JdbcProviderEventInbox implements ProviderEventIngress,Provid
             boolean same=original.equals(expected)&&Arrays.equals(prior.body,envelope.body)&&prior.signature.equals(envelope.signature)&&prior.policy.equals(envelope.policy)
                     &&originalEvidence.equals(decoded.evidence());
             if(!same){
+                // Serialize with automatic acceptance so a concurrent manual conflict cannot miss
+                // newly accepted work after its healthy check. Sorted owner locks avoid inversion.
+                for(String fingerprint:new TreeSet<>(List.of(original.fingerprint(),expected.fingerprint())))deliveryLock(c,fingerprint);
                 write(c,"INSERT INTO provider_event_conflicts(conflict_ref,original_verified_ref,disputed_envelope_ref,disputed_evidence_json,reason) VALUES(?,?,?,?,'EVENT_ID_CONFLICT') ON CONFLICT DO NOTHING",
                         UUID.randomUUID(),string(row,"verified_ref"),request.eventEnvelopeRef(),codec.encodeEvidence(decoded.evidence()));
                 quarantine(c,original);quarantine(c,expected);
+                if(automatic(c,original)||automatic(c,expected)){
+                    enqueue(c,original,"QUARANTINE",null,prior.policy);enqueue(c,expected,"QUARANTINE",null,envelope.policy);
+                }
                 return new Verification(null,true);
             }
             return new Verification(new VerifiedEventReference(string(row,"verified_ref"),decoded.eventId(),expected.fingerprint(),expected.binding().digest()),false);
@@ -117,6 +142,21 @@ public final class JdbcProviderEventInbox implements ProviderEventIngress,Provid
     private void quarantine(Connection c,ExecutionOperation expected)throws SQLException{
         write(c,"INSERT INTO provider_event_quarantine(tenant_id,merchant_id,run_id,operation_fingerprint,operation_json) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING",
                 configuration.tenantId(),configuration.merchantId(),configuration.runId(),expected.fingerprint(),codec.encodeOperation(expected));
+    }
+    private boolean automatic(Connection c,ExecutionOperation operation)throws SQLException{
+        var id=operation.identity();
+        return one(c,"SELECT delivery_ref FROM provider_event_delivery WHERE kind='EVENT' AND tenant_id=? AND merchant_id=? AND run_id=? AND operation_fingerprint=?",
+                id.tenantId(),id.merchantId(),id.runId(),operation.fingerprint())!=null;
+    }
+    private void deliveryLock(Connection c,String fingerprint)throws SQLException{
+        try(var p=c.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))")){
+            p.setString(1,"provider-event-delivery:"+fingerprint);try(var result=p.executeQuery()){result.next();}
+        }
+    }
+    private void enqueue(Connection c,ExecutionOperation operation,String kind,String envelope,List<String> policy)throws SQLException{
+        var id=operation.identity();
+        write(c,"INSERT INTO provider_event_delivery(delivery_ref,kind,tenant_id,merchant_id,run_id,operation_fingerprint,operation_json,envelope_ref,policy_ref,policy_version,key_ref,key_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                UUID.randomUUID().toString(),kind,id.tenantId(),id.merchantId(),id.runId(),operation.fingerprint(),codec.encodeOperation(operation),envelope,policy.get(0),policy.get(1),policy.get(2),policy.get(3));
     }
     private <T>T transaction(Work<T> work){
         try(var c=database.getConnection()){

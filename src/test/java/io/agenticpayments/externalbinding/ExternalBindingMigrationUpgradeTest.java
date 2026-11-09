@@ -83,7 +83,7 @@ class ExternalBindingMigrationUpgradeTest {
             try(var connection=isolated.getConnection();var statement=connection.createStatement();var rows=statement.executeQuery("SELECT version,digest FROM schema_migrations ORDER BY version")){
                 while(rows.next())history.put(rows.getInt(1),rows.getString(2));
             }
-            assertEquals(14,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));
+            assertEquals(15,history.size());for(var entry:prefix.entrySet())assertEquals(entry.getValue(),history.get(entry.getKey()));
             assertEquals(PaymentRules.sha256(resource("V010__external_checkout_authority_binding.sql")),history.get(10));
             assertEquals(PaymentRules.sha256(resource("V011__provider_admission_routes.sql")),history.get(11));
             io.agenticpayments.core.HistoricalPaymentRows.assertLegacyRoutes(isolated,1);

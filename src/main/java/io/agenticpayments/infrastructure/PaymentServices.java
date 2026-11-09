@@ -8,10 +8,13 @@ import io.agenticpayments.application.ProviderExecutionRegistration;
 import io.agenticpayments.application.ProviderEvidenceVerifier;
 import io.agenticpayments.application.ProviderInteractionPorts;
 import io.agenticpayments.application.ProviderEventAuthenticator;
+import io.agenticpayments.application.DeliverProviderEvents;
+import io.agenticpayments.application.ProviderEventDeliveryQueue;
 import io.agenticpayments.infrastructure.provider.*;
 import io.agenticpayments.sdk.execution.v1.*;
 import io.agenticpayments.sdk.execution.v1.compat.LocalFakeExecutionAdapter;
 import java.util.Optional;
+import java.time.Duration;
 import io.agenticpayments.application.CheckoutLifecycleTransactions.CoordinationDomain;
 import io.agenticpayments.sdk.PaymentAdapter;
 import io.agenticpayments.composition.Composition.Ports;
@@ -23,6 +26,25 @@ public final class PaymentServices {
     private PaymentServices() {}
     /** Explicit synthetic interactions; the trusted event key and configuration must survive restart. */
     public static ProviderInteractionServices providerInteractions(DataSource dataSource,SyntheticProviderRegistration registration,
+            ProviderEventConfiguration eventConfiguration,ProviderEventAuthenticator authenticator) {
+        var components=interactionComponents(dataSource,registration,eventConfiguration,authenticator);
+        return new ProviderInteractionServices(new PaymentService(components.store()),components.store().providerEvents());
+    }
+    /** Explicit automatic synthetic delivery; one immutable configured policy serves this scoped worker. */
+    public static ProviderEventDeliveryServices providerEventDelivery(DataSource dataSource,SyntheticProviderRegistration registration,
+            ProviderEventConfiguration eventConfiguration,ProviderEventAuthenticator authenticator,PaymentService.Session runner) {
+        if(runner==null||!runner.roles().contains("runner:write")||!runner.tenantId().equals(eventConfiguration.tenantId())
+                ||!runner.runId().toString().equals(eventConfiguration.runId())||!runner.allowedMerchants().contains(eventConfiguration.merchantId()))
+            throw new io.agenticpayments.application.ApplicationException(io.agenticpayments.application.ApplicationFailure.FORBIDDEN);
+        var components=interactionComponents(dataSource,registration,eventConfiguration,authenticator);
+        var policy=new ProviderEventDeliveryQueue.Policy(eventConfiguration.policyReference(),eventConfiguration.policyVersion(),eventConfiguration.keyReference(),eventConfiguration.keyVersion());
+        var delivery=components.store().eventDelivery(components.inbox(),new JdbcProviderExecutionBindings(dataSource),components.inbox(),policy,runner);
+        var queue=new JdbcProviderEventDeliveryQueue(dataSource,eventConfiguration.tenantId(),eventConfiguration.merchantId(),eventConfiguration.runId());
+        var worker=new DeliverProviderEvents(queue,delivery.handler(),Duration.ofSeconds(30),Duration.ofSeconds(1),Duration.ofMinutes(1));
+        return new ProviderEventDeliveryServices(components.store(),new PaymentService(components.store()),delivery.acceptance(),worker::runOnce);
+    }
+    private record InteractionComponents(JdbcPaymentStore store,JdbcProviderEventInbox inbox) {}
+    private static InteractionComponents interactionComponents(DataSource dataSource,SyntheticProviderRegistration registration,
             ProviderEventConfiguration eventConfiguration,ProviderEventAuthenticator authenticator) {
         var configuration=registration.configuration();
         if(!SyntheticProviderRegistration.INTERACTIONS_PROFILE.equals(registration.profile())
@@ -36,7 +58,9 @@ public final class PaymentServices {
         var inbox=new JdbcProviderEventInbox(dataSource,eventConfiguration,authenticator,
                 new SyntheticProviderEventDecoder(op->"legacy-resource-"+configuration.expectedLegacy(op).identity().adapterKey()));
         var interactions=new ProviderInteractionPorts(authentication,authentication,authentication,inbox,inbox,inbox,inbox);
-        return providerInteractions(dataSource,registration,bridge,bridge,bridge,Optional.of(bridge),journal,interactions,NativeComposition.ports(new JdbcSignedArtifactStore(dataSource)));
+        var store=JdbcPaymentStore.providerInteractions(dataSource,NativeComposition.ports(new JdbcSignedArtifactStore(dataSource)),registration,
+                bridge,bridge,bridge,Optional.of(bridge),journal,interactions,(core,pending)->pending);
+        return new InteractionComponents(store,inbox);
     }
     /** Every provider, authentication and event responsibility accepts direct implementations, adapters and wrappers. */
     public static ProviderInteractionServices providerInteractions(DataSource dataSource,ProviderExecutionRegistration registration,

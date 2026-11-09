@@ -12,6 +12,7 @@ import io.agenticpayments.application.PaymentOperations;
 import io.agenticpayments.application.ApplicationException;
 import io.agenticpayments.application.ApplicationFailure;
 import io.agenticpayments.application.CheckoutLifecycle;
+import io.agenticpayments.application.ProviderEventAcceptance;
 import io.agenticpayments.application.PaymentService.*;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,12 +24,13 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Loopback-only development transport; no real payment or webhook ingress. */
+/** Loopback-only development transport, including optional synthetic webhook ingress. */
 public final class PaymentHttpServer implements AutoCloseable {
     private static final String PREFIX = "/internal/v0.1";
     private static final int MAX_BODY = 16 * 1024;
     private final PaymentOperations service;
     private final CheckoutLifecycle checkout;
+    private final ProviderWebhookHttpHandler webhook;
     private final LocalSessions sessions;
     private final HttpServer server;
     private final ExecutorService executor = Executors.newFixedThreadPool(8);
@@ -47,8 +49,15 @@ public final class PaymentHttpServer implements AutoCloseable {
         this(service, sessions, port, uiDirectory, null);
     }
     public PaymentHttpServer(PaymentOperations service, LocalSessions sessions, int port, Path uiDirectory, CheckoutLifecycle checkout) throws IOException {
+        this(service, sessions, port, uiDirectory, checkout, null, null);
+    }
+    public PaymentHttpServer(PaymentOperations service, LocalSessions sessions, int port, Path uiDirectory,
+                             CheckoutLifecycle checkout, ProviderEventAcceptance eventAcceptance,
+                             ProviderWebhookAuthentication eventAuthentication) throws IOException {
+        if ((eventAcceptance == null) != (eventAuthentication == null)) throw new IllegalArgumentException("Incomplete synthetic webhook configuration");
         this.service = service;
         this.checkout = checkout;
+        this.webhook = eventAcceptance == null ? null : new ProviderWebhookHttpHandler(eventAcceptance, eventAuthentication);
         this.sessions = sessions;
         this.uiDirectory = uiDirectory;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 64);
@@ -74,6 +83,7 @@ public final class PaymentHttpServer implements AutoCloseable {
                 error(exchange, 403, "FORBIDDEN", "Request origin is not allowed.", "NEVER"); return;
             }
             String path = exchange.getRequestURI().getRawPath();
+            if (webhook != null && path.startsWith(ProviderWebhookHttpHandler.PREFIX)) { webhook.handle(exchange); return; }
             if (!path.startsWith(PREFIX + "/")) { staticFile(exchange, path); return; }
             Result result;
             try {

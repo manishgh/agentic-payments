@@ -70,6 +70,8 @@ public final class JdbcPaymentStore implements PaymentStore {
     private final ProviderAuthenticationCodec authenticationCodec=new ProviderAuthenticationCodec();
     private final CompleteCustomerAction actionCompletion;
     private final ProviderEventOperations providerEvents;
+    private final PaymentWorkerTransactions workerTransactions;
+    private final ProviderEventProcessing eventProcessing;
     private final boolean providerInteractions;
     private final ThreadLocal<Boolean> entered=ThreadLocal.withInitial(()->false);
     private final ObjectMapper json=new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY,true);
@@ -109,6 +111,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         this.ds=Objects.requireNonNull(ds); this.adapter=Objects.requireNonNull(adapter);this.replayOwner=replayOwner; this.composition=composition;
         this.providerRegistration=providerRegistration;
         this.providerInteractions=interactions!=null;
+        this.eventProcessing=eventProcessing;
         this.nativeCoordinator=composition==null?null:new NativeApplicationCoordinator(composition.checkout(),composition.issuer(),composition.verifier(),composition.artifacts());
         if((externalComposition==null)!=(externalRegistration==null)
                 ||externalRegistration!=null&&externalRegistration.coordinationDomain()!=coordinationDomain) fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
@@ -133,7 +136,7 @@ public final class JdbcPaymentStore implements PaymentStore {
         };
         this.execution=new ExecutePayment(transactions,adapter::capabilities);
         this.approval=new ApprovePayment(transactions,adapter::capabilities);
-        var workerTransactions=new PaymentWorkerTransactions() {
+        this.workerTransactions=new PaymentWorkerTransactions() {
             public <T> T run(Session session,PaymentWorkerTransactions.Work<T> work) {
                 return transaction(session,tx->{
                     var scope=new WorkerTransaction(tx);
@@ -160,6 +163,17 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     public ProviderEventOperations providerEvents() {
         if(providerEvents==null)throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);return providerEvents;
+    }
+    public record EventDelivery(io.agenticpayments.application.ProviderEventAcceptance acceptance,
+                                io.agenticpayments.application.ProviderEventDeliveryHandler handler) {}
+    /** Automatic delivery is explicit; all supplied responsibilities can be adapted or decorated. */
+    public EventDelivery eventDelivery(io.agenticpayments.application.ProviderEventDeliveryIngress ingress,
+            io.agenticpayments.application.ProviderEventDeliveryTargets targets,io.agenticpayments.application.ProviderEventDisputeVerifier disputes,
+            io.agenticpayments.application.ProviderEventDeliveryQueue.Policy policy,Session runner) {
+        if(!providerInteractions)throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+        Objects.requireNonNull(ingress);
+        var receiver=new ReceiveProviderEvent(workerTransactions,new JdbcProviderExecutionBindings(ds),ingress::accept,eventProcessing);
+        return new EventDelivery(receiver::retain,new io.agenticpayments.application.ApplyProviderEventDelivery(runner,workerTransactions,targets,eventProcessing,disputes,policy));
     }
     /** Assemble a coherent provider route: arbitrary legacy adapters cannot bypass its binding or projection. */
     public static JdbcPaymentStore providerJournal(DataSource ds,UUID replayOwner,Ports composition,Ports externalComposition,
@@ -710,6 +724,31 @@ public final class JdbcPaymentStore implements PaymentStore {
             freeze(tx,attemptRow,expected.identity().operationId(),expected.money().minorUnits(),"provider-evidence-conflict");
             if(prior==null)audit(tx,expected.identity().intentId(),"PROVIDER_EVIDENCE_CONFLICT");written=true;
         }
+        public void quarantineProviderOperation(io.agenticpayments.sdk.execution.v1.ExecutionOperation expected) throws Exception {
+            active();if(written)throw new IllegalStateException("Worker phase already written");
+            if(!providerInteractions||expected==null||!tx.s.roles().contains("runner:write"))fail(ApplicationFailure.FORBIDDEN);
+            var identity=expected.identity();
+            if(!tx.s.tenantId().equals(identity.tenantId())||!tx.s.runId().toString().equals(identity.runId())
+                    ||!tx.s.allowedMerchants().contains(identity.merchantId()))fail(ApplicationFailure.FORBIDDEN);
+            UUID operationId;
+            try {
+                String value=identity.operationId();if(value.length()<38||value.charAt(36)!=':')throw new IllegalArgumentException();
+                operationId=UUID.fromString(value.substring(0,36));
+            }catch(RuntimeException invalid){throw new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID);}
+            var operation=operationById(tx,operationId);
+            var attempt=required(one(tx.c,"SELECT * FROM payment_attempts WHERE tenant_id=? AND run_id=? AND attempt_id=?",tx.s.tenantId(),tx.s.runId(),operation.get("attempt_id")));
+            var intent=intentUnchecked(tx,uuid(attempt,"intent_id"));var quote=JdbcPaymentStore.this.quote(tx,intent);
+            var core=coreEnvelope(tx,intent,attempt,operation,quote);
+            var route=required(one(tx.c,"SELECT route,binding_json FROM payment_operation_routes WHERE tenant_id=? AND run_id=? AND operation_id=?",tx.s.tenantId(),tx.s.runId(),operationId));
+            if(!SyntheticProviderRegistration.INTERACTIONS_PROFILE.equals(text(route,"route"))||operation.get("admitted_sequence")==null)fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            ProviderExecutionBinding binding;
+            try{binding=providerCodec.decode(text(route,"binding_json"));}catch(RuntimeException invalid){throw new PaymentException(ApplicationFailure.AUTHORITY_BINDING_INVALID);}
+            validateProviderBinding(core,text(quote,"credential_reference"),binding);
+            if(!expected.equals(binding.operation()))fail(ApplicationFailure.AUTHORITY_BINDING_INVALID);
+            var prior=one(tx.c,"SELECT operation_id FROM disputed_exposure WHERE tenant_id=? AND run_id=? AND operation_id=?",tx.s.tenantId(),tx.s.runId(),operationId);
+            freeze(tx,attempt,operationId,core.money().minorUnits(),"provider-evidence-conflict");
+            if(prior==null)audit(tx,core.identity().intentId(),"PROVIDER_EVIDENCE_CONFLICT");written=true;
+        }
         public WorkerReceipt receipt(Activity before,Selection selected) throws SQLException {
             active();return JdbcPaymentStore.this.receipt(tx,new long[]{before.auditSequence(),before.completedWork(),before.evidence(),before.conflicts()},selected);
         }
@@ -792,7 +831,7 @@ public final class JdbcPaymentStore implements PaymentStore {
     }
     private void acceptEvidence(Tx tx,UUID event) throws SQLException { update(tx.c,"UPDATE operation_evidence SET accepted=true WHERE tenant_id=? AND run_id=? AND event_id=?",tx.s.tenantId(),tx.s.runId(),event); }
     private ChargeOperation envelope(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> o) throws SQLException {
-        var q=quote(tx,i);var core=new ChargeOperation(new OperationIdentity(new ExecutionScope(tx.s.tenantId(),tx.s.runId(),text(i,"merchant_id")),(UUID)i.get("intent_id"),(UUID)a.get("attempt_id"),(UUID)o.get("operation_id"),(UUID)o.get("adapter_key"),text(o,"request_digest")),new Money(text(q,"currency"),number(q,"minor_units")),text(i,"scenario_id"));
+        var q=quote(tx,i);var core=coreEnvelope(tx,i,a,o,q);
         var route=one(tx.c,"SELECT route,binding_json FROM payment_operation_routes WHERE tenant_id=? AND run_id=? AND operation_id=?",tx.s.tenantId(),tx.s.runId(),core.identity().operationId());
         if(route==null)fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         if(providerRegistration==null) {
@@ -805,6 +844,9 @@ public final class JdbcPaymentStore implements PaymentStore {
             if(!providerRegistration.binding(core).equals(retained))fail(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         }
         return core;
+    }
+    private ChargeOperation coreEnvelope(Tx tx,Map<String,Object> i,Map<String,Object> a,Map<String,Object> o,Map<String,Object> q) {
+        return new ChargeOperation(new OperationIdentity(new ExecutionScope(tx.s.tenantId(),tx.s.runId(),text(i,"merchant_id")),(UUID)i.get("intent_id"),(UUID)a.get("attempt_id"),(UUID)o.get("operation_id"),(UUID)o.get("adapter_key"),text(o,"request_digest")),new Money(text(q,"currency"),number(q,"minor_units")),text(i,"scenario_id"));
     }
     private void validateProviderBinding(ChargeOperation core,String credential,ProviderExecutionBinding binding) {
         if(binding==null||!binding.coreOperation().equals(core)||!credential.equals(binding.credentialReference())

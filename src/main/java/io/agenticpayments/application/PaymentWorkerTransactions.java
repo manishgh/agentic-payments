@@ -41,6 +41,10 @@ public interface PaymentWorkerTransactions {
         default void quarantineProvider(ChargeOperation expected) throws Exception {
             throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
         }
+        /** Caller must resolve durable dispute provenance first; check original admitted route, not current keys. */
+        default void quarantineProviderOperation(io.agenticpayments.sdk.execution.v1.ExecutionOperation expected) throws Exception {
+            throw new PaymentException(ApplicationFailure.UNSUPPORTED_CAPABILITY);
+        }
         WorkerReceipt receipt(Activity before,Selection selection) throws Exception;
     }
 

@@ -225,6 +225,7 @@ class WorkerOwnershipIntegrationTest {
             assertThrows(IllegalStateException.class,()->tx.admit(null,null));assertThrows(IllegalStateException.class,()->tx.completePreparation(null,null,null));assertThrows(IllegalStateException.class,()->tx.completePreparationObservation(null,null,null));assertThrows(IllegalStateException.class,()->tx.markUnknown(null,null));
             assertThrows(IllegalStateException.class,()->tx.applyVerifiedFact(null,null));assertThrows(IllegalStateException.class,()->tx.receipt(null,null));
             assertThrows(IllegalStateException.class,()->tx.quarantineProvider(null));
+            assertThrows(IllegalStateException.class,()->tx.quarantineProviderOperation(null));
         }
         commands.run(f.session,tx->{assertThrows(IllegalStateException.class,()->workers.run(f.session,nested->null));return null;});
         commands.runApproval(f.session,tx->{assertThrows(IllegalStateException.class,()->workers.run(f.session,nested->null));return null;});

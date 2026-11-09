@@ -13,7 +13,8 @@ public final class ServiceTelemetry {
     public enum Operation {
         CREATE, QUOTE, QUOTE_EXTERNAL, APPROVE, EXECUTE, STATUS, CHECKOUT, ACTION,
         COMPLETE_ACTION, REVOKE, SEED_RUN, ADVANCE_CLOCK, RUN_NEXT, RUN_NEXT_RECORDED,
-        RECONCILE, COMMERCE_STAGE, COMMERCE_STATUS, COMMERCE_DISPATCH, COMMERCE_RECOVER
+        RECONCILE, COMMERCE_STAGE, COMMERCE_STATUS, COMMERCE_DISPATCH, COMMERCE_RECOVER,
+        PROVIDER_EVENT_DELIVERY
     }
     public static final String CATEGORY = "platform.services";
     public static final String METER = "platform.services";

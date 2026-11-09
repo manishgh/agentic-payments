@@ -18,7 +18,8 @@ Stable identifiers are retained for platform capabilities and unfinished work. I
 | INT-009 | Durable external commerce wiring | Scoped immutable commands, committed claims, protected outcomes, uncertainty barrier and separate LangGraph/SQLite workflow. |
 | INT-010 | Durable synthetic provider binding journal | PostgreSQL ownership, strict persisted identity, retained conflicting evidence and process recovery behind the existing journal interface. |
 | INT-012 | Provider-journal admission integration | Implemented for the opt-in synthetic route: atomic immutable route binding, independently replaceable provider ports, canonical state projection, quarantine propagation and process recovery. Broader provider authentication, preparation and event profiles remain outstanding. |
-| INT-013 | Provider authentication and event composition | Implemented for opt-in `local-provider-interactions-1`: durable synthetic authentication, protected signed event inbox, explicit replay and quarantine. Real 3DS/provider transports, automatic delivery and post-submission actions remain outstanding. |
+| INT-013 | Provider authentication and event composition | Implemented for opt-in `local-provider-interactions-1`: durable synthetic authentication, protected signed event inbox, explicit replay and quarantine. Real 3DS/provider profiles and post-submission actions remain outstanding. |
+| INT-014 | Automatic provider event delivery | Implemented for the synthetic route: authenticated atomic acceptance, fenced leased queue, bounded retries, both-owner quarantine, loopback webhook transport and replaceable runtime. Public ingress, policy registries and operator redrive remain outstanding. |
 
 ## Composition and runtime work
 

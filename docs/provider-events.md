@@ -1,6 +1,6 @@
 # Durable synthetic provider events
 
-The opt-in `local-provider-interactions-1` execution route adds protected event retention and explicit replay to the [provider journal](durable-provider-journal.md). It is a local synthetic profile. It does not implement a vendor webhook, configure a public HTTP listener, or make a live-provider authenticity claim. Existing `local-provider-journal-admission-1` operations keep their original offer and route.
+The opt-in `local-provider-interactions-1` execution route adds protected event retention, explicit replay and opt-in automatic delivery to the [provider journal](durable-provider-journal.md). It is a local synthetic profile. Its optional webhook transport is loopback-only; it does not implement a vendor signature profile, public listener or live-provider authenticity claim. Existing `local-provider-journal-admission-1` operations keep their original offer and route.
 
 ## Responsibility contracts
 
@@ -45,10 +45,63 @@ The inbox, provider journal and payment store each own separate short transactio
 | After core commit, before acknowledgement | Replay is safe; the core event inbox recognizes the original fact. |
 | After event-conflict commit, before core quarantine | Replay or reconcile the affected original operation to propagate its retained dispute. |
 
-Delivery is explicitly caller-driven: this slice does not claim an autonomous inbox worker, delivery retries, or an atomic inbox-to-core transaction. Retain the opaque reference until processing is acknowledged. Core/journal history and event history must be restored together; deleting one journal is not evidence that a payment never occurred.
+The manual `retain/replay` path stays caller-driven. Retain its opaque reference until processing is acknowledged. The separate automatic path below closes these gaps with durable delivery jobs; neither path claims an atomic inbox-to-core transaction. Core/journal history and event history must be restored together; deleting one journal is not evidence that a payment never occurred.
 
 `ProviderEventGuards` checks the same durable quarantine before preparation, submission, reconciliation and fencing, and before/after evidence verification. All those ports must be composed with the guard in this route. A sender already past the guard may still complete concurrently with a new conflict; this quarantine is not a provider no-effect fence. HELD or disputed exposure remains conservative, and late authentic evidence is still subject to the retained conflict. Core quarantine freezes the budget even if settlement happened earlier, without rewriting a settled outcome.
 
 ## Validation scope
 
-The event tests cover HMAC-before-decoder ordering, signed misbinding rejection, forged references, exact-byte replay, original weaker-event meaning, concurrent duplicates, same-ID conflicts, cross-operation ownership, guard behavior and separate JVM recovery after raw and verified commits. Core integration tests cover the composed financial application and dispute boundary. These are synthetic PostgreSQL/process tests; database power-loss behavior, production retention/access control, vendor signatures, public event transport and operational delivery remain separate obligations.
+The event tests cover HMAC-before-decoder ordering, signed misbinding rejection, forged references, exact-byte replay, original weaker-event meaning, concurrent duplicates, same-ID conflicts, cross-operation ownership, guard behavior and separate JVM recovery after raw and verified commits. Core integration tests cover the composed financial application and dispute boundary. These are synthetic PostgreSQL/process tests; database power-loss behavior, production retention/access control, vendor signatures, public event transport, production operations and vendor conformance remain separate obligations.
+
+## Automatic acceptance and delivery
+
+The additive automatic path is explicit. `ProviderEventAcceptance.accept(session, intentId, bytes, signature)` requires an authenticated runner, merchant permission and an admitted operation. `ProviderEventDeliveryIngress.accept` authenticates and decodes the full binding before atomically retaining the envelope and its EVENT job. HTTP `202` is returned only after that transaction commits; it means accepted for processing, not payment success. Invalid signatures or signed misbindings create no automatic job.
+
+| Versioned responsibility | Replacement obligation |
+| --- | --- |
+| `provider-webhook-authentication-1` | Resolve trusted transport credentials into a scoped application session. |
+| `provider-event-acceptance-1` | Authorize the admitted target and publish only committed acceptance. |
+| `provider-event-delivery-ingress-1` | Preserve exact bytes, authenticated full binding and atomic envelope/job publication. |
+| `provider-event-delivery-queue-1` | Atomic claims, storage-clock leases, fenced acknowledgement, persisted retry budget and final-attempt crash recovery. |
+| `provider-event-delivery-handler-1` | Verify original evidence, journal it, then apply it idempotently to its original admitted operation. |
+| `provider-event-delivery-targets-1` | Resolve the exact retained core/provider association, never the intent's latest attempt. |
+| `provider-event-dispute-verifier-1` | Establish protected authenticated quarantine provenance; a constructed delivery value is insufficient. |
+| `provider-event-delivery-work-1` | Execute one bounded claim/delivery/settlement step without financial dispatch. |
+| `provider-event-delivery-runtime-1` | Own start/close and scheduling while leaving durable truth in the queue and journals. |
+
+`DeliverProviderEvents` uses expiring claims and capped exponential retry delays. V015 persists an eight-attempt budget per job. A crash after any separate inbox, provider-journal or core commit is recovered by repeating verification/application; the worker never calls submit, reconcile or fencing ports. A stale or expired lease cannot acknowledge another worker's claim. Final-attempt process death is reaped into `DEAD`, and unknown exception text is replaced with fixed failure codes. Permanent invalid/conflicting delivery can end earlier. Missing historical configuration and unavailable dependencies retry until the persisted budget is exhausted.
+
+Authenticated same-ID conflicts atomically retain their dispute and publish QUARANTINE jobs for both owners if either operation has automatic delivery history. A completed original EVENT job does not prevent quarantine propagation. Manual-only histories remain manual. Quarantine processing verifies the protected dispute and exact original admitted route without requiring a current signing key; it freezes disputed exposure without changing an already settled outcome. A journal-only contradiction also freezes its current owner before that delivery becomes terminal.
+
+Migration V015 adds `provider_event_delivery` without changing old envelopes, verified identities or route rows and without backfilling jobs. Restore queue, inbox, provider journal and core together. `DONE` records successful delivery processing, which may be an inconclusive UNKNOWN event; payment status remains authoritative. `DEAD` is attention-required, not evidence of no effect. Inspect only scoped status, attempts and fixed failure codes in operator tooling; operation JSON, raw envelopes, signatures and key references are protected data. This slice supplies no automatic redrive/reset or dispute-resolution API.
+
+## Loopback webhook and host composition
+
+The optional route is `POST /synthetic/provider-events/v1/{canonical-intent-uuid}`. Supply exactly one `Authorization: Bearer ...`, `Content-Type: application/json` and `X-Synthetic-Event-Signature` (64 lowercase hex) header. The body is the exact signed JSON bytes, 1–16,384 bytes; compression, query strings, ambiguous headers and noncanonical paths are rejected. Existing loopback Host/Origin checks apply. Responses contain no envelope reference, raw payload or credentials. The route is absent unless explicitly configured.
+
+Construct one coherent set of services and supply the same store to the host:
+
+```java
+// database, runner, registration, eventConfiguration and secrets come from trusted,
+// persisted host configuration. They must be stable across restart.
+var events = PaymentServices.providerEventDelivery(database, registration,
+    eventConfiguration, new HmacProviderEventAuthenticator(eventKey), runner);
+var telemetry = LocalTelemetry.disabled();
+var observations = new ServiceTelemetry(telemetry.loggers(), telemetry.meters(), System::nanoTime);
+var runtime = new ScheduledProviderEventDelivery(events.delivery(), observations);
+var webhookSessions = new LocalSessions(List.of(new LocalSessions.Entry(webhookToken, runner)));
+var hosting = new ProviderWebhookHosting(events.acceptance(), webhookSessions::authenticate, runtime);
+var host = new LocalPlatformHost(hostConfiguration, telemetry,
+    services -> services.replace(LocalPlatformHost.STORE)
+        .instance(LocalPlatformHost.STORE, events.store()), hosting);
+host.start(); // migrates, seeds idempotently, starts delivery, HTTP and payment work
+// host.close() stops HTTP ingress before delivery and other owned resources.
+```
+
+Use a dedicated webhook token rather than graph/UI credentials. Registration must be the opt-in `SyntheticProviderRegistration.interactions(...)`; the event configuration must match its scope, full binding and offer. The runnable CLI remains unchanged unless a host explicitly supplies this composition. See the executable `ProviderWebhookDeliveryIntegrationTest` for a complete synthetic setup and signed request.
+
+The reference factory serves **one configured provider/policy per tenant/merchant/run**. Multiple workers may share that same configuration. It does not implement a historical-policy or multi-provider registry: differently configured consumers must not compete in the same queue scope. Such a registry can implement/decorate the delivery handler using trusted retained operation/configuration values, without changing workflow callers. Missing original policy never selects a newer policy automatically.
+
+The scheduled runtime defaults to a 200 ms delay between bounded steps and at most two seconds of shutdown waiting. It stops new polling and interrupts in-flight work; an uncooperative injected handler can outlive that wait, and durable leases permit later recovery. Existing pluggable telemetry emits fixed invocation categories; it does not substitute for queue status or expose payloads. LangGraph need not be running for delivery, and its checkpoints do not acknowledge a provider event.
+
+Validation includes raw HTTP acceptance boundaries, concurrent/fenced queue claims, final-attempt crash recovery, child-process restart checkpoints, composed financial application/quarantine, and bounded host lifecycle tests. These establish the named synthetic behavior only. See [ADR 0022](adr/0022-automatic-provider-event-delivery.md).

@@ -68,6 +68,7 @@ public final class LocalPlatformHost implements AutoCloseable {
     private final Configuration configuration;
     private final LocalTelemetry telemetry;
     private final Consumer<ServiceCollection> customize;
+    private final ProviderWebhookHosting webhook;
     private ServiceProvider services;
     private PaymentHttpServer server;
     private PaymentWorker worker;
@@ -80,9 +81,16 @@ public final class LocalPlatformHost implements AutoCloseable {
 
     /** Applies explicit replacements and decorators before the graph is validated or initialized. */
     public LocalPlatformHost(Configuration configuration, LocalTelemetry telemetry, Consumer<ServiceCollection> customize) {
+        this(configuration, telemetry, customize, null);
+    }
+
+    /** Adds explicitly configured webhook acceptance and automatic delivery to the local host. */
+    public LocalPlatformHost(Configuration configuration, LocalTelemetry telemetry, Consumer<ServiceCollection> customize,
+                             ProviderWebhookHosting webhook) {
         this.configuration = Objects.requireNonNull(configuration);
         this.telemetry = Objects.requireNonNull(telemetry);
         this.customize = Objects.requireNonNull(customize);
+        this.webhook = webhook;
     }
 
     public synchronized void start() throws IOException {
@@ -102,7 +110,9 @@ public final class LocalPlatformHost implements AutoCloseable {
                 checkout = services.get(CHECKOUT);
             }
             telemetry.start();
-            server = new PaymentHttpServer(operations, configuration.sessions(), configuration.port(), configuration.uiDirectory(), checkout);
+            server = new PaymentHttpServer(operations, configuration.sessions(), configuration.port(), configuration.uiDirectory(), checkout,
+                    webhook == null ? null : webhook.acceptance(), webhook == null ? null : webhook.authentication());
+            if (webhook != null) webhook.runtime().start();
             server.start();
             worker = new PaymentWorker(operations, configuration.runner());
             worker.start();
@@ -162,11 +172,15 @@ public final class LocalPlatformHost implements AutoCloseable {
         if (closed) return false;
         closed = true;
         boolean failed = false;
-        if (worker != null) {
-            try { worker.close(); } catch (RuntimeException | LinkageError | AssertionError ignored) { failed = true; }
-        }
+        // Stop ingress before stopping its consumer; any already committed delivery remains durable.
         if (server != null) {
             try { server.close(); } catch (RuntimeException | LinkageError | AssertionError ignored) { failed = true; }
+        }
+        if (webhook != null) {
+            try { webhook.runtime().close(); } catch (RuntimeException | LinkageError | AssertionError ignored) { failed = true; }
+        }
+        if (worker != null) {
+            try { worker.close(); } catch (RuntimeException | LinkageError | AssertionError ignored) { failed = true; }
         }
         if (services != null) {
             try { services.close(); } catch (RuntimeException | LinkageError | AssertionError ignored) { failed = true; }
